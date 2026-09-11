@@ -21,12 +21,16 @@ const DRIVE = (() => {
      because the token flow does not need one. */
   let config = null;
 
+  /* A deployment with no client ID set is a CONFIGURATION, not a failure, so
+     this reports it rather than throwing. It threw once, and the only thing
+     that hid the Connect button was a catch block. An exception for a normal
+     state means every caller has to catch to learn an ordinary fact, and
+     driveEnabled exists precisely so none of them has to. */
   async function settings() {
     if (config) return config;
     const response = await fetch('/api/config');
     if (!response.ok) throw new Error('Could not read the Google configuration.');
     config = await response.json();
-    if (!config.clientId) throw new Error('GOOGLE_CLIENT_ID is not set for this deployment.');
     return config;
   }
 
@@ -72,6 +76,9 @@ const DRIVE = (() => {
   async function getToken({ interactive }) {
     if (token && Date.now() < tokenExpiry - 60_000) return token;
     const { clientId } = await settings();
+    /* The one place a missing client ID IS a failure: nothing can be signed
+       in without it. Every other caller reads driveEnabled instead. */
+    if (!clientId) throw new Error('GOOGLE_CLIENT_ID is not set for this deployment.');
     await gisReady();
 
     return new Promise((resolve, reject) => {
