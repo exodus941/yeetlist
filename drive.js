@@ -58,9 +58,17 @@ const DRIVE = (() => {
   const fileId = () => remembered()?.fileId || null;
   const syncedAt = () => remembered()?.syncedAt || null;
 
-  /* The GIS script is loaded async, so a click can land before it arrives. */
+  /* Is there a usable token right now? Being LINKED and being AUTHORISED are
+     different facts, and treating them as one is what lost connections on
+     every deploy. The link is remembered in storage; the token is not, and
+     has to be fetched again on each load. */
+  const live = () => Boolean(token) && Date.now() < tokenExpiry - 60_000;
+
+  /* The GIS script is loaded async, so a click can land before it arrives.
+     15 seconds, not 8: a fresh build re-fetches every asset, so this is
+     slowest on exactly the load where the resume runs. */
   const gisReady = () => new Promise((resolve, reject) => {
-    const deadline = Date.now() + 8000;
+    const deadline = Date.now() + 15000;
     const poll = () => {
       if (window.google?.accounts?.oauth2) return resolve();
       if (Date.now() > deadline) return reject(new Error('Google sign-in script did not load.'));
@@ -212,7 +220,7 @@ const DRIVE = (() => {
   return {
     FILENAME,
     settings,
-    connected, fileId, syncedAt, remember, forget,
+    connected, live, fileId, syncedAt, remember, forget,
     connect: () => getToken({ interactive: !connected() }),
     resume: () => getToken({ interactive: false }),
     find, meta, read, create, update,

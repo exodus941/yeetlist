@@ -891,11 +891,22 @@ function driveStatus(state, words) {
   $('#syncWords').textContent = words;
 }
 
+/* LINKED and AUTHORISED are different facts. The link lives in storage and
+   survives a reload. The token does not, and has to be fetched again on
+   every load, which can fail for a moment without the link being gone. */
 function renderDrive() {
-  const on = DRIVE.connected();
-  $('#driveConnect').hidden = on;
-  $('#driveGroup').hidden = !on;
-  if (!on) driveStatus('local', 'Stored locally');
+  const linked = DRIVE.connected();
+  const live = DRIVE.live();
+  const connect = $('#driveConnect');
+
+  connect.hidden = linked && live;
+  $('#driveGroup').hidden = !(linked && live);
+
+  connect.querySelector('.btn-label').textContent = linked ? 'Reconnect Drive' : 'Link Google Drive';
+  connect.setAttribute('aria-label', linked ? 'Reconnect Google Drive' : 'Link Google Drive');
+
+  if (!linked) driveStatus('local', 'Stored locally');
+  else if (!live) driveStatus('error', 'Reconnect to sync');
 }
 
 /* A control the deployment cannot honour is worse than an absent one, so the
@@ -917,14 +928,28 @@ async function driveConnect({ interactive = true } = {}) {
     await (interactive ? DRIVE.connect() : DRIVE.resume());
     renderDrive();
     await drivePull({ announce: true });
+    /* Anything edited while the token was gone goes up now, rather than
+       waiting for the next change to trigger a push. */
+    if (drivePendingPush) { drivePendingPush = false; await drivePush(); }
   } catch (error) {
     if (interactive) {
       driveStatus('error', 'Not connected');
       $('#addStatus').textContent = error.message;
-    } else {
-      DRIVE.forget();
       renderDrive();
+      return;
     }
+
+    /* A FAILED SILENT RESUME IS NOT A DISCONNECT, AND TREATING IT AS ONE LOST
+       THE LINK ON EVERY DEPLOY.
+
+       This called DRIVE.forget() here, which wipes the remembered connection
+       and the file id. The resume runs at load, and a fresh build re-fetches
+       every asset, so the Google script and /api/config are slowest on
+       exactly that load. One timeout and the link was gone for good, with
+       the app quietly back on local storage.
+
+       The link is kept now. Only an explicit Disconnect forgets it. */
+    renderDrive();
   }
 }
 
@@ -973,14 +998,21 @@ async function drivePull({ announce = false } = {}) {
   }
 }
 
+/* Edits made while the token is gone are not lost. They are already in local
+   storage, and this remembers that Drive is behind, so a reconnect pushes
+   them rather than waiting for the next change. */
+let drivePendingPush = false;
+
 function queueDrivePush() {
   if (!DRIVE.connected()) return;
+  if (!DRIVE.live()) { drivePendingPush = true; return; }
   clearTimeout(pushTimer);
   pushTimer = setTimeout(drivePush, 1200);
 }
 
 async function drivePush() {
   if (!DRIVE.connected() || pushing) return;
+  if (!DRIVE.live()) { drivePendingPush = true; return; }
   pushing = true;
   try {
     driveStatus('busy', 'Saving…');
