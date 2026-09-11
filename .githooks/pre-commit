@@ -1,0 +1,5 @@
+#!/bin/sh
+# Let the guard PRINT. Redirecting it to /dev/null makes a failure look
+# exactly like a pass, because a failing run prints nothing of its own.
+set -e
+node tools/syntax-guard.mjs .

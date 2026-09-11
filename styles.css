@@ -1,0 +1,992 @@
+/* ==========================================================================
+   YeeTlist
+   Every number below comes from a published scale. Nothing is typed at the
+   point of use, so a step change moves every control that reads it.
+
+   SPACE sits on a 4px grid, with multiples of 2 below 8px and 1 for a hairline.
+   TYPE  sits on multiples of 2 below 24px and multiples of 4 from 24 up.
+   ========================================================================== */
+
+:root {
+  /* ---- ground and surfaces -------------------------------------------- */
+  --bg: #0f0f0f;
+  --surface: #181818;
+  --surface-raised: #202020;
+  --surface-sunken: #111;
+
+  /* row planes. The order is stripe < hover < selection, and the distance
+     between them is what a reader uses to tell a pointer from a choice.
+     Measured against --bg: hover 1.10:1, selected 1.18:1. */
+  --row-hover: #1a1a1a;
+  --row-selected: #202020;
+
+  /* ---- lines ----------------------------------------------------------- */
+  /* --line divides structure. --line-subtle divides content of one kind.
+     Neither may approach its ground: below about 1.2:1 a hairline is absent. */
+  --line: #303030;
+  --line-subtle: #282828;
+
+  /* ---- text ------------------------------------------------------------ */
+  --text: #f1f1f1;
+  --text-muted: #a8a8a8;
+  --text-quiet: #8f8f8f;
+
+  /* ---- accent and status ------------------------------------------------ */
+  --accent: #ff3030;
+  --accent-ink: #ffffff;
+  --danger: #ff3030;
+  --danger-quiet: #ff7474;
+  --danger-line: #784040;
+  --ok: #35be70;
+  --warn: #e8a33d;
+
+  --tag-bg: #303030;
+  --tag-ink: #dddddd;
+  --tag-active-bg: #eeeeee;
+  --tag-active-ink: #111111;
+
+  /* ---- space, on the 4px grid ------------------------------------------ */
+  --space-2xs: 2px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --space-3xl: 48px;
+
+  /* ---- type ------------------------------------------------------------ */
+  --font-body: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --text-2xs: 10px;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --leading-tight: 1.2;
+  --leading-body: 1.5;
+  --track-tight: -0.4px;
+  --track-label: 1px;
+
+  /* ---- controls -------------------------------------------------------- */
+  --control-sm: 28px;
+  --control-md: 36px;
+  --control-lg: 44px;
+
+  /* One mark size at every control size. The alignment rule centres it at
+     whatever size it is, so nothing is left for a size step to track. */
+  --mark: 14px;
+  --icon-gap: 8px;
+  --icon-stroke: 1.75;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-pill: 999px;
+
+  /* Two target minimums, because a finger and a mouse are different sizes.
+     24px is WCAG 2.5.8 at AA. 44px is the touch floor. */
+  --target-mouse: 24px;
+  --target-touch: 44px;
+  --control-floor: var(--target-mouse);
+
+  /* Weight of the bar that marks a selected row, and the inset it costs.
+     Both ship, because a build that flushes the first column adds the width
+     to its own number rather than taking the sum. */
+  --select-bar: 4px;
+  --select-inset: calc(var(--space-md) + var(--select-bar));
+
+  /* ---- stacking -------------------------------------------------------- */
+  /* A card lifts, a header sticks, a menu opens, a scrim covers. A dialog
+     sits on the scrim and a toast clears everything. The step leaves room to
+     slot one between two without renumbering. */
+  --layer-raised: 100;
+  --layer-sticky: 200;
+  --layer-dropdown: 300;
+  --layer-overlay: 500;
+  --layer-modal: 600;
+  --layer-toast: 800;
+
+  /* ---- motion ---------------------------------------------------------- */
+  --duration-fast: 120ms;
+  --duration-hover: 200ms;
+  --duration-panel: 250ms;
+  --ease: cubic-bezier(.2, 0, .2, 1);
+}
+
+/* A coarse pointer raises the floor. Every control height reads
+   max(its own step, --control-floor), so nothing has to remember this. */
+@media (pointer: coarse) {
+  :root { --control-floor: var(--target-touch) }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+  }
+}
+
+/* ==========================================================================
+   Reset. :where() carries no weight, so nothing here outranks a component.
+   ========================================================================== */
+
+* { box-sizing: border-box }
+
+/* hidden means hidden. The UA rule for it is an ordinary (0,1,0), so any
+   component class beats it: an inline sprite kept 300x150px of layout and
+   pushed the page down 155px, and a [hidden] group carrying .sync computed
+   display:flex and painted beside the control it replaces. No component may
+   outvote this, so it is the one !important in the file. */
+[hidden] { display: none !important }
+
+:where(body) {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: var(--text-sm) / var(--leading-body) var(--font-body);
+}
+
+:where(h1, h2, h3, p, menu) { margin: 0 }
+
+:where(button) { font: inherit }
+
+/* One focus ring for everything. An outline costs no layout and survives
+   forced colors, which is why it is the mark a keyboard reader relies on. */
+:where(a, button, input, select, textarea, label, [tabindex]):focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ==========================================================================
+   Icons
+   vector-effect is declared on the SHAPES as well as the svg. The property
+   applies to drawn geometry and does not inherit, so a rule on the root
+   element alone changes nothing.
+   ========================================================================== */
+
+.icon, .icon * { vector-effect: non-scaling-stroke }
+
+.icon {
+  width: var(--mark);
+  height: var(--mark);
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--icon-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* A screen-reader label is a whole word inside a clipped 1x1 box on purpose. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* An icon beside a label lives between the cap height and the baseline.
+   The percentage resolves against the icon's own height, so one rule holds
+   at every mark size. 0.75em is the cap height of the body face. */
+.icon-inline {
+  vertical-align: baseline;
+  align-self: baseline;
+  transform: translateY(calc((100% - 0.75em) / 2));
+}
+
+/* ==========================================================================
+   Shell
+   ========================================================================== */
+
+.shell {
+  max-width: 1380px;
+  margin: auto;
+  padding: var(--space-xl) var(--space-2xl) var(--space-3xl);
+}
+
+/* ==========================================================================
+   Header
+   A mostly-text row, so it sits on one baseline. The status dot carries no
+   text, so it takes the same cap-band transform every mark takes.
+   ========================================================================== */
+
+/* Two GROUPS, not two runs of text: a brand lockup and a cluster of controls.
+   Centring the groups is what stops one group claiming the other's baseline.
+   Each group is then internally correct on its own terms. */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: var(--space-xl);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--text-lg);
+  font-weight: 750;
+  letter-spacing: var(--track-tight);
+}
+
+/* Box centring, and it needs no correction: the square's centre measures
+   0.5px from the wordmark's cap-band centre, which is under the whole pixel
+   a repair could move it.
+
+   Two other mechanisms were measured and rejected. The line-box technique
+   needs the font's DESCENT to land, and CSS cannot name that, so its residual
+   was 3.5px here and would move with the face. A 0.125em lift on top of box
+   centring overshot to -2.0px, because that value was measured against an
+   inline-block and this is an inline-flex. */
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.brand-mark .icon { width: var(--mark); height: var(--mark) }
+
+/* A cluster of controls plus one readout, so it centres. Every item in it is
+   one stated height and one label size: two font sizes cannot share a
+   baseline, and two heights cannot share a centre. */
+.sync {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+/* The dot belongs to the words it qualifies, never to the buttons beside it.
+   Grouped, it answers to its own label and the row holds one fewer item. */
+/* The transparent border is not decoration. Every button in this row carries
+   a 1px one, so its line box centres in a content box 2px shorter than the
+   control. Without a matching border the readout's ink sat 1px higher than
+   every label beside it: line-height answers to the CONTENT box. */
+.sync-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: max(var(--control-sm), var(--control-floor));
+  border: 1px solid transparent;
+  flex: 0 0 auto;
+}
+
+.sync-dot {
+  display: inline-block;
+  width: var(--space-sm);
+  height: var(--space-sm);
+  border-radius: 50%;
+  background: var(--ok);
+}
+
+.sync-dot[data-state="off"] { background: var(--text-quiet) }
+.sync-dot[data-state="busy"] { background: var(--warn) }
+.sync-dot[data-state="error"] { background: var(--danger) }
+
+.dot { color: var(--line) }
+
+/* ==========================================================================
+   Buttons
+   One size fixes three things: the box, the label and the mark. The mark
+   stands still at 14px, because the alignment rule centres it at any size.
+   ========================================================================== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--icon-gap);
+  height: max(var(--control-md), var(--control-floor));
+  padding: 0 var(--space-lg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-hover) var(--ease),
+    border-color var(--duration-hover) var(--ease),
+    color var(--duration-hover) var(--ease);
+}
+
+.btn:hover { background: #2a2a2a }
+
+/* One size fixes the box AND the label. The pairing is published, so two
+   sizes can never share a label size and drift apart:
+   sm 28/12, md 36/14, lg 44/16. The mark stands still at 14 in all three. */
+.btn-sm {
+  height: max(var(--control-sm), var(--control-floor));
+  padding: 0 var(--space-md);
+  font-size: var(--text-xs);
+}
+
+.btn-lg {
+  height: max(var(--control-lg), var(--control-floor));
+  padding: 0 var(--space-xl);
+  font-size: var(--text-md);
+}
+
+.btn-primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
+.btn-primary:hover { background: #ff4444 }
+
+.btn-danger-outline {
+  background: transparent;
+  border-color: var(--danger-line);
+  color: var(--danger-quiet);
+}
+.btn-danger-outline:hover { background: #2a1414 }
+
+.btn-danger { background: var(--danger); color: var(--accent-ink); border-color: var(--danger) }
+.btn-danger:hover { background: #ff4444 }
+
+.btn:disabled { opacity: .4; cursor: not-allowed }
+.btn:disabled:hover { background: var(--surface-raised) }
+.btn-danger-outline:disabled:hover { background: transparent }
+
+/* An icon-only control is SQUARE at every size step. State no width at all:
+   a stated width defeats the ratio, and a touch promotion then moves one
+   axis and leaves the other. The height is the single writer. */
+.btn-icon {
+  aspect-ratio: 1;
+  padding: 0;
+}
+
+/* A text button is still a pressable thing, so it clears the floor. It takes
+   the small step, so a row holding it beside a .btn-sm is one height and one
+   label size: two boxes of different heights cannot share a baseline. */
+.btn-text {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: max(var(--control-sm), var(--control-floor));
+  padding: 0 var(--space-xs);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--tag-ink);
+  font-size: var(--text-xs);
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color var(--duration-hover) var(--ease);
+}
+
+.btn-text:hover { color: var(--text) }
+.btn-text:disabled { opacity: .4; cursor: not-allowed }
+
+/* ==========================================================================
+   Fields
+   ========================================================================== */
+
+.input {
+  height: max(var(--control-md), var(--control-floor));
+  padding: 0 var(--space-md);
+  border: 1px solid #444;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text);
+  font: inherit;
+  outline: 0;
+  transition: border-color var(--duration-hover) var(--ease);
+}
+
+.input::placeholder { color: var(--text-quiet) }
+.input:focus { border-color: #777 }
+
+/* ==========================================================================
+   Add card
+   ========================================================================== */
+
+.add-card {
+  padding: var(--space-xl);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.add-card > label {
+  display: block;
+  margin-bottom: var(--space-sm);
+  font-weight: 650;
+}
+
+.add-row {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.add-row .input { flex: 1; min-width: 0 }
+
+.hint {
+  margin-top: var(--space-md);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.hint a { color: var(--tag-ink) }
+
+/* ==========================================================================
+   List head
+   A heading beside its actions. The row sits on one baseline, so the button
+   labels land on the heading's line.
+   ========================================================================== */
+
+.list-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-xl);
+  margin: var(--space-2xl) 0 var(--space-lg);
+}
+
+.eyebrow {
+  margin-bottom: var(--space-sm);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+}
+
+.list-head h2 {
+  font-size: var(--text-xl);
+  letter-spacing: var(--track-tight);
+}
+
+.list-actions {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  flex: 0 0 auto;
+}
+
+/* ==========================================================================
+   Filters
+   Two groups on one row. The gap between them is twice the gap inside them,
+   which is the proximity bar. 16 against 8.
+   ========================================================================== */
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-md) 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.filters > .filters-label {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  flex: 0 0 auto;
+}
+
+/* A run of buttons that does not fit has too many buttons, so it wraps.
+   It never becomes a sideways scroller. */
+.tag-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  flex: 1;
+  min-width: 0;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: max(var(--target-mouse), var(--control-floor));
+  padding: 0 var(--space-md);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--tag-bg);
+  color: var(--tag-ink);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-hover) var(--ease),
+    color var(--duration-hover) var(--ease);
+}
+
+.tag:hover { background: #3c3c3c }
+.tag.active { background: var(--tag-active-bg); color: var(--tag-active-ink) }
+.tag.active:hover { background: #fff }
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--icon-gap);
+  width: 264px;
+  flex: 0 0 auto;
+  padding: 0 var(--space-md);
+  border: 1px solid #444;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  height: max(var(--control-md), var(--control-floor));
+  transition: border-color var(--duration-hover) var(--ease);
+}
+
+.search:focus-within { border-color: #777 }
+
+.search input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  outline: 0;
+}
+
+.search input::placeholder { color: var(--text-quiet) }
+
+/* ==========================================================================
+   Table
+   ========================================================================== */
+
+.table-wrap {
+  border: 1px solid var(--line);
+  border-top: 0;
+  min-height: 260px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+th {
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--line);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  white-space: nowrap;
+}
+
+td {
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--line-subtle);
+  vertical-align: middle;
+}
+
+tbody tr:last-child td { border-bottom: 0 }
+
+/* A sortable heading is a control, so it clears the floor and says which
+   way it is sorting. aria-sort carries the state; the mark shows it. */
+.th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: max(var(--target-mouse), var(--control-floor));
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  transition: color var(--duration-hover) var(--ease);
+}
+
+.th-sort:hover { color: var(--text) }
+.th-sort .icon { width: var(--text-xs); height: var(--text-xs); color: var(--text-quiet) }
+[aria-sort] .th-sort { color: var(--text) }
+[aria-sort] .th-sort .icon { color: var(--accent) }
+
+/* The ornament columns take their content and no more, so the slack spreads
+   across the columns holding data. */
+.col-check, .col-remove { width: 1% }
+
+.check { text-align: center }
+
+/* The label is the target, never the 16px box drawn inside it. */
+.check-hit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: max(var(--target-mouse), var(--control-floor));
+  min-height: max(var(--target-mouse), var(--control-floor));
+  cursor: pointer;
+}
+
+/* Three states. The MARK tells them apart, a tick against a dash, never the
+   fill: a reader who cannot separate two hues still sees two shapes. */
+.checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: var(--space-lg);
+  height: var(--space-lg);
+  margin: 0;
+  border: 1px solid #666;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken) center / var(--space-md) no-repeat;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-hover) var(--ease),
+    border-color var(--duration-hover) var(--ease);
+}
+
+.checkbox:hover { border-color: #999 }
+
+.checkbox:checked,
+.checkbox:indeterminate {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+.checkbox:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+}
+
+.checkbox:indeterminate {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
+}
+
+/* A row plane says what it is. Hover is a pointer, selection is a choice. */
+tbody tr { transition: background-color var(--duration-hover) var(--ease) }
+tbody tr:hover { background: var(--row-hover) }
+tbody tr.row-selected { background: var(--row-selected) }
+
+/* The bar is a pseudo-element, stretched one hairline past each end, because
+   an inset shadow stops short of the row's own bottom rule and reads as a
+   dash between the lines. Two adjacent selected rows then meet with no seam. */
+tbody tr.row-selected > td:first-child { position: relative }
+
+tbody tr.row-selected > td:first-child::before {
+  content: "";
+  position: absolute;
+  inset-block: -1px;
+  inset-inline-start: 0;
+  width: var(--select-bar);
+  background: var(--accent);
+}
+
+.video-title {
+  display: block;
+  position: relative;
+  max-width: 320px;
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 650;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color var(--duration-hover) var(--ease);
+}
+
+.video-title:hover { color: var(--accent); text-decoration: underline }
+
+/* The link is 21px of text and the target has to reach the floor. An overhang
+   costs no layout, so the ink stays where it is. min() against zero is what
+   stops it: a link already past the floor gets no overhang at all. */
+.video-title::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2));
+}
+
+/* A caption directly below its heading is a GROUP, so the distance is zero
+   on purpose. Declared rather than left absent, because an absent gap and a
+   chosen one read the same to anything measuring it. */
+.title-cell {
+  display: flex;
+  flex-direction: column;
+  row-gap: 0;
+}
+
+.subtle { color: var(--text-muted); font-size: var(--text-xs) }
+
+/* A figure in a COLUMN of figures takes the mono face. A duration is an
+   amount, so it also takes an end edge, which stacks the digits. */
+.amount {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+th.amount { text-align: end }
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 160px;
+}
+
+/* The chip and the field share one stated height. They sit side by side, so
+   two heights put their tops half the difference apart and read as a slip. */
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: max(var(--control-sm), var(--control-floor));
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: var(--tag-bg);
+  color: var(--tag-ink);
+  font-size: var(--text-xs);
+}
+
+.tag-input {
+  flex: 1;
+  min-width: 96px;
+  min-height: max(var(--control-sm), var(--control-floor));
+  padding: 0 var(--space-xs);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--tag-ink);
+  font: inherit;
+  outline: 0;
+  transition: background-color var(--duration-hover) var(--ease);
+}
+
+.tag-input::placeholder { color: var(--text-quiet) }
+.tag-input:hover, .tag-input:focus { background: var(--surface-sunken) }
+
+.row-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  height: max(var(--control-sm), var(--control-floor));
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color var(--duration-hover) var(--ease),
+    background-color var(--duration-hover) var(--ease);
+}
+
+.row-remove:hover { color: var(--danger-quiet); background: #2a1414 }
+
+/* ==========================================================================
+   Tag autocomplete
+
+   Fixed to the viewport, not nested in the cell. The table scrolls sideways
+   at narrow widths, and anything drawn inside it would be clipped.
+   ========================================================================== */
+
+.tag-suggest {
+  position: fixed;
+  z-index: var(--layer-dropdown);
+  max-height: 240px;
+  margin: 0;
+  padding: var(--space-xs);
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: 0 8px 24px #000000a8;
+}
+
+.tag-suggest li {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  color: var(--tag-ink);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tag-suggest li:hover { background: var(--row-hover) }
+
+/* The active option is marked by its fill AND by its start edge, so the mark
+   survives a reader who cannot separate two greys. */
+.tag-suggest li.active {
+  background: var(--row-selected);
+  box-shadow: inset var(--select-bar) 0 0 0 var(--accent);
+  padding-inline-start: var(--select-inset);
+  color: var(--text);
+}
+
+@media (forced-colors: active) {
+  .tag-suggest li.active { outline: 2px solid Highlight; outline-offset: -2px }
+}
+
+/* ==========================================================================
+   Empty states
+   Four of them, never one. First run offers the feature's own action.
+   No results offers a way BACK. A failure names what failed. Loading holds
+   the shape of what is coming.
+   ========================================================================== */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-3xl) var(--space-xl);
+  text-align: center;
+}
+
+.empty .icon { width: var(--text-xl); height: var(--text-xl); color: var(--text-quiet) }
+.empty h3 { font-size: var(--text-md) }
+.empty p { max-width: 44ch; color: var(--text-muted) }
+
+/* An action stands 16px clear of the text that explains it. */
+.empty .btn, .empty .btn-text { margin-top: var(--space-lg) }
+
+/* Every placeholder height comes from the type tokens of the line it stands
+   in for, so the skeleton and the loaded row measure the same. */
+.skeleton-row td > span {
+  display: block;
+  height: calc(var(--text-sm) * var(--leading-body));
+  border-radius: var(--radius-sm);
+  background: #262626;
+}
+
+.skeleton-row td > span.short { width: 40% }
+
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton-row td > span { animation: pulse 1.4s var(--ease) infinite }
+}
+
+@keyframes pulse { 50% { opacity: .45 } }
+
+/* ==========================================================================
+   Footer
+   ========================================================================== */
+
+footer {
+  margin-top: var(--space-xl);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+footer strong { color: var(--tag-ink) }
+
+code {
+  padding: var(--space-2xs) var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: var(--line-subtle);
+  font-family: var(--font-mono);
+  font-size: .92em;
+}
+
+/* ==========================================================================
+   Dialog
+   ========================================================================== */
+
+dialog {
+  width: min(440px, calc(100% - var(--space-xl)));
+  padding: var(--space-xl);
+  border: 1px solid #4a4a4a;
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  color: var(--text);
+  z-index: var(--layer-modal);
+}
+
+dialog::backdrop { background: #000000bb }
+
+.dialog-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-lg);
+}
+
+dialog h2 { font-size: var(--text-lg); letter-spacing: var(--track-tight) }
+dialog p { color: var(--text-muted) }
+dialog .stack { display: flex; flex-direction: column; gap: var(--space-sm) }
+
+.typed-confirm { margin-top: var(--space-lg) }
+
+.typed-confirm label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  color: var(--tag-ink);
+  font-size: var(--text-xs);
+}
+
+.typed-confirm .input { width: 100% }
+
+dialog menu {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-xl);
+  padding: 0;
+}
+
+/* ==========================================================================
+   Narrow widths
+   The threshold is measured from the row it governs, not picked.
+   ========================================================================== */
+
+@media (max-width: 850px) {
+  .shell { padding: var(--space-lg) }
+
+  .sync-words { display: none }
+
+  header { gap: var(--space-sm) }
+
+  /* The field takes its own line, so the action below it takes the whole
+     line too. An orphan gets the width it was given. */
+  .add-row { flex-direction: column }
+  .add-row .btn { width: 100% }
+
+  .filters { flex-wrap: wrap }
+  .search { order: 3; width: 100%; flex: 1 1 100% }
+
+  /* A table of real columns cannot fold into 320px, so it scrolls. A table
+     cannot scroll itself; the wrapper does. */
+  .table-wrap { overflow-x: auto }
+  table { min-width: 900px }
+
+  /* An action row that breaks, breaks into pairs, and one gap serves both
+     axes because a line break is not a group boundary. */
+  .list-head { flex-wrap: wrap }
+  .list-actions { flex: 1 1 100% }
+  .list-actions > * { flex: 1 }
+}
+
+/* ==========================================================================
+   Forced colors
+   This mode overrides authored colour, ignores box-shadow and drops
+   background-image, so every mark we draw that way loses its only marker.
+   An outline at a negative offset costs no layout and survives.
+   ========================================================================== */
+
+@media (forced-colors: active) {
+  /* Let the UA draw the box, so the tick and the dash come back. */
+  .checkbox {
+    appearance: auto;
+    -webkit-appearance: auto;
+    width: auto;
+    height: auto;
+  }
+
+  .tag.active { outline: 2px solid Highlight; outline-offset: -2px }
+  tbody tr.row-selected > td { outline: 1px solid Highlight; outline-offset: -1px }
+  tbody tr.row-selected > td:first-child::before { background: Highlight }
+  .video-title { text-decoration: underline }
+}

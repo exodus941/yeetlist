@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "yeetlist",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["dev-server.cjs"],
+      "port": 3000
+    }
+  ]
+}

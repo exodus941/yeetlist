@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>YeeTlist — YouTube Watchlist</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+<!-- Icon set. Every mark on this page comes from here, because a typed glyph
+     takes the text font and carries none of the stroke, size or join the set
+     states. vector-effect is an attribute on the shapes: CSS cannot reach
+     inside a <use> shadow tree. -->
+<svg hidden aria-hidden="true"><defs>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M6 3l14 9-14 9z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-enter" viewBox="0 0 24 24"><path d="M20 4v7a4 4 0 0 1-4 4H4" vector-effect="non-scaling-stroke"/><path d="M9 10l-5 5 5 5" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" vector-effect="non-scaling-stroke"/><path d="M21 21l-4.34-4.34" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2" vector-effect="non-scaling-stroke"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-search-x" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" vector-effect="non-scaling-stroke"/><path d="M21 21l-4.34-4.34" vector-effect="non-scaling-stroke"/><path d="M13.5 8.5l-5 5" vector-effect="non-scaling-stroke"/><path d="M8.5 8.5l5 5" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z" vector-effect="non-scaling-stroke"/><path d="M12 9v4" vector-effect="non-scaling-stroke"/><path d="M12 17h.01" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" vector-effect="non-scaling-stroke"/><path d="M6 6l12 12" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5" vector-effect="non-scaling-stroke"/><path d="m7 9 5-5 5 5" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-sort-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-sort-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-cloud-check" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z" vector-effect="non-scaling-stroke"/><path d="m9 13 2 2 4-4" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" vector-effect="non-scaling-stroke"/><path d="M21 3v5h-5" vector-effect="non-scaling-stroke"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" vector-effect="non-scaling-stroke"/><path d="M3 21v-5h5" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-unlink" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" vector-effect="non-scaling-stroke"/><path d="m16 17 5-5-5-5" vector-effect="non-scaling-stroke"/><path d="M21 12H9" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" vector-effect="non-scaling-stroke"/><path d="m7 10 5 5 5-5" vector-effect="non-scaling-stroke"/><path d="M12 15V3" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" vector-effect="non-scaling-stroke"/><path d="m17 8-5-5-5 5" vector-effect="non-scaling-stroke"/><path d="M12 3v12" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-file-pick" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" vector-effect="non-scaling-stroke"/><path d="M14 2v5h6" vector-effect="non-scaling-stroke"/></symbol>
+</defs></svg>
+
+<main class="shell">
+
+  <header>
+    <div class="brand">
+      <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg></span>
+      <span>YeeTlist</span>
+    </div>
+
+    <div class="sync">
+      <span class="sync-state">
+        <span id="syncDot" class="sync-dot" data-state="local"></span>
+        <span id="syncWords" class="sync-words" role="status">Stored locally</span>
+      </span>
+      <span class="dot" aria-hidden="true">•</span>
+
+      <!-- Drive. One button before a connection exists, a group after. -->
+      <button id="driveConnect" class="btn btn-sm" type="button">
+        <svg class="icon" aria-hidden="true"><use href="#i-cloud"/></svg>
+        Connect Google Drive
+      </button>
+
+      <span id="driveGroup" class="sync" hidden>
+        <button id="driveSync" class="btn btn-sm" type="button">
+          <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>
+          Sync now
+        </button>
+        <button id="drivePick" class="btn-text" type="button">
+          <svg class="icon" aria-hidden="true"><use href="#i-file-pick"/></svg>
+          Pick existing file
+        </button>
+        <button id="driveDisconnect" class="btn-text" type="button">
+          <svg class="icon" aria-hidden="true"><use href="#i-unlink"/></svg>
+          Disconnect
+        </button>
+      </span>
+
+      <span class="dot" aria-hidden="true">•</span>
+      <button id="importBtn" class="btn-text" type="button">
+        <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>
+        Import
+      </button>
+      <button id="exportBtn" class="btn-text" type="button">
+        <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
+        Export .md
+      </button>
+    </div>
+  </header>
+
+  <section class="add-card">
+    <label for="videoUrl">Add a video</label>
+    <div class="add-row">
+      <input id="videoUrl" class="input" placeholder="Paste a YouTube link…" autocomplete="off" />
+      <button id="addBtn" class="btn btn-primary" type="button">
+        Add to watchlist
+        <svg class="icon" aria-hidden="true"><use href="#i-enter"/></svg>
+      </button>
+    </div>
+    <p id="addStatus" class="hint" role="status">Video details are fetched automatically. <a href="#sync-note">About syncing</a></p>
+  </section>
+
+  <section class="list-head">
+    <div>
+      <p class="eyebrow">SAVED VIDEOS</p>
+      <h2 id="listCount" role="status">0 videos waiting</h2>
+    </div>
+    <div class="list-actions">
+      <button id="deleteSelected" class="btn btn-sm btn-danger-outline" type="button" disabled>Delete selected</button>
+      <button id="clearFilter" class="btn-text" type="button">Clear filters</button>
+    </div>
+  </section>
+
+  <section class="filters">
+    <span class="filters-label">FILTER BY TAG</span>
+    <div id="tagFilters" class="tag-filters"></div>
+    <label class="search">
+      <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+      <input id="search" placeholder="Search titles, channels, or tags" aria-label="Search titles, channels, or tags" />
+    </label>
+  </section>
+
+  <section class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="col-check check" scope="col">
+            <label class="check-hit">
+              <input id="allCheck" class="checkbox" type="checkbox" aria-label="Select all videos" />
+            </label>
+          </th>
+          <th scope="col"><button class="th-sort" type="button" data-key="title">VIDEO <svg class="icon" aria-hidden="true"><use href="#i-sort"/></svg></button></th>
+          <th scope="col"><button class="th-sort" type="button" data-key="channel">CHANNEL <svg class="icon" aria-hidden="true"><use href="#i-sort"/></svg></button></th>
+          <th scope="col" class="amount"><button class="th-sort" type="button" data-key="duration">DURATION <svg class="icon" aria-hidden="true"><use href="#i-sort"/></svg></button></th>
+          <th scope="col"><button class="th-sort" type="button" data-key="uploadedAt">UPLOADED <svg class="icon" aria-hidden="true"><use href="#i-sort"/></svg></button></th>
+          <th scope="col"><button class="th-sort" type="button" data-key="addedAt">ADDED <svg class="icon" aria-hidden="true"><use href="#i-sort"/></svg></button></th>
+          <th scope="col">METATAGS</th>
+          <th class="col-remove" scope="col"><span class="sr-only">Remove</span></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="state" class="empty" hidden></div>
+  </section>
+
+  <footer id="sync-note">
+    <strong>Portable by design.</strong>
+    Connect Google Drive and YeeTlist keeps one <code>yeetlist.md</code> there, readable from any device on the same account.
+    It asks for the narrowest access Google offers: it can see only the files it created, never the rest of your Drive.
+    Export and import still work without connecting anything.
+  </footer>
+
+</main>
+
+<input id="importFile" type="file" accept=".md,.json" hidden />
+
+<dialog id="confirm" aria-labelledby="confirmTitle">
+  <form method="dialog">
+    <div class="dialog-head">
+      <div class="stack">
+        <p class="eyebrow">CONFIRM DELETION</p>
+        <h2 id="confirmTitle">Remove video?</h2>
+      </div>
+      <button class="row-remove" value="cancel" type="submit" aria-label="Close">
+        <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+      </button>
+    </div>
+    <p id="confirmText"></p>
+    <div id="typedConfirm" class="typed-confirm" hidden>
+      <label>
+        Type <code id="requiredText"></code> to enable deletion
+        <input id="confirmInput" class="input" autocomplete="off" />
+      </label>
+    </div>
+    <menu>
+      <button class="btn btn-sm" value="cancel" type="submit">Cancel</button>
+      <button id="confirmDelete" class="btn btn-sm btn-danger" value="default" type="submit" disabled>Delete</button>
+    </menu>
+  </form>
+</dialog>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="/drive.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
