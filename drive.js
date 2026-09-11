@@ -99,12 +99,20 @@ const DRIVE = (() => {
     });
   }
 
+  /* Name the cause, or the reader is left with a code. Measured: Google
+     returned "Error 401: deleted_client" for a client that had been removed
+     in the console, and the app reported only "Google sign-in failed." The
+     two configuration cases are the ones worth spelling out, because neither
+     is anything the reader did. */
   const describe = (code) => ({
     popup_closed: 'Sign-in window was closed before it finished.',
     popup_failed_to_open: 'The browser blocked the sign-in window. Allow pop-ups for this site.',
     access_denied: 'Access was declined.',
     interaction_required: 'Google needs you to sign in again.',
-  }[code] || 'Google sign-in failed.');
+    deleted_client: 'This app’s Google OAuth client has been deleted. A new client ID is needed.',
+    invalid_client: 'Google does not recognise this app’s client ID. Check GOOGLE_CLIENT_ID and the authorised origins.',
+    unauthorized_client: 'This origin is not authorised for the Google client. Add it under Authorized JavaScript origins.',
+  }[code] || ('Google sign-in failed' + (code ? ' (' + code + ').' : '.')));
 
   async function call(url, options = {}, { interactive = false } = {}) {
     const access = await getToken({ interactive });
