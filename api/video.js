@@ -26,7 +26,23 @@ export default async function handler(req, res) {
     } catch { return res.status(422).json({ error: 'That video could not be read.' }); }
   }
   const endpoint = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${id}&key=${process.env.YOUTUBE_API_KEY}`;
-  const json = await fetch(endpoint).then(r => r.json());
+  const json = await fetch(endpoint).then(r => r.json()).catch(() => ({}));
+
+  /* Google's own message names the cause, so report it rather than collapsing
+     every failure into "not found".
+     Measured: this endpoint returned 404 "Video not found or unavailable" in
+     production for a video that resolved locally in the same code. The video
+     existed. The key was being refused, and the reader was sent looking for a
+     deleted video instead of at their own configuration.
+
+     The usual reasons are a key restricted by HTTP referrer, which a
+     serverless call can never satisfy because it sends no referrer, and the
+     YouTube Data API not being enabled on the key's project. */
+  if (json.error) {
+    return res.status(502).json({
+      error: 'YouTube refused the request: ' + (json.error.message || 'no reason given'),
+    });
+  }
   if (!json.items?.[0]) return res.status(404).json({ error: 'Video not found or unavailable.' });
   const video = json.items[0];
   return res.status(200).json({ id, title: video.snippet.title, channel: video.snippet.channelTitle, duration: isoDuration(video.contentDetails.duration), uploadedAt: video.snippet.publishedAt });

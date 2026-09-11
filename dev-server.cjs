@@ -23,7 +23,11 @@ http.createServer(async (req, res) => {
     const input = requestUrl.searchParams.get('url') || '', id = idFrom(input);
     if (!id) { res.writeHead(400, {'Content-Type':'application/json'}); return res.end(JSON.stringify({error:'Please paste a valid YouTube video link.'})); }
     try {
-      if (process.env.YOUTUBE_API_KEY) { const data = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${id}&key=${process.env.YOUTUBE_API_KEY}`).then(r => r.json()); const video = data.items?.[0]; if (!video) throw new Error(); res.writeHead(200, {'Content-Type':'application/json'}); return res.end(JSON.stringify({id,title:video.snippet.title,channel:video.snippet.channelTitle,duration:duration(video.contentDetails.duration),uploadedAt:video.snippet.publishedAt})); }
+      // Mirrors api/video.js: report Google's own reason rather than
+      // collapsing a refused key into "not found".
+      if (process.env.YOUTUBE_API_KEY) { const data = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${id}&key=${process.env.YOUTUBE_API_KEY}`).then(r => r.json());
+        if (data.error) { res.writeHead(502, {'Content-Type':'application/json'}); return res.end(JSON.stringify({error:'YouTube refused the request: ' + (data.error.message || 'no reason given')})); }
+        const video = data.items?.[0]; if (!video) throw new Error(); res.writeHead(200, {'Content-Type':'application/json'}); return res.end(JSON.stringify({id,title:video.snippet.title,channel:video.snippet.channelTitle,duration:duration(video.contentDetails.duration),uploadedAt:video.snippet.publishedAt})); }
       const oembed = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(input)}&format=json`).then(r => r.json()); res.writeHead(200, {'Content-Type':'application/json'}); return res.end(JSON.stringify({id,title:oembed.title,channel:oembed.author_name,duration:'—',uploadedAt:null,limited:true}));
     }
     catch { res.writeHead(422, {'Content-Type':'application/json'}); return res.end(JSON.stringify({error:'That video could not be read.'})); }
