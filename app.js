@@ -891,6 +891,9 @@ function toast(kind, title, detail) {
 let pushTimer = null;
 let pushing = false;
 
+/* One token request at a time. Two in flight open two popups. */
+let driveResuming = false;
+
 function driveStatus(state, words) {
   $('#syncDot').dataset.state = state;
   $('#syncWords').textContent = words;
@@ -1329,5 +1332,36 @@ refreshMissingMetadata();
 renderDriveAvailability();
 
 /* A remembered connection resumes without a prompt. It fails quietly when
-   the Google session has gone, because an unasked-for popup is worse. */
-if (DRIVE.connected()) driveConnect({ interactive: false });
+   the Google session has gone, because an unasked-for popup is worse.
+
+   A KEPT TOKEN MAKES THIS FREE. DRIVE restores one that is still inside its
+   hour, so this resolves from memory and asks Google for nothing. */
+if (DRIVE.connected()) {
+  /* THE RETRY WAITS FOR A GESTURE, BECAUSE THAT IS THE WHOLE DIFFERENCE.
+     A token request may open a popup, and a browser blocks one with no
+     gesture behind it. So the load-time attempt fails on a page the reader did
+     not open themselves, and pressing Reconnect then works on the first try.
+     One retry on the first interaction spends that gesture instead of asking
+     for a second one.
+
+     It binds BEFORE the load-time attempt, not after it. Waiting for that
+     promise costs the 15 seconds the Google script is given, and a click
+     inside that window would reach nothing.
+
+     IT UNBINDS ONLY WHERE IT ACTS. Written to unbind first, a click landing
+     while the load-time attempt was still running spent the one retry on
+     nothing: measured, the handler ran, found a request in flight, and left.
+     Every later click then reached no listener. Declining has to keep the
+     listener, or the gesture that matters is the one already gone. */
+  const retry = () => {
+    if (driveResuming) return;
+    removeEventListener('pointerdown', retry, true);
+    removeEventListener('keydown', retry, true);
+    if (DRIVE.connected() && !DRIVE.live()) driveConnect({ interactive: false });
+  };
+  addEventListener('pointerdown', retry, true);
+  addEventListener('keydown', retry, true);
+
+  driveResuming = true;
+  driveConnect({ interactive: false }).finally(() => { driveResuming = false; });
+}

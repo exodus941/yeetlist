@@ -54,6 +54,25 @@ const DRIVE = (() => {
 
   const forget = () => localStorage.removeItem(REMEMBER);
 
+  /* THE TOKEN OUTLIVES THE PAGE, BECAUSE A RELOAD IS NOT A DISCONNECT.
+
+     Held in a module variable alone it died on every load, so every load had
+     to ask Google for a new one. That request can open a popup, and a browser
+     blocks a popup with no user gesture behind it. A deploy reloads the page,
+     which is exactly the load the reader did not trigger, so the link read as
+     broken every time a build went out. Pressing the button worked, and the
+     only difference was the gesture.
+
+     An access token lives about an hour. Kept, a reload inside that hour asks
+     Google for nothing at all. Disconnect clears it with everything else. */
+  (() => {
+    const held = remembered();
+    if (held?.token && Date.now() < held.tokenExpiry - 60_000) {
+      token = held.token;
+      tokenExpiry = held.tokenExpiry;
+    }
+  })();
+
   const connected = () => Boolean(remembered()?.connected);
   const fileId = () => remembered()?.fileId || null;
   const syncedAt = () => remembered()?.syncedAt || null;
@@ -89,18 +108,37 @@ const DRIVE = (() => {
     await gisReady();
 
     return new Promise((resolve, reject) => {
+      /* EVERY WAIT IS BOUNDED, OR A CALLBACK THAT NEVER COMES HANGS THE APP.
+         GIS answers through one of two callbacks, and a blocked popup can
+         leave both unfired. The promise then never settles, so the caller's
+         "a request is in flight" flag stays true for the life of the page and
+         nothing can retry. 30 seconds is well past any real sign-in. */
+      let settled = false;
+      const finish = (fn) => (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        fn(value);
+      };
+      const done = finish(resolve);
+      const fail = finish(reject);
+      const timer = setTimeout(
+        () => fail(new Error('Google did not answer the sign-in request.')),
+        30000,
+      );
+
       client = google.accounts.oauth2.initTokenClient({
         client_id: clientId,
         scope: SCOPE,
         prompt: interactive ? 'consent' : '',
         callback: (response) => {
-          if (response.error) return reject(new Error(describe(response.error)));
+          if (response.error) return fail(new Error(describe(response.error)));
           token = response.access_token;
           tokenExpiry = Date.now() + (Number(response.expires_in) || 3600) * 1000;
-          remember({ connected: true });
-          resolve(token);
+          remember({ connected: true, token, tokenExpiry });
+          done(token);
         },
-        error_callback: (err) => reject(new Error(describe(err?.type))),
+        error_callback: (err) => fail(new Error(describe(err?.type))),
       });
       client.requestAccessToken();
     });
@@ -128,9 +166,13 @@ const DRIVE = (() => {
       headers: { ...options.headers, Authorization: 'Bearer ' + access },
     });
 
-    /* A 401 means the token died early. Drop it and try once more. */
+    /* A 401 means the token died early. Drop it and try once more. It is
+       dropped from STORAGE too, or the next load restores a dead token and
+       spends a 401 on the first call to find that out. */
     if (response.status === 401) {
       token = null;
+      tokenExpiry = 0;
+      remember({ token: null, tokenExpiry: 0 });
       const retry = await getToken({ interactive: true });
       return fetch(url, {
         ...options,
