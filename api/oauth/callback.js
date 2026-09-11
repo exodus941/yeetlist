@@ -8,7 +8,7 @@
 import {
   COOKIE, COOKIE_MAX_AGE, STATE_COOKIE,
   clearCookie, exchangeCode, readCookie, seal, serverAuthReady, writeCookie,
-} from '../../lib/session.mjs';
+} from '../_session.js';
 
 /* The reader ends up on the page either way, so a failure has to arrive as
    something the page can show. A query parameter survives the redirect where

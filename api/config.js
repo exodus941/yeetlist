@@ -10,7 +10,7 @@
    The client SECRET is never here, and the browser-only token flow never
    asks for one. */
 
-import { serverAuthReady } from '../lib/session.mjs';
+import { serverAuthReady } from './_session.js';
 
 export default function handler(req, res) {
   const clientId = process.env.GOOGLE_CLIENT_ID || '';

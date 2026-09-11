@@ -2,11 +2,14 @@
   "name": "yeetlist",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "node dev-server.cjs",
     "start": "node dev-server.cjs",
     "vercel-dev": "vercel dev",
     "check": "node tools/syntax-guard.mjs ."
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }

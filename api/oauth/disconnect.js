@@ -5,7 +5,7 @@
 
 import {
   COOKIE, clearCookie, open, readCookie, revoke,
-} from '../../lib/session.mjs';
+} from '../_session.js';
 
 export default async function handler(req, res) {
   /* A state change is not a GET. Written as one, any page that could make the

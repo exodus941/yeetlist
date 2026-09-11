@@ -10,10 +10,10 @@ const localEnv = path.join(root, '.env.local');
 if (fs.existsSync(localEnv)) fs.readFileSync(localEnv, 'utf8').split(/\r?\n/).forEach(line => { const match = line.match(/^\s*([^#=\s]+)\s*=\s*(.*)\s*$/); if (match && !process.env[match[1]]) process.env[match[1]] = match[2].replace(/^['"]|['"]$/g, ''); });
 const duration = iso => { const p = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/); if (!p) return '—'; const parts = [(+p[1]||0), (+p[2]||0), (+p[3]||0)]; return parts.filter((v, i) => i || v > 0).map(v => String(v).padStart(2, '0')).join(':').replace(/^0/, ''); };
 
-// lib/session.mjs is ESM and this file is CommonJS, so it arrives through a
+// api/_session.js is ESM and this file is CommonJS, so it arrives through a
 // dynamic import. Cached, because the module holds a derived key.
 let sessionModule = null;
-const session = () => (sessionModule ||= import('./lib/session.mjs'));
+const session = () => (sessionModule ||= import('./api/_session.js'));
 
 // A Vercel handler answers through res.status().json() and res.send(). Node's
 // own ServerResponse has neither, so the four routes get them here rather

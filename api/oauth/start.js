@@ -9,7 +9,7 @@ import crypto from 'node:crypto';
 import {
   STATE_COOKIE, STATE_MAX_AGE,
   authUrl, serverAuthReady, writeCookie,
-} from '../../lib/session.mjs';
+} from '../_session.js';
 
 export default function handler(req, res) {
   if (!serverAuthReady()) {

@@ -9,7 +9,7 @@
 
 import {
   COOKIE, clearCookie, open, readCookie, refresh, serverAuthReady,
-} from '../../lib/session.mjs';
+} from '../_session.js';
 
 export default async function handler(req, res) {
   /* Never cached. An access token is minted per request and a stored copy
