@@ -10,6 +10,8 @@
    The client SECRET is never here, and the browser-only token flow never
    asks for one. */
 
+import { serverAuthReady } from '../lib/session.mjs';
+
 export default function handler(req, res) {
   const clientId = process.env.GOOGLE_CLIENT_ID || '';
 
@@ -24,5 +26,11 @@ export default function handler(req, res) {
     /* The page needs to know whether it can offer Drive at all, before it
        draws a control nobody can use. */
     driveEnabled: Boolean(clientId),
+    /* WHICH FLOW THIS DEPLOYMENT CAN RUN. With a client secret and a session
+       secret the server holds a refresh token, so a token costs one silent
+       request. Without them the page falls back to the browser-only flow,
+       which works and needs a click about once an hour. A deployment that is
+       half configured degrades rather than breaking. */
+    serverAuth: serverAuthReady(),
   });
 }

@@ -9,15 +9,49 @@ const idFrom = value => { try { const u = new URL(value); return u.hostname === 
 const localEnv = path.join(root, '.env.local');
 if (fs.existsSync(localEnv)) fs.readFileSync(localEnv, 'utf8').split(/\r?\n/).forEach(line => { const match = line.match(/^\s*([^#=\s]+)\s*=\s*(.*)\s*$/); if (match && !process.env[match[1]]) process.env[match[1]] = match[2].replace(/^['"]|['"]$/g, ''); });
 const duration = iso => { const p = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/); if (!p) return '—'; const parts = [(+p[1]||0), (+p[2]||0), (+p[3]||0)]; return parts.filter((v, i) => i || v > 0).map(v => String(v).padStart(2, '0')).join(':').replace(/^0/, ''); };
+
+// lib/session.mjs is ESM and this file is CommonJS, so it arrives through a
+// dynamic import. Cached, because the module holds a derived key.
+let sessionModule = null;
+const session = () => (sessionModule ||= import('./lib/session.mjs'));
+
+// A Vercel handler answers through res.status().json() and res.send(). Node's
+// own ServerResponse has neither, so the four routes get them here rather
+// than being rewritten for the preview. Rewriting them is how the preview
+// starts testing something other than what ships.
+function vercelShim(res) {
+  res.status = (code) => { res.statusCode = code; return res; };
+  res.json = (body) => { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(body)); return res; };
+  res.send = (body) => { res.end(String(body)); return res; };
+  return res;
+}
+
+async function oauth(requestUrl, req, res) {
+  const name = requestUrl.pathname.slice('/api/oauth/'.length);
+  if (!/^(start|callback|token|disconnect)$/.test(name)) { res.writeHead(404); return res.end('Not found'); }
+  try {
+    const { default: handler } = await import(`./api/oauth/${name}.js`);
+    return handler(req, vercelShim(res));
+  } catch (error) {
+    res.writeHead(500, {'Content-Type':'application/json'});
+    return res.end(JSON.stringify({ error: String(error && error.message || error) }));
+  }
+}
 http.createServer(async (req, res) => {
   const requestUrl = new URL(req.url, 'http://localhost');
-  // Mirrors api/config.js. Both public Google identifiers come from the
-  // environment, so neither is in the repository.
+  // Mirrors api/config.js. The public Google identifier comes from the
+  // environment, so it is not in the repository.
   if (requestUrl.pathname === '/api/config') {
     const clientId = process.env.GOOGLE_CLIENT_ID || '';
+    const { serverAuthReady } = await session();
     res.writeHead(200, {'Content-Type':'application/json'});
-    return res.end(JSON.stringify({ clientId, driveEnabled: Boolean(clientId) }));
+    return res.end(JSON.stringify({ clientId, driveEnabled: Boolean(clientId), serverAuth: serverAuthReady() }));
   }
+  // The OAuth routes run the SAME module the serverless functions import, so
+  // the local preview cannot disagree with production about a cookie, a
+  // cipher or a redirect address. A second implementation would drift, and
+  // these are the routines a mistake in is silent.
+  if (requestUrl.pathname.startsWith('/api/oauth/')) return oauth(requestUrl, req, res);
   // Mirrors api/videos.js. Up to 50 ids in one call, so a bookmarks import
   // costs one quota unit per chunk rather than one per video.
   if (requestUrl.pathname === '/api/videos') {

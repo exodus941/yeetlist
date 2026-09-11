@@ -894,9 +894,37 @@ let pushing = false;
 /* One token request at a time. Two in flight open two popups. */
 let driveResuming = false;
 
+/* null until /api/config answers. Not false: "Drive is off" and "nobody has
+   asked yet" are different states, and painting the first for the second
+   flashes "Stored locally" at a reader who is linked. */
+let driveAvailable = null;
+
 function driveStatus(state, words) {
   $('#syncDot').dataset.state = state;
   $('#syncWords').textContent = words;
+}
+
+/* Name the cause, or the reader is left holding a code. Each of these has a
+   different repair, and three of the four are console settings rather than
+   anything the reader did. */
+function describeLinkFailure(reason) {
+  const known = {
+    access_denied: 'Access was declined, so nothing was linked.',
+    state_mismatch:
+      'That sign-in did not match the one this page started. Try Link Google Drive again.',
+    no_refresh_token:
+      'Google returned no refresh token, so the connection could not be made lasting. '
+      + 'Remove YeeTlist from your Google account permissions and link it again.',
+    unconfigured:
+      'Server-side Google sync is not configured for this deployment. '
+      + 'It needs GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and SESSION_SECRET.',
+  };
+  if (known[reason]) return known[reason];
+  if (/redirect_uri_mismatch/i.test(reason)) {
+    return 'Google refused the redirect address. Add this exact URL to the OAuth '
+      + `client's Authorized redirect URIs: ${location.origin}/api/oauth/callback`;
+  }
+  return 'Google refused the sign-in' + (reason ? `: ${reason}` : '.');
 }
 
 /* LINKED and AUTHORISED are different facts. The link lives in storage and
@@ -907,27 +935,51 @@ function renderDrive() {
   const live = DRIVE.live();
   const connect = $('#driveConnect');
 
-  connect.hidden = linked && live;
+  /* null until /api/config answers, and hidden while unknown. A control the
+     deployment cannot honour is worse than an absent one, and a button that
+     appears and then vanishes is worse than one that arrives late. */
+  connect.hidden = !driveAvailable || (linked && live);
   $('#driveGroup').hidden = !(linked && live);
 
   connect.querySelector('.btn-label').textContent = linked ? 'Reconnect Drive' : 'Link Google Drive';
   connect.setAttribute('aria-label', linked ? 'Reconnect Google Drive' : 'Link Google Drive');
 
-  if (!linked) driveStatus('local', 'Stored locally');
-  else if (!live) driveStatus('error', 'Reconnect to sync');
+  /* A REQUEST IN FLIGHT IS NOT A FAILURE, AND SAYING SO IS THE WHOLE
+     COMPLAINT. Every load starts with no token, so a linked reader met
+     "Reconnect to sync" for as long as the resume took. It reads as broken on
+     the one load nobody triggered, which is the load a deploy causes.
+
+     LINKED IS KNOWN AT ONCE AND AVAILABLE IS NOT, so linked decides first.
+     Ordered the other way, the unknown branch painted "Stored locally" over a
+     reader who was already connecting: measured, the busy words never reached
+     the screen at all. The markup ships "Stored locally", so an unlinked
+     reader sees the right thing while /api/config is still in the air. */
+  if (linked) {
+    if (live) { /* whatever the last sync said still stands */ }
+    else if (driveResuming) driveStatus('busy', 'Connecting…');
+    else driveStatus('error', 'Reconnect to sync');
+  } else if (driveAvailable !== null) {
+    driveStatus('local', 'Stored locally');
+  }
 }
 
 /* A control the deployment cannot honour is worse than an absent one, so the
    Connect button appears only once the environment carries a client ID, and
    Pick appears only with an API key for the Picker. */
+/* ONE WRITER FOR THE BUTTON, AND THIS IS NOT IT. This used to set
+   connect.hidden itself, on a rule that disagreed with renderDrive: it hid
+   the button whenever the reader was LINKED, where renderDrive shows it
+   whenever the link is not live. So whether a reader could press Reconnect
+   depended on which of two async calls happened to land last.
+
+   It answers one question now, and renderDrive paints. */
 async function renderDriveAvailability() {
   try {
-    const { driveEnabled } = await DRIVE.settings();
-    $('#driveConnect').hidden = !driveEnabled || DRIVE.connected();
-    if (!driveEnabled) driveStatus('local', 'Stored locally');
+    driveAvailable = Boolean((await DRIVE.settings()).driveEnabled);
   } catch {
-    $('#driveConnect').hidden = true;
+    driveAvailable = false;
   }
+  renderDrive();
 }
 
 async function driveConnect({ interactive = true } = {}) {
@@ -1315,10 +1367,15 @@ $('#importFile').addEventListener('change', (event) => {
 
 $('#driveConnect').addEventListener('click', () => driveConnect({ interactive: true }));
 $('#driveSync').addEventListener('click', () => drivePull({ announce: true }));
-$('#driveDisconnect').addEventListener('click', () => {
-  DRIVE.disconnect();
+$('#driveDisconnect').addEventListener('click', async () => {
+  /* Paint the disconnected state at once. Revoking reaches Google over the
+     network, and a button that looks dead until that returns reads as a
+     button that did not work. */
+  const done = DRIVE.disconnect();
   renderDrive();
   $('#addStatus').textContent = 'Disconnected. Your watchlist stays in this browser.';
+  await done;
+  renderDrive();
 });
 
 /* ==========================================================================
@@ -1326,16 +1383,47 @@ $('#driveDisconnect').addEventListener('click', () => {
    ========================================================================== */
 
 load();
+
+/* THE SERVER FLOW COMES BACK BY REDIRECT, SO THE ANSWER ARRIVES IN THE URL.
+   /api/oauth/callback cannot speak to a page that does not exist yet, so it
+   states the outcome in a query parameter and the page reads it here.
+
+   The cookie is HttpOnly, so nothing on this page can see whether a link was
+   made. "drive=linked" is the only word for it. */
+const arriving = new URLSearchParams(location.search);
+const arrivedWith = arriving.get('drive');
+if (arrivedWith) {
+  if (arrivedWith === 'linked') DRIVE.remember({ connected: true });
+  /* Clean the address bar before anything else can reload it. Left in place,
+     a refresh would replay this every time, and "linked" would keep
+     announcing itself. replaceState adds no history entry, so Back still
+     goes where the reader expects. */
+  history.replaceState(null, '', location.pathname);
+}
+
+driveResuming = DRIVE.connected();
 renderDrive();
 render();
 refreshMissingMetadata();
 renderDriveAvailability();
 
+/* ONE WRITER FOR THE STATUS LINE, AND IT IS renderDrive. This used to set
+   "Not connected" here too, and renderDriveAvailability overwrote it a moment
+   later with "Stored locally". Measured: the words never survived to be read.
+
+   The two say different things anyway. The status line reports where the
+   watchlist LIVES, which is locally and correctly. The message reports what
+   just failed. */
+if (arrivedWith === 'error') {
+  $('#addStatus').textContent = describeLinkFailure(arriving.get('reason') || '');
+}
+
 /* A remembered connection resumes without a prompt. It fails quietly when
    the Google session has gone, because an unasked-for popup is worse.
 
-   A KEPT TOKEN MAKES THIS FREE. DRIVE restores one that is still inside its
-   hour, so this resolves from memory and asks Google for nothing. */
+   WHERE THE SERVER HOLDS A REFRESH TOKEN THIS IS ONE SILENT REQUEST, with no
+   window to block. Otherwise DRIVE restores a kept token that is still inside
+   its hour, and asks Google for nothing at all. */
 if (DRIVE.connected()) {
   /* THE RETRY WAITS FOR A GESTURE, BECAUSE THAT IS THE WHOLE DIFFERENCE.
      A token request may open a popup, and a browser blocks one with no
@@ -1363,5 +1451,10 @@ if (DRIVE.connected()) {
   addEventListener('keydown', retry, true);
 
   driveResuming = true;
-  driveConnect({ interactive: false }).finally(() => { driveResuming = false; });
+  driveConnect({ interactive: false }).finally(() => {
+    driveResuming = false;
+    /* The status said "Connecting…" while this ran. Something has to say what
+       it became, or a failed resume leaves the busy words up for good. */
+    renderDrive();
+  });
 }

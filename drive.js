@@ -96,15 +96,46 @@ const DRIVE = (() => {
     poll();
   });
 
+  /* THE SERVER HOLDS A REFRESH TOKEN, SO A TOKEN COSTS ONE SILENT REQUEST.
+     No window opens, so there is nothing for a browser to block and no
+     gesture to wait for. This is the whole difference between the two flows.
+
+     The access token is NOT kept in storage here. The server mints another
+     whenever it is asked, so storing one buys nothing and leaves a
+     credential on disk for an hour. */
+  async function serverToken() {
+    const response = await fetch('/api/oauth/token', { cache: 'no-store' });
+    const body = await response.json().catch(() => ({}));
+
+    if (response.status === 401) {
+      /* The server says the link is gone for good: revoked, or the grant
+         lapsed. Forget it, so the page offers to make a new one rather than
+         showing a connection that cannot come back. */
+      forget();
+      throw new Error(body.error || 'Not linked to Google Drive.');
+    }
+    if (!response.ok) {
+      throw new Error(body.error || `Could not get a Drive token (${response.status}).`);
+    }
+
+    token = body.access_token;
+    tokenExpiry = Date.now() + (Number(body.expires_in) || 3600) * 1000;
+    remember({ connected: true });
+    return token;
+  }
+
   /* prompt:'' asks for a token without showing the consent screen. It
      resolves only while the user still has a Google session and has already
      granted the scope, so it is the renewal path, never the first grant. */
   async function getToken({ interactive }) {
     if (token && Date.now() < tokenExpiry - 60_000) return token;
-    const { clientId } = await settings();
+    const { clientId, serverAuth } = await settings();
     /* The one place a missing client ID IS a failure: nothing can be signed
        in without it. Every other caller reads driveEnabled instead. */
     if (!clientId) throw new Error('GOOGLE_CLIENT_ID is not set for this deployment.');
+
+    if (serverAuth) return serverToken();
+
     await gisReady();
 
     return new Promise((resolve, reject) => {
@@ -259,18 +290,43 @@ const DRIVE = (() => {
      Nothing else is lost: a yeetlist.md YeeTlist wrote on another device is
      still found by name, which is the case that matters. */
 
+  /* Which flow this deployment runs. Asked once and cached with the rest of
+     the configuration, so nothing has to thread it through every caller. */
+  const serverAuth = async () => Boolean((await settings()).serverAuth);
+
   return {
     FILENAME,
-    settings,
+    settings, serverAuth,
     connected, live, fileId, syncedAt, remember, forget,
-    connect: () => getToken({ interactive: !connected() }),
+
+    /* LINKING IS A REDIRECT, NOT A POPUP, WHERE THE SERVER CAN HOLD A
+       REFRESH TOKEN. A redirect needs no gesture and cannot be blocked, and
+       the watchlist is in local storage, so leaving the page costs nothing.
+       This never resolves: the navigation ends the page. */
+    async connect() {
+      if (await serverAuth()) {
+        location.href = '/api/oauth/start';
+        return new Promise(() => {});
+      }
+      return getToken({ interactive: !connected() });
+    },
+
     resume: () => getToken({ interactive: false }),
     find, meta, read, create, update,
-    disconnect() {
+
+    async disconnect() {
       const held = token;
       token = null;
       tokenExpiry = 0;
       forget();
+
+      if (await serverAuth()) {
+        /* The cookie is the session, and only the server can clear it.
+           Dropping local storage alone would leave the reader linked. */
+        await fetch('/api/oauth/disconnect', { method: 'POST' }).catch(() => {});
+        return;
+      }
+
       /* Hand the token back, so the grant does not outlive the button. */
       if (held && window.google?.accounts?.oauth2) {
         try { google.accounts.oauth2.revoke(held); } catch {}

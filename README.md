@@ -48,11 +48,36 @@ video added on your phone shows up on your laptop.
 `Sync Now` forces a read-then-write immediately, rather than waiting for the
 next edit. `Disconnect` hands the token back to Google and forgets the link.
 
-**One known limit.** A Google access token lasts about an hour. A browser-only
-token flow cannot renew one without a user gesture, because the request opens
-a popup and browsers block a popup that no click asked for. YeeTlist keeps the
-token across reloads, so a refresh inside that hour is seamless. Past it, your
-first click anywhere on the page restores the connection.
+### Two ways to hold the connection
+
+Which one runs depends on what the deployment is given, and the app degrades
+rather than breaking when it is given less.
+
+**With `GOOGLE_CLIENT_ID` alone** the browser asks Google for a token itself.
+That token lasts about an hour, and there is nothing to renew it with. Every
+renewal is a fresh request, which opens a popup, and a browser blocks a popup
+that no click asked for. So it needs one click about once an hour. YeeTlist
+keeps the token across reloads, so a refresh inside that hour is seamless, and
+past it your first click anywhere on the page restores the connection.
+
+**Add `GOOGLE_CLIENT_SECRET` and `SESSION_SECRET`** and the server runs the
+authorization code flow instead. Google returns a refresh token, which is
+encrypted and kept in an `HttpOnly` cookie, so no script on the page can read
+it and no database is needed. Renewal is then one silent server-to-server
+request. No popup, no gesture, and the link survives a reload, a deploy and a
+closed tab.
+
+Linking becomes a redirect rather than a popup, for the same reason: a
+redirect cannot be blocked.
+
+### If it stops working after about a week
+
+Check the consent screen's **Publishing status** in the Google Cloud console.
+While it is on **Testing**, Google expires the grant after 7 days, and no
+amount of refresh-token handling survives that. Press **Publish app**.
+
+`drive.file` is a non-sensitive scope, so this does not drag you into the
+security review that the broader Drive scopes require.
 
 ## Running it locally
 
@@ -81,11 +106,20 @@ Then, in the Vercel project's environment variables:
 |---|---|---|
 | `YOUTUBE_API_KEY` | yes | Duration and upload date. Without it, oEmbed still gives a title and a channel. |
 | `GOOGLE_CLIENT_ID` | yes | The Drive button. Without it the app hides it and stores everything locally. |
+| `GOOGLE_CLIENT_SECRET` | yes | With the next one, the lasting connection described above. |
+| `SESSION_SECRET` | yes | Encrypts the stored refresh token. Any long random string. |
 
-There is no client secret anywhere in this project. The browser-only token
-flow does not use one, so there is none to leak.
+Generate the session secret rather than inventing one:
 
-**Two settings that are easy to get wrong**, both in the Google Cloud console:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Changing it signs every reader out, because the stored cookies can no longer
+be opened. That is how you revoke every session at once.
+
+**Three settings that are easy to get wrong**, all in the Google Cloud
+console:
 
 - Leave `YOUTUBE_API_KEY` **unrestricted by HTTP referrer**. It is used
   server-side, and a server sends no referrer, so a browser-restricted key is
@@ -93,6 +127,14 @@ flow does not use one, so there is none to leak.
 - Add your deployed origin **and** `http://localhost:3000` to the OAuth
   client's **Authorized JavaScript origins**, or sign-in returns
   `Error 401: invalid_client`.
+- Add both callback addresses to **Authorized redirect URIs**, which is a
+  different list from the origins. Miss this and Google answers
+  `redirect_uri_mismatch`. The app repeats the exact URL to paste.
+
+```
+http://localhost:3000/api/oauth/callback
+https://YOUR-DEPLOYMENT/api/oauth/callback
+```
 
 ## How it is put together
 
@@ -102,10 +144,12 @@ flow does not use one, so there is none to leak.
 | `styles.css` | A token layer, then the components. Every number comes from a published scale. |
 | `app.js` | State, rendering, filtering, import, export, toasts. |
 | `drive.js` | The Google token flow and the Drive REST calls. |
-| `api/config.js` | Serves the client ID and whether Drive is available at all. |
+| `api/config.js` | Serves the client ID, and which of the two Drive flows this deployment can run. |
 | `api/video.js` | Metadata for one video. |
 | `api/videos.js` | Metadata for up to 50 videos in one call, at one quota unit. |
-| `dev-server.cjs` | The local server. Mirrors the API so `npm run dev` behaves like production. |
+| `api/oauth/*.js` | Start, callback, token and disconnect for the server-side flow. |
+| `lib/session.mjs` | Cookie sealing and the Google token exchange. One implementation, imported by both servers. |
+| `dev-server.cjs` | The local server. Imports the same OAuth handlers, so the preview cannot disagree with production. |
 
 `api/videos.js` is why importing a large bookmarks file is cheap. The YouTube
 API charges one quota unit whether you ask for one video or fifty, so a
