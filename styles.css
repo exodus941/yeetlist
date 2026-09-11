@@ -415,6 +415,66 @@ header {
 .input:focus { border-color: #777 }
 
 /* ==========================================================================
+   Select field
+
+   A native select keeps the UA's own chrome, so .input alone gave it an
+   authored background under a browser-drawn face. Beside the tag dropdown,
+   which is a button styled by this file, the two read as different kinds of
+   control. appearance:none hands the whole face over.
+
+   A native select also ignores line-height on its value, so the text is
+   centred by the BOX and never by the leading.
+
+   NOT called .select, and the name cost a real fault. `.select` already
+   means "this row is selected" on the row checkbox, and app.js reads that
+   class to know which box changed. Taking the name put a 32px chevron inset
+   on every checkbox: they measured 46x16 instead of 16x16. Grep the
+   stylesheet for a class name before taking it.
+   ========================================================================== */
+
+.select-field {
+  appearance: none;
+  -webkit-appearance: none;
+  height: max(var(--control-md), var(--control-floor));
+  padding-block: 0;
+  padding-inline: var(--space-md) var(--space-2xl);
+  border: 1px solid #444;
+  border-radius: var(--radius-sm);
+  background-color: var(--surface-sunken);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+  outline: 0;
+  transition: border-color var(--duration-hover) var(--ease);
+
+  /* The chevron matches #i-chevron-down. Its stroke is the one literal in
+     this file that cannot read a token: a data URI has no access to a custom
+     property. It is --text-muted, and the two move together by hand. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a8a8a8' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-md) center;
+  background-size: var(--mark) var(--mark);
+}
+
+.select-field:hover, .select-field:focus { border-color: #777 }
+
+/* The option list is drawn by the operating system, so it takes the page
+   colours rather than this file's. Naming them is all CSS can do. */
+.select-field option { background: var(--surface-raised); color: var(--text) }
+
+/* Forced colors drops a background-image, which would take the chevron with
+   it. Hand the whole control back to the UA there. */
+@media (forced-colors: active) {
+  .select-field {
+    appearance: auto;
+    -webkit-appearance: auto;
+    background-image: none;
+    padding-inline-end: var(--space-md);
+  }
+}
+
+/* ==========================================================================
    Add card
    ========================================================================== */
 
@@ -1244,12 +1304,23 @@ dialog menu {
   .add-row .input { flex: none; width: 100% }
   .add-row .btn { width: 100% }
 
-  /* Orphaned elements go full width. The search field and the clear button
-     each land on their own line here, so each takes the whole line. */
+  /* Search goes on TOP here, with the tag filter under it. On a wide row the
+     tag control sits to the LEFT of search, which reads as narrowing before
+     searching. Stacked, the same order would bury the field most people
+     reach for first.
+
+     Orphaned elements go full width, so search and the clear button each
+     take the whole line they landed on. */
   .filters { flex-wrap: wrap }
-  .multi { flex: 1 1 auto; width: auto }
-  .search { order: 3; flex: 1 1 100% }
+  .search { order: 1; flex: 1 1 100% }
+  .filters > .filters-label { order: 2 }
+  .multi { order: 3; flex: 1 1 auto; width: auto }
   #clearFilter { order: 4; flex: 1 1 100% }
+
+  /* The filters rule must not touch the sort bar. A rule between sections
+     sits INSIDE the gap, so it takes the filters' own 12px above it and the
+     same below. */
+  .sort-bar { margin-block: var(--space-md) var(--space-md) }
 
   /* The table becomes a stack of cards. Eight columns cannot fold into
      375px, and a sideways scroller is the answer this file calls a last

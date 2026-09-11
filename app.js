@@ -78,10 +78,19 @@ function save() {
 const allTags = () =>
   [...new Set(videos.flatMap((v) => v.tags || []))].sort((a, b) => a.localeCompare(b));
 
+/* A tag is stored bare and shown with a hash. Keeping the hash out of storage
+   means no migration, no chance of a double hash, and an export whose JSON
+   payload does not change shape.
+
+   The hash is also the search syntax. "#vfx" matches only a tag, because no
+   title holds that literal, while a bare "vfx" still matches titles, channels
+   and tags alike. */
+const hashed = (tag) => '#' + tag;
+
 function filteredVideos() {
   return videos
     .filter((v) => {
-      const haystack = `${v.title} ${v.channel} ${(v.tags || []).join(' ')}`.toLowerCase();
+      const haystack = `${v.title} ${v.channel} ${(v.tags || []).map(hashed).join(' ')}`.toLowerCase();
       const tagged = activeTags.size === 0 || (v.tags || []).some((t) => activeTags.has(t));
       return tagged && haystack.includes(searchTerm);
     })
@@ -145,7 +154,7 @@ const row = (v) => `<tr class="${selected.has(v.id) ? 'row-selected' : ''}" data
   <td class="cell-fact" data-label="Added">${date(v.addedAt)}</td>
   <td class="cell-tags" data-label="Metatags">
     <div class="tags">
-      ${(v.tags || []).map((t) => `<span class="tag-chip">${escape(t)}</span>`).join('')}
+      ${(v.tags || []).map((t) => `<span class="tag-chip">${escape(hashed(t))}</span>`).join('')}
       <label class="tag-input-hit">
         <input class="tag-input" data-id="${escape(v.id)}" placeholder="+ add tags"
                aria-label="Add tags to ${escape(v.title)}" autocomplete="off"
@@ -224,16 +233,18 @@ function renderTagFilter() {
 
   $('#tagFilterValue').textContent = chosen.length === 0
     ? 'All Videos'
-    : chosen.length === 1 ? chosen[0] : `${chosen.length} Tags`;
+    : chosen.length === 1 ? hashed(chosen[0]) : `${chosen.length} Tags`;
 
   const counts = new Map(tags.map((tag) => [tag, videos.filter((v) => v.tags?.includes(tag)).length]));
 
   $('#tagFilterList').innerHTML = tags.length === 0
     ? `<li class="multi-option" aria-disabled="true">No Tags Yet</li>`
+    /* data-tag stays BARE. It is the key, and only the visible text is
+       hashed. Hashing the key would break every lookup against `videos`. */
     : tags.map((tag, i) => `<li class="multi-option" role="option" id="tagOpt-${i}"
         data-tag="${escape(tag)}" aria-selected="${activeTags.has(tag) ? 'true' : 'false'}">
         <span class="multi-box">${icon('check')}</span>
-        <span>${escape(tag)}</span>
+        <span>${escape(hashed(tag))}</span>
         <span class="multi-count">${counts.get(tag)}</span>
       </li>`).join('');
 
@@ -332,8 +343,10 @@ function openSuggest(input) {
   suggest.options = options;
   suggest.index = -1;
 
+  /* data-value stays BARE, because accept() writes it into the field and
+     addTags stores it. Only the label carries the hash. */
   list.innerHTML = options.map((tag, i) => `<li role="option" id="tagSuggest-${i}"
-    data-value="${escape(tag)}" aria-selected="false">${escape(tag)}</li>`).join('');
+    data-value="${escape(tag)}" aria-selected="false">${escape(hashed(tag))}</li>`).join('');
 
   list.hidden = false;
   input.setAttribute('aria-expanded', 'true');
