@@ -19,8 +19,10 @@ const date = (value) => value
   ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
   : '—';
 
-/* The card view shows the upload as a day and the addition in full, so the
-   two are told apart by their shape rather than by a label. */
+/* Both dates render in both forms and CSS picks one, because which form fits
+   is a question about the WIDTH. The table drops the time when the column
+   narrows; the card shows the upload as a day and the addition in full, so
+   the two are told apart by their shape rather than by a label. */
 const dateOnly = (value) => value
   ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value))
   : '—';
@@ -160,7 +162,10 @@ const row = (v) => `<tr class="${selected.has(v.id) ? 'row-selected' : ''}" data
     <span class="cell-name">Uploaded</span>
     <span class="date-full">${date(v.uploadedAt)}</span><span class="date-day">${dateOnly(v.uploadedAt)}</span>
   </td>
-  <td class="cell-added"><span class="cell-name">Added</span>${date(v.addedAt)}</td>
+  <td class="cell-added">
+    <span class="cell-name">Added</span>
+    <span class="date-full">${date(v.addedAt)}</span><span class="date-day">${dateOnly(v.addedAt)}</span>
+  </td>
   <td class="cell-tags">
     <div class="tags">
       ${(v.tags || []).map((t) => `<span class="tag-chip">

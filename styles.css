@@ -608,7 +608,7 @@ header {
   from { opacity: 0; transform: translateY(var(--space-sm)) }
 }
 
-@media (max-width: 850px) {
+@media (max-width: 952px) {
   .toasts {
     inset-inline: var(--space-lg);
     width: auto;
@@ -862,12 +862,58 @@ header {
   min-height: 260px;
 }
 
+/* FIXED LAYOUT, SO THE TABLE IS EXACTLY ITS CONTAINER AT EVERY WIDTH.
+
+   Under the automatic algorithm the columns are sized by their content, so
+   the caps and the nowrap runs added up to a CONSTANT: 1314px. The shell is
+   1380 wide with 32px of padding, so the container is min(1316, viewport-64).
+   Every window under 1378px was therefore too narrow by construction, and at
+   1351 the table ran 27px past its own edge.
+
+   Fixed layout asks the colgroup instead, so the table can never exceed the
+   space it has. What the content needs is then a set of thresholds rather
+   than a width the table demands. */
 table {
+  /* Five columns hold a run that must not break, so each takes its content
+     and no more. The title column states nothing and absorbs the remainder,
+     which is why it is the one that shrinks last.
+
+     Every figure is the widest INK that column renders, plus the 24px the
+     two paddings come to. DURATION 73.5 + 24. A full date measured 158.2 and
+     a day-only one 89.1.
+
+     THE TWO ORNAMENT COLUMNS READ THE FLOOR, THEY DO NOT STATE A NUMBER. A
+     control promoted by the touch floor grows, and a column typed for a
+     mouse does not. Measured with the floor at 44: the checkbox target spilt
+     20px past its column and the remove button 16px, at every table width.
+     Written as a max, both follow whatever their own control comes out as. */
+  --col-pad: calc(var(--space-md) * 2);
+  --col-check: calc(max(var(--target-mouse), var(--control-floor)) + var(--col-pad));
+  --col-remove: calc(max(var(--control-sm), var(--control-floor)) + var(--col-pad));
+  --col-dur: 100px;
+  --col-date: 188px;
+  --col-chan: 184px;
+  --col-tags: 232px;
+
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   text-align: left;
 }
 
+.col-check { width: var(--col-check) }
+.col-chan { width: var(--col-chan) }
+.col-dur { width: var(--col-dur) }
+.col-up, .col-added { width: var(--col-date) }
+.col-tags { width: var(--col-tags) }
+.col-remove { width: var(--col-remove) }
+
+/* A HEADING THAT WRAPS COSTS ONE LINE. A HEADING THAT SPILLS COVERS THE
+   COLUMN BESIDE IT. Under fixed layout the title column can end up narrower
+   than its own heading, and on a touch laptop the two ornament columns grow
+   36px and take that width from it. Allowed to wrap, VIDEO TITLE takes a
+   second line instead of painting over CHANNEL. It is the only heading with
+   a space in it, so nothing else can move. */
 th {
   padding: var(--space-md);
   border-bottom: 1px solid var(--line);
@@ -875,7 +921,6 @@ th {
   font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: var(--track-label);
-  white-space: nowrap;
 }
 
 td {
@@ -908,27 +953,47 @@ tbody tr:last-child td { border-bottom: 0 }
 [aria-sort] .th-sort { color: var(--text) }
 [aria-sort] .th-sort .icon { color: var(--accent) }
 
-/* The ornament columns take their content and no more, so the slack spreads
-   across the columns holding data. */
-.col-check, .col-remove { width: 1% }
-
 /* A date is one run that must not break. Left to wrap, "Sep 11, 2026, 6:05
-   PM" folded onto two lines and made every row in the table taller. nowrap
-   makes the column demand its own content width instead.
+   PM" folded onto two lines and made every row in the table taller.
 
-   The CHANNEL is not in that list, and putting it there cost 169px of table
-   overflow. A 51-character channel name with nowrap demands every pixel it
-   needs, and four such columns plus a 420px title cap pushed the table past
-   its container. The two TEXT columns truncate instead. The dates cannot,
-   because a truncated date is a wrong date. */
+   The two TEXT columns truncate instead, because a truncated date is a wrong
+   date. What a date does when the room runs out is drop its TIME, one step
+   down the ladder below. */
 .cell-dur, .cell-up, .cell-added { white-space: nowrap }
 
-/* The other half of the 464px the two text columns share. 300 for the title
-   and 160 here leaves 4px of slack against the container. */
-.cell-chan .truncate { max-width: 160px }
+/* THE LADDER, WIDEST FIRST. Each step gives up one thing, in the order the
+   reader can most afford to lose it.
 
-/* The day-only form is for the card view. At this width the column header
-   says which date it is, so the full form carries the time too. */
+     1  everything in full
+     2  the timestamps go, the dates stay
+     3  the channel is capped and truncates
+     4  the title gives up the rest
+
+   A threshold is where the TITLE column would fall under its own header,
+   which is 88.8px of ink plus 24px of padding. The sums are the reserved
+   width of the seven stated columns:
+
+     full          48 + 100 + 52 + 184 + 376 + 232  =  992  ->  1107 + 66
+     no time       48 + 100 + 52 + 184 + 236 + 232  =  852  ->   967 + 66
+     capped        48 + 100 + 52 + 104 + 236 + 232  =  772  ->   887 + 66
+
+   The 66 is the shell's 64px of padding plus the wrapper's two borders, so
+   each figure on the right is the viewport width at which that step runs
+   out. The last one, 953, is where the CARD stack takes over: below it the
+   eight columns cannot hold their own headers, and the ladder has nothing
+   left to give up. */
+@media (max-width: 1172px) {
+  table { --col-date: 118px }
+  .cell-up .date-full, .cell-added .date-full { display: none }
+  .cell-up .date-day, .cell-added .date-day { display: inline }
+}
+
+@media (max-width: 1032px) {
+  table { --col-chan: 104px }
+}
+
+/* The day-only form is the fallback. At the widest step the column has room
+   for the time, so the full form carries it. */
 .date-day { display: none }
 
 .check { text-align: center }
@@ -1007,18 +1072,11 @@ tbody tr.row-selected > td:first-child::before {
    and a flex container will not ellipsise its own text. A stated line-height
    equal to the target floor does both jobs: it centres the single line and
    gives the anchor its height. One writer per property. */
-/* The cap is what the table can afford, measured rather than picked, and it
-   shrank again when the tag chips gained a remove button. Each chip grew
-   20px, so the widest realistic tags cell went from 240px of demand to 272.
-   The 32px came out of here, because the title is the one column that
-   degrades gracefully: it truncates and says the rest on hover.
-
-   In a 1316px container the other columns take the rest. At 420 and 180 the
-   two text caps asked for 600 against the 464 available, and the table ran
-   137px past its container. */
+/* NO CAP. A stated one is what made the table demand a constant width, and
+   any window narrower than that constant overflowed. The COLUMN is the cap
+   now, and a block with ellipsis fills whatever column it is given. */
 .video-link {
   display: block;
-  max-width: 332px;
   overflow: hidden;
   line-height: max(var(--target-mouse), var(--control-floor));
   color: var(--text);
@@ -1056,21 +1114,18 @@ tbody tr.row-selected > td:first-child::before {
 
 th.amount { text-align: end }
 
-/* Wide enough for two chips and the field on one line. At 160px the field
-   wrapped below them: two chips measure about 124px with their gap, the
-   field asks for 96px, and 124 + 12 + 96 is 232. The row then grew to hold a
-   second line, and rows with one chip stayed short, so the table read as
-   ragged for no reason a reader could see. */
-/* Sized for the COLLAPSED state, which is what a row shows almost all of the
-   time: two chips at 61 and 99, a 4px gap between them, 12px before the add
-   control and 24px for it. The field only exists while someone is typing in
-   it, and it is free to take a second line then. */
+/* NO MINIMUM. Under fixed layout a minimum wider than the column does not
+   widen the table, it pushes the chips over the column beside it. The column
+   states the width, and --col-tags is sized for the COLLAPSED state, which
+   is what a row shows almost all of the time: two chips at 61 and 99, a 4px
+   gap between them, 12px before the add control and 24px for it. The field
+   only exists while someone is typing, and it may take a second line. */
 .tags {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs);
-  min-width: 208px;
+  min-width: 0;
 }
 
 /* A chip is a LABEL, so it never reads the touch floor. Given the floor it
@@ -1406,10 +1461,15 @@ dialog menu {
 
 /* ==========================================================================
    Narrow widths
-   The threshold is measured from the row it governs, not picked.
+
+   953px, and the figure is the last rung of the table's ladder rather than a
+   width anybody chose. At 887px of container the eight columns are each at
+   their own floor and the title is down to its header. One pixel narrower
+   and a column has to give up something it cannot spare, so the card stack
+   takes over instead. The sum is beside the ladder, in the Table section.
    ========================================================================== */
 
-@media (max-width: 850px) {
+@media (max-width: 952px) {
   .shell { padding: var(--space-lg) }
 
   .sync-words { display: none }
@@ -1472,7 +1532,14 @@ dialog menu {
   .sort-bar { display: flex; gap: var(--space-lg); margin-bottom: var(--space-md) }
 
   .table-wrap { overflow-x: visible; border: 0; min-height: 0 }
-  table { min-width: 0; border-collapse: separate }
+  /* THE COLUMNS GO, OR THE TABLE KEEPS A WIDTH NO ROW USES. The rows here
+     are grid cards and render none of the eight columns, but the colgroup
+     still declares them and fixed layout still honours the sum. Measured at
+     375px: a 790px table inside a 343px wrapper, and 432px of page overflow
+     with no scroller. The header is hidden, the rows are cards, so nothing
+     is left for a column to size. */
+  colgroup { display: none }
+  table { min-width: 0; table-layout: auto; border-collapse: separate }
   thead { display: none }
   tbody { display: flex; flex-direction: column; gap: var(--space-md) }
 
@@ -1581,14 +1648,18 @@ dialog menu {
     white-space: nowrap;
   }
 
-  /* The card gives the title its width, so the desktop cap comes off. The
-     line-height stays at the floor: line 1 is already 44px tall from the
+  /* The line-height stays at the floor: line 1 is already 44px tall from the
      checkbox's hit area, so matching it costs no height and keeps the
      title's own target the same size as the row it sits in. */
-  .video-link { max-width: none }
 
-  .date-full { display: none }
-  .date-day { display: inline }
+  /* THE CARD IS NOT THE NARROWEST STEP OF THE TABLE'S LADDER. Its two dates
+     sit on one line and are told apart by their SHAPE, so the upload is a
+     day and the addition keeps its time. That reverses the table's rule for
+     the added column, which is why this block restates both. */
+  .cell-up .date-full { display: none }
+  .cell-up .date-day { display: inline }
+  .cell-added .date-full { display: inline }
+  .cell-added .date-day { display: none }
 
   /* A run of like things, so one gap serves both axes horizontally. The ROW
      gap opens, because each chip's remove button reaches 8px past the chip

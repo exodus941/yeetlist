@@ -187,6 +187,19 @@
 
   <section class="table-wrap">
     <table>
+      <!-- Fixed layout, so the table is always exactly as wide as its
+           container. Sized caps made its width a constant, and any window
+           narrower than that constant overflowed. -->
+      <colgroup>
+        <col class="col-check" />
+        <col class="col-title" />
+        <col class="col-chan" />
+        <col class="col-dur" />
+        <col class="col-up" />
+        <col class="col-added" />
+        <col class="col-tags" />
+        <col class="col-remove" />
+      </colgroup>
       <thead>
         <tr>
           <th class="col-check check" scope="col">
