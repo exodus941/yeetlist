@@ -91,6 +91,12 @@
   --target-touch: 44px;
   --control-floor: var(--target-mouse);
 
+  /* How far a hit area reaches past the small step. Zero on a mouse, because
+     28px already clears 24. A row that sits inside such a target subtracts
+     this from its own gap, so the visible rhythm does not change with the
+     pointer. */
+  --tag-overhang: max(0px, calc(max(var(--target-mouse), var(--control-floor)) - var(--control-sm)));
+
   /* Weight of the bar that marks a selected row, and the inset it costs.
      Both ship, because a build that flushes the first column adds the width
      to its own number rather than taking the sum. */
@@ -497,36 +503,127 @@ header {
   flex: 0 0 auto;
 }
 
-/* A run of buttons that does not fit has too many buttons, so it wraps.
-   It never becomes a sideways scroller. */
-.tag-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
+/* ==========================================================================
+   Tag multiselect
+
+   A run of destinations that does not fit is a list, and a list you pick from
+   is a select. Ten pills wrapped to four rows on a phone, so the filter is a
+   dropdown at every width rather than two controls for one decision.
+
+   Keys: Enter or Space opens. ArrowDown and ArrowUp move the active option.
+   Enter or Space toggles it. Escape closes and returns focus to the trigger.
+   One tab stop, because a composite widget is one tab stop.
+   ========================================================================== */
+
+.multi {
+  position: relative;
   flex: 1;
   min-width: 0;
+  max-width: 340px;
 }
 
-.tag {
-  display: inline-flex;
+.multi-trigger {
+  display: flex;
   align-items: center;
-  min-height: max(var(--target-mouse), var(--control-floor));
+  gap: var(--icon-gap);
+  width: 100%;
+  height: max(var(--control-md), var(--control-floor));
   padding: 0 var(--space-md);
-  border: 1px solid transparent;
-  border-radius: var(--radius-pill);
-  background: var(--tag-bg);
+  border: 1px solid #444;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: border-color var(--duration-hover) var(--ease);
+}
+
+.multi-trigger:hover { border-color: #777 }
+.multi-trigger[aria-expanded="true"] { border-color: #777 }
+
+.multi-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The chevron sits at the far end by justify-content, so it carries no side
+   class, and it centres on its own box rather than on a label it has none of. */
+.multi-chevron {
+  color: var(--text-muted);
+  transition: transform var(--duration-fast) var(--ease);
+}
+
+.multi-trigger[aria-expanded="true"] .multi-chevron { transform: rotate(180deg) }
+
+.multi-panel {
+  position: absolute;
+  z-index: var(--layer-dropdown);
+  inset-inline: 0;
+  top: calc(100% + var(--space-xs));
+  max-height: 280px;
+  margin: 0;
+  padding: var(--space-xs);
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: 0 8px 24px #000000a8;
+}
+
+.multi-option {
+  display: flex;
+  align-items: center;
+  gap: var(--icon-gap);
+  min-height: max(var(--control-sm), var(--control-floor));
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-sm);
   color: var(--tag-ink);
   font-size: var(--text-xs);
-  white-space: nowrap;
   cursor: pointer;
-  transition:
-    background-color var(--duration-hover) var(--ease),
-    color var(--duration-hover) var(--ease);
 }
 
-.tag:hover { background: #3c3c3c }
-.tag.active { background: var(--tag-active-bg); color: var(--tag-active-ink) }
-.tag.active:hover { background: #fff }
+.multi-option:hover { background: var(--row-hover) }
+.multi-option.active { background: var(--row-selected); color: var(--text) }
+
+/* The tick is the mark that says chosen. A fill alone would leave a reader
+   who cannot separate two greys with nothing to read. */
+.multi-option .multi-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-lg);
+  height: var(--space-lg);
+  flex: 0 0 auto;
+  border: 1px solid #666;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.multi-option[aria-selected="true"] .multi-box {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.multi-option .multi-box .icon { width: var(--space-md); height: var(--space-md); opacity: 0 }
+.multi-option[aria-selected="true"] .multi-box .icon { opacity: 1 }
+
+.multi-count {
+  margin-inline-start: auto;
+  color: var(--text-quiet);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (forced-colors: active) {
+  .multi-option.active { outline: 2px solid Highlight; outline-offset: -2px }
+  .multi-option[aria-selected="true"] .multi-box { outline: 2px solid Highlight }
+}
 
 .search {
   display: flex;
@@ -557,6 +654,24 @@ header {
 }
 
 .search input::placeholder { color: var(--text-quiet) }
+
+/* ==========================================================================
+   Sort bar
+   Only the card stack needs it: a table states its sort in its own headers.
+   ========================================================================== */
+
+.sort-bar { display: none }
+
+.sort-bar label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.sort-field { flex: 1 }
+.sort-field select { flex: 1; min-width: 0 }
+.sort-bar select { cursor: pointer }
 
 /* ==========================================================================
    Table
@@ -682,39 +797,39 @@ tbody tr.row-selected > td:first-child::before {
   background: var(--accent);
 }
 
+/* The anchor is the target, and it reaches the floor by its own height.
+
+   An overhang was tried first and does not work here: the clipping that
+   makes the ellipsis must sit on the element holding the text, and
+   overflow:hidden clips that element's own pseudo-element. Hit-testing the
+   result gave 21.5px against a 24px floor. So the clipping moved to an inner
+   span and the anchor grew instead.
+
+   A caption directly below its heading is a GROUP, so the distance is zero
+   on purpose. Declared rather than left absent, because an absent gap and a
+   chosen one read the same to anything measuring it. */
+.video-link {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  row-gap: 0;
+  min-height: max(var(--target-mouse), var(--control-floor));
+  max-width: 320px;
+  color: inherit;
+  text-decoration: none;
+}
+
 .video-title {
   display: block;
-  position: relative;
-  max-width: 320px;
   overflow: hidden;
   color: var(--text);
   font-weight: 650;
-  text-decoration: none;
   text-overflow: ellipsis;
   white-space: nowrap;
   transition: color var(--duration-hover) var(--ease);
 }
 
-.video-title:hover { color: var(--accent); text-decoration: underline }
-
-/* The link is 21px of text and the target has to reach the floor. An overhang
-   costs no layout, so the ink stays where it is. min() against zero is what
-   stops it: a link already past the floor gets no overhang at all. */
-.video-title::after {
-  content: "";
-  position: absolute;
-  inset-inline: 0;
-  inset-block: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2));
-}
-
-/* A caption directly below its heading is a GROUP, so the distance is zero
-   on purpose. Declared rather than left absent, because an absent gap and a
-   chosen one read the same to anything measuring it. */
-.title-cell {
-  display: flex;
-  flex-direction: column;
-  row-gap: 0;
-}
+.video-link:hover .video-title { color: var(--accent); text-decoration: underline }
 
 .subtle { color: var(--text-muted); font-size: var(--text-xs) }
 
@@ -736,12 +851,16 @@ th.amount { text-align: end }
   min-width: 160px;
 }
 
-/* The chip and the field share one stated height. They sit side by side, so
-   two heights put their tops half the difference apart and read as a slip. */
+/* A chip is a LABEL, so it never reads the touch floor. Given the floor it
+   grew to 44px on a phone and read as a giant pill beside its own row.
+   Nobody presses a chip, so there is no target to protect.
+
+   It sits beside the tag field, which IS a control and does take the floor.
+   Two different kinds of thing, so two heights, and that is correct. */
 .tag-chip {
   display: inline-flex;
   align-items: center;
-  min-height: max(var(--control-sm), var(--control-floor));
+  min-height: var(--control-sm);
   padding: 0 var(--space-sm);
   border-radius: var(--radius-pill);
   background: var(--tag-bg);
@@ -749,10 +868,38 @@ th.amount { text-align: end }
   font-size: var(--text-xs);
 }
 
-.tag-input {
+/* The label is the target and the field is what a reader sees, the same
+   shape the checkbox uses.
+
+   The 44px reach is an OVERHANG, not a height. Put it on the box and the
+   label became a 44px flex item beside 28px chips, which set the row to 44
+   and left every chip top 8px adrift. An overhang costs no layout, so the
+   row stays 28 and the target still clears the floor.
+
+   A percentage inset resolves against the containing block, and for an
+   absolutely positioned child that block is this label. So 100% is the
+   label's own height. min() against zero stops it: a label already past the
+   floor gets no overhang. */
+.tag-input-hit {
+  position: relative;
+  display: flex;
+  align-items: center;
   flex: 1;
   min-width: 96px;
-  min-height: max(var(--control-sm), var(--control-floor));
+  min-height: var(--control-sm);
+}
+
+.tag-input-hit::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2));
+}
+
+.tag-input {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-sm);
   padding: 0 var(--space-xs);
   border: 0;
   border-radius: var(--radius-sm);
@@ -949,18 +1096,105 @@ dialog menu {
 
   header { gap: var(--space-sm) }
 
+  /* The header's actions do not fit beside the brand with their labels on:
+     measured 1077px of content in a 375px viewport, 702px of it off screen
+     with no scroller. So each one becomes an icon-only square.
+
+     The shape is stated in the SAME block that hides the label, because CSS
+     cannot see a text node and the markup does not change. Every one of them
+     carries an aria-label, so nothing loses its name. */
+  .sync .btn-label { display: none }
+  .sync .dot { display: none }
+
+  .sync .btn,
+  .sync .btn-text {
+    aspect-ratio: 1;
+    justify-content: center;
+    padding: 0;
+    gap: 0;
+  }
+
   /* The field takes its own line, so the action below it takes the whole
-     line too. An orphan gets the width it was given. */
+     line too. An orphan gets the width it was given.
+
+     flex must go back to none here. In a COLUMN container flex:1 means
+     flex-basis:0 on the BLOCK axis, which outranks the field's own height
+     and collapsed it to 19px against a 44px floor. It is the right value in
+     a row, where the basis is a width. */
   .add-row { flex-direction: column }
+  .add-row .input { flex: none; width: 100% }
   .add-row .btn { width: 100% }
 
   .filters { flex-wrap: wrap }
   .search { order: 3; width: 100%; flex: 1 1 100% }
 
-  /* A table of real columns cannot fold into 320px, so it scrolls. A table
-     cannot scroll itself; the wrapper does. */
-  .table-wrap { overflow-x: auto }
-  table { min-width: 900px }
+  /* The table becomes a stack of cards. Eight columns cannot fold into
+     375px, and a sideways scroller is the answer this file calls a last
+     resort: a column scrolled out of view is a column nobody reads.
+
+     One DOM either way. Each cell carries data-label, which is what names
+     the fact once the header row is gone. */
+  .sort-bar { display: flex; gap: var(--space-lg); margin-bottom: var(--space-md) }
+
+  .table-wrap { overflow-x: visible; border: 0; min-height: 0 }
+  table { min-width: 0; border-collapse: separate }
+  thead { display: none }
+  tbody { display: flex; flex-direction: column; gap: var(--space-md) }
+
+  tbody tr {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr) max-content;
+    column-gap: var(--space-md);
+    row-gap: var(--space-sm);
+    align-items: start;
+    padding: var(--space-md);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+  }
+
+  tbody tr:hover { background: var(--surface) }
+  tbody tr.row-selected { background: var(--row-selected); border-color: var(--accent) }
+
+  /* The bar is the row's edge on a table. On a card the border says it, so
+     the pseudo-element would draw a second mark over the radius. */
+  tbody tr.row-selected > td:first-child::before { content: none }
+
+  tbody tr > td { padding: 0; border: 0 }
+  tbody tr:last-child td { border: 0 }
+
+  .cell-check  { grid-column: 1; grid-row: 1 }
+  .cell-title  { grid-column: 2; grid-row: 1 }
+  .cell-remove { grid-column: 3; grid-row: 1 }
+
+  /* The facts and the tags start on the title's edge, not the checkbox's, so
+     the card reads as one column of text under its own heading. */
+  .cell-fact, .cell-tags { grid-column: 2 / -1 }
+
+  .cell-fact {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-lg);
+    font-size: var(--text-xs);
+  }
+
+  /* data-label is the column heading the stack no longer has. A label owns
+     the distance to what it names, and here that distance is the row gap. */
+  .cell-fact::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-weight: 700;
+    letter-spacing: var(--track-label);
+    font-size: var(--text-2xs);
+    text-transform: uppercase;
+    flex: 0 0 auto;
+  }
+
+  .video-link { max-width: none }
+
+  /* A run of like things, so one gap serves both axes. */
+  .tags { min-width: 0 }
 
   /* An action row that breaks, breaks into pairs, and one gap serves both
      axes because a line break is not a group boundary. */

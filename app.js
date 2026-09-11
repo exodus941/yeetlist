@@ -32,7 +32,10 @@ let videos = [];
 let tombstones = [];
 let selected = new Set();
 let sort = { key: 'addedAt', dir: -1 };
-let activeTag = '';
+/* A set, because the filter is a multiselect. Several tags match ANY of
+   them: adding a tag widens the result, which is what a reader expects from
+   a tag filter. */
+let activeTags = new Set();
 let searchTerm = '';
 let deletion = null;
 let listState = 'ready';
@@ -79,7 +82,8 @@ function filteredVideos() {
   return videos
     .filter((v) => {
       const haystack = `${v.title} ${v.channel} ${(v.tags || []).join(' ')}`.toLowerCase();
-      return (!activeTag || v.tags?.includes(activeTag)) && haystack.includes(searchTerm);
+      const tagged = activeTags.size === 0 || (v.tags || []).some((t) => activeTags.has(t));
+      return tagged && haystack.includes(searchTerm);
     })
     .sort((a, b) => {
       let x = a[sort.key] ?? '';
@@ -95,7 +99,7 @@ function filteredVideos() {
 
 function render() {
   const filtered = filteredVideos();
-  const filtering = Boolean(activeTag || searchTerm);
+  const filtering = activeTags.size > 0 || Boolean(searchTerm);
 
   $('#listCount').textContent = filtering
     ? `${filtered.length} of ${videos.length} ${videos.length === 1 ? 'video' : 'videos'}`
@@ -104,7 +108,7 @@ function render() {
   $('#rows').innerHTML = listState === 'loading' ? skeleton() : filtered.map(row).join('');
 
   renderState(filtered.length, filtering);
-  renderTagFilters();
+  renderTagFilter();
   renderSortState();
 
   /* Three states. Indeterminate is the honest answer when some of the rows
@@ -118,34 +122,39 @@ function render() {
   $('#clearFilter').disabled = !filtering;
 }
 
+/* One rendering for both shapes. At narrow widths CSS turns each row into a
+   card, and data-label is what gives every fact its name once the header row
+   is gone. Two renderings of the same data would drift. */
 const row = (v) => `<tr class="${selected.has(v.id) ? 'row-selected' : ''}" data-id="${escape(v.id)}">
-  <td class="check">
+  <td class="check cell-check">
     <label class="check-hit">
       <input class="checkbox select" data-id="${escape(v.id)}" type="checkbox"
              ${selected.has(v.id) ? 'checked' : ''} aria-label="Select ${escape(v.title)}">
     </label>
   </td>
-  <td>
-    <span class="title-cell">
-      <a class="video-title" href="https://www.youtube.com/watch?v=${encodeURIComponent(v.id)}"
-         target="_blank" rel="noopener">${escape(v.title)}</a>
+  <td class="cell-title">
+    <a class="video-link" href="https://www.youtube.com/watch?v=${encodeURIComponent(v.id)}"
+       target="_blank" rel="noopener">
+      <span class="video-title">${escape(v.title)}</span>
       <span class="subtle">youtube.com</span>
-    </span>
+    </a>
   </td>
-  <td>${escape(v.channel)}</td>
-  <td class="amount">${escape(v.duration || '—')}</td>
-  <td>${date(v.uploadedAt)}</td>
-  <td>${date(v.addedAt)}</td>
-  <td>
+  <td class="cell-fact" data-label="Channel">${escape(v.channel)}</td>
+  <td class="cell-fact amount" data-label="Duration">${escape(v.duration || '—')}</td>
+  <td class="cell-fact" data-label="Uploaded">${date(v.uploadedAt)}</td>
+  <td class="cell-fact" data-label="Added">${date(v.addedAt)}</td>
+  <td class="cell-tags" data-label="Metatags">
     <div class="tags">
       ${(v.tags || []).map((t) => `<span class="tag-chip">${escape(t)}</span>`).join('')}
-      <input class="tag-input" data-id="${escape(v.id)}" placeholder="+ add tags"
-             aria-label="Add tags to ${escape(v.title)}" autocomplete="off"
-             role="combobox" aria-expanded="false" aria-autocomplete="list"
-             aria-controls="tagSuggest">
+      <label class="tag-input-hit">
+        <input class="tag-input" data-id="${escape(v.id)}" placeholder="+ add tags"
+               aria-label="Add tags to ${escape(v.title)}" autocomplete="off"
+               role="combobox" aria-expanded="false" aria-autocomplete="list"
+               aria-controls="tagSuggest">
+      </label>
     </div>
   </td>
-  <td>
+  <td class="cell-remove">
     <button class="row-remove" data-id="${escape(v.id)}" type="button"
             aria-label="Remove ${escape(v.title)}">${icon('x')}</button>
   </td>
@@ -199,7 +208,7 @@ function renderState(shown, filtering) {
     box.innerHTML = `${icon('search-x')}
       <h3>No videos match</h3>
       <p>${videos.length} ${videos.length === 1 ? 'video is' : 'videos are'} saved, and the current filter hides ${videos.length === 1 ? 'it' : 'them all'}.</p>
-      <button class="btn-text" type="button" data-action="clear-filter">Clear filters</button>`;
+      <button class="btn btn-sm" type="button" data-action="clear-filter">${icon('x')} Clear filters</button>`;
     return;
   }
 
@@ -207,18 +216,35 @@ function renderState(shown, filtering) {
   box.innerHTML = '';
 }
 
-function renderTagFilters() {
+/* The trigger states what is chosen, because a control that cannot show its
+   own value is broken. One tag reads as its name, several as a count. */
+function renderTagFilter() {
   const tags = allTags();
-  $('#tagFilters').innerHTML = [
-    `<button class="tag ${activeTag ? '' : 'active'}" type="button" data-tag=""
-       aria-pressed="${activeTag ? 'false' : 'true'}">All videos</button>`,
-    ...tags.map((tag) => `<button class="tag ${activeTag === tag ? 'active' : ''}" type="button"
-       data-tag="${escape(tag)}" aria-pressed="${activeTag === tag ? 'true' : 'false'}">${escape(tag)}</button>`),
-  ].join('');
+  const chosen = [...activeTags];
+
+  $('#tagFilterValue').textContent = chosen.length === 0
+    ? 'All videos'
+    : chosen.length === 1 ? chosen[0] : `${chosen.length} tags`;
+
+  const counts = new Map(tags.map((tag) => [tag, videos.filter((v) => v.tags?.includes(tag)).length]));
+
+  $('#tagFilterList').innerHTML = tags.length === 0
+    ? `<li class="multi-option" aria-disabled="true">No tags yet</li>`
+    : tags.map((tag, i) => `<li class="multi-option" role="option" id="tagOpt-${i}"
+        data-tag="${escape(tag)}" aria-selected="${activeTags.has(tag) ? 'true' : 'false'}">
+        <span class="multi-box">${icon('check')}</span>
+        <span>${escape(tag)}</span>
+        <span class="multi-count">${counts.get(tag)}</span>
+      </li>`).join('');
+
+  /* An option removed while the panel is open must not leave the active
+     index pointing past the end of the list. */
+  if (multi.index >= tags.length) multi.index = tags.length - 1;
 }
 
 /* Paint is not a state. The sorted column says so in aria-sort, and its mark
-   shows which way. */
+   shows which way. The sort bar reads the same state, so the two controls
+   cannot disagree. */
 function renderSortState() {
   $$('.th-sort').forEach((button) => {
     const th = button.closest('th');
@@ -228,6 +254,9 @@ function renderSortState() {
     if (active) th.setAttribute('aria-sort', sort.dir === 1 ? 'ascending' : 'descending');
     else th.removeAttribute('aria-sort');
   });
+
+  $('#sortKey').value = sort.key;
+  $('#sortDir').value = String(sort.dir);
 }
 
 /* ==========================================================================
@@ -726,7 +755,7 @@ $('#search').addEventListener('input', (event) => {
 });
 
 const clearFilters = () => {
-  activeTag = '';
+  activeTags.clear();
   searchTerm = '';
   $('#search').value = '';
   render();
@@ -734,19 +763,102 @@ const clearFilters = () => {
 
 $('#clearFilter').addEventListener('click', clearFilters);
 
-$('#tagFilters').addEventListener('click', (event) => {
-  const button = event.target.closest('[data-tag]');
-  if (!button) return;
-  activeTag = button.dataset.tag;
+/* ---- tag multiselect ---------------------------------------------------- */
+
+/* One tab stop. The trigger keeps focus and aria-activedescendant names the
+   active option, which is the listbox pattern rather than a tab stop per
+   checkbox: a strip of ten would otherwise cost ten presses to walk past. */
+const multi = { open: false, index: -1 };
+
+const multiOptions = () => $$('#tagFilterList [role=option]');
+
+function openMulti() {
+  if (multi.open) return;
+  multi.open = true;
+  $('#tagFilterList').hidden = false;
+  $('#tagFilterTrigger').setAttribute('aria-expanded', 'true');
+}
+
+function closeMulti({ refocus = false } = {}) {
+  if (!multi.open) return;
+  multi.open = false;
+  multi.index = -1;
+  $('#tagFilterList').hidden = true;
+  const trigger = $('#tagFilterTrigger');
+  trigger.setAttribute('aria-expanded', 'false');
+  trigger.removeAttribute('aria-activedescendant');
+  multiOptions().forEach((o) => o.classList.remove('active'));
+  if (refocus) trigger.focus();
+}
+
+function moveMulti(step) {
+  const options = multiOptions();
+  if (!options.length) return;
+  multi.index = (multi.index + step + options.length) % options.length;
+  options.forEach((o, i) => o.classList.toggle('active', i === multi.index));
+  options[multi.index].scrollIntoView({ block: 'nearest' });
+  $('#tagFilterTrigger').setAttribute('aria-activedescendant', options[multi.index].id);
+}
+
+function toggleTag(tag) {
+  if (activeTags.has(tag)) activeTags.delete(tag); else activeTags.add(tag);
+  const held = multi.index;
   render();
+  /* render() rebuilt the list, so put the active mark back where it was. */
+  multi.index = held;
+  const options = multiOptions();
+  options.forEach((o, i) => o.classList.toggle('active', i === multi.index));
+}
+
+$('#tagFilterTrigger').addEventListener('click', () => {
+  if (multi.open) closeMulti(); else openMulti();
 });
 
+$('#tagFilterList').addEventListener('click', (event) => {
+  const option = event.target.closest('[role=option]');
+  if (option) toggleTag(option.dataset.tag);
+});
+
+$('#tagFilterTrigger').addEventListener('keydown', (event) => {
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    if (!multi.open) { openMulti(); moveMulti(event.key === 'ArrowDown' ? 1 : -1); }
+    else moveMulti(event.key === 'ArrowDown' ? 1 : -1);
+    return;
+  }
+  if (event.key === 'Escape' && multi.open) { event.preventDefault(); closeMulti(); return; }
+  if ((event.key === 'Enter' || event.key === ' ') && multi.open && multi.index >= 0) {
+    event.preventDefault();
+    toggleTag(multiOptions()[multi.index].dataset.tag);
+  }
+});
+
+/* A click anywhere else closes it. Pointerdown, so a click that lands on
+   another control still reaches that control. */
+addEventListener('pointerdown', (event) => {
+  if (multi.open && !event.target.closest('#tagFilter')) closeMulti();
+});
+
+/* ---- sorting ------------------------------------------------------------ */
+
+/* Two controls, one state. The column headers and the sort bar both write
+   `sort`, and renderSortState reads it back into both. */
 $('thead').addEventListener('click', (event) => {
   const button = event.target.closest('.th-sort');
   if (!button) return;
   const key = button.dataset.key;
   sort.dir = sort.key === key ? -sort.dir : 1;
   sort.key = key;
+  render();
+});
+
+$('#sortKey').addEventListener('change', (event) => {
+  sort.key = event.target.value;
+  render();
+});
+
+$('#sortDir').addEventListener('change', (event) => {
+  sort.dir = Number(event.target.value);
   render();
 });
 

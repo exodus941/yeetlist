@@ -1236,6 +1236,31 @@ function sweep (within = null, exclude = null) {
           const run = [...el.children].filter(k => k.tagName === a.tagName && pressable(k)).length
           if (run >= 3) continue
         }
+        /* ── A CAPTION TOUCHING ITS OWN HEADING IS A GROUP ──
+         *
+         * Zero is the prescribed distance for an overline above a heading
+         * and for a caption below one. A gap there splits the label off the
+         * title, which is the fault a uniform card gap produces.
+         *
+         * So this cannot be answered by asking whether a gap is DECLARED:
+         * an absent gap and a chosen zero read the same, and declaring
+         * `row-gap: 0` changed nothing here. Ask the TYPE HIERARCHY instead.
+         *
+         * Two conditions, because either alone fires on correct prose. One
+         * run is subordinate TYPE, by size or by weight. And the subordinate
+         * one is the quieter COLOUR. Two paragraphs at one size and one
+         * colour are not a group, and they still report.
+         *
+         * Measured on a watchlist title cell: a 14px/650 title in --text
+         * above a 12px/400 caption in --text-muted, four instances, all
+         * correct code. */
+        const type = el2 => {
+          const cs2 = getComputedStyle(el2)
+          return { size: parseFloat(cs2.fontSize) || 0, weight: parseFloat(cs2.fontWeight) || 400, colour: cs2.color }
+        }
+        const ta = type(a), tb = type(b)
+        const subordinate = ta.size !== tb.size || Math.abs(ta.weight - tb.weight) >= 150
+        if (subordinate && ta.colour !== tb.colour) continue
         out.gaps.push({
           row: name(el),
           finding: 'two stacked children touch at ' + d.toFixed(2)
@@ -1739,14 +1764,26 @@ function sweep (within = null, exclude = null) {
         const inners = groups
           .filter(g => { const cs = getComputedStyle(g); return !(cs.flexDirection.startsWith('column') && cs.flexWrap === 'nowrap') })
           .map(g => parseFloat(getComputedStyle(g).columnGap) || 0).filter(n => n > 0)
+        /* ── TWO TO ONE IS THE BAR ──
+         *
+         * This read three for as long as the check existed. The rule was
+         * lowered to two on 9 September 2026, against a measurement: of 25
+         * proximity groups in one system, 13 sat at six to one or more and
+         * only two cases turned on the bar. Both were content beside its own
+         * context, at 32 between and 16 inside, which reads as related
+         * rather than as separate.
+         *
+         * ONE BAR FOR THE WHOLE RULE. A second figure here is how two
+         * versions of one rule end up disagreeing, and this check was
+         * reporting "wants 3:1" against shipped code sitting at exactly 2.0. */
         if (outer > 0 && inners.length) {
           const inner = Math.max(...inners)
           const ratio = outer / inner
-          if (ratio < 3) {
+          if (ratio < 2) {
             out.other.push({
               el: name(el),
               finding: `groups read as one: ${Math.round(outer)}px between them, ${inner}px inside them `
-                + `(${ratio.toFixed(1)}:1, wants 3:1)`,
+                + `(${ratio.toFixed(1)}:1, wants 2:1)`,
             })
           }
         }
@@ -2573,8 +2610,20 @@ function sweep (within = null, exclude = null) {
       /* A checkbox wrapped in a label is not a 15px target. The label is the
          target — clicking anywhere on it toggles the box — so that is what
          gets measured. Reporting the input sends you shrinking a box that was
-         never the thing being aimed at. */
-      const wrap = el.matches('input[type=checkbox], input[type=radio]') ? el.closest('label') : null
+         never the thing being aimed at.
+
+         THIS WAS A TAG LIST AND IT APPROVED EVERYTHING NOBODY THOUGHT OF.
+         It read `input[type=checkbox], input[type=radio]`, so a text field
+         wrapped in a label was measured as itself. Measured on one watchlist:
+         a search field inside a 44px label reported 42, and three tag fields
+         inside their own labels reported 28. Every one of them is pressed by
+         the label around it.
+
+         Ask the DOM instead. `label.control` is the platform's own answer to
+         "does this label drive this control", and it covers every labellable
+         element there will ever be. */
+      const labelled = el.closest('label')
+      const wrap = labelled && labelled.control === el ? labelled : null
 
       /* ── A DRAWN BOX IS NOT A TARGET WHEN A TRANSPARENT CONTROL COVERS IT ──
        *
@@ -2613,13 +2662,63 @@ function sweep (within = null, exclude = null) {
          because a stated width defeated its own aspect ratio while the touch
          promotion raised the height. A target is a region a finger has to
          land in, and it is as small as its smaller side. */
+      /* ── AN OVERHANG IS NOT A HEIGHT ──
+       *
+       * A control reaches the floor with an absolutely positioned pseudo
+       * element at a negative inset. That costs no layout, which is the whole
+       * point: the drawn box stays small on purpose and the target is bigger
+       * than the rectangle. Measured on one watchlist: a 28px tag field whose
+       * label overhangs by 8px each side hit-tests at 44.5px.
+       *
+       * Read the DECLARATION, not the geometry. A hit test needs the element
+       * on screen, and scrolling to it would mutate the page the tool is
+       * measuring.
+       *
+       * The inset only means this when the pseudo's containing block IS the
+       * target, so the target has to be positioned itself. Against any other
+       * containing block the number describes a different box. */
+      const overhangOf = (node) => {
+        const zero = { top: 0, right: 0, bottom: 0, left: 0 }
+        if (getComputedStyle(node).position === 'static') return zero
+        const out2 = { ...zero }
+        for (const pseudo of ['::after', '::before']) {
+          const ps = getComputedStyle(node, pseudo)
+          if (!ps || ps.content === 'none' || !/absolute|fixed/.test(ps.position)) continue
+          const neg = v => { const n = parseFloat(v); return Number.isFinite(n) && n < 0 ? -n : 0 }
+          out2.top = Math.max(out2.top, neg(ps.top))
+          out2.bottom = Math.max(out2.bottom, neg(ps.bottom))
+          out2.left = Math.max(out2.left, neg(ps.left))
+          out2.right = Math.max(out2.right, neg(ps.right))
+        }
+        return out2
+      }
+
+      /* ── A TARGET INLINE IN A SENTENCE IS EXEMPT ──
+       *
+       * 2.5.8 excepts a target whose position is determined by the flow of
+       * text. A link inside a paragraph cannot take a 24px box without
+       * opening the line it sits in, and padding it would change the leading
+       * of the prose around it. Ask the property: it computes to `inline`,
+       * and its container holds text that is not the link. */
+      const inlineInProse = () => {
+        if (!el.matches('a[href]')) return false
+        if (!/^inline$/.test(getComputedStyle(el).display) ) return false
+        const host = el.parentElement
+        if (!host) return false
+        return host.textContent.trim().length > el.textContent.trim().length
+      }
+
       const box = target.getBoundingClientRect()
-      const h = box.height, w = box.width
-      if (h < floor || w < floor) out.smallTargets.push({ el: name(target),
+      const over = overhangOf(target)
+      const h = box.height + over.top + over.bottom
+      const w = box.width + over.left + over.right
+      const reached = over.top || over.bottom || over.left || over.right
+      if ((h < floor || w < floor) && !inlineInProse()) out.smallTargets.push({ el: name(target),
                                              w: Math.round(w), h: Math.round(h), floor,
                                              axis: h < floor && w < floor ? 'both' : (h < floor ? 'height' : 'width'),
                                              for: coarse ? 'touch' : 'mouse',
-                                             measured: wrap ? 'the label around it' : 'itself' })
+                                             measured: wrap ? (reached ? 'the label around it, plus its overhang' : 'the label around it')
+                                                            : (reached ? 'itself, plus its overhang' : 'itself') })
     }
   }
 
@@ -2856,7 +2955,24 @@ function sweep (within = null, exclude = null) {
        for the same reason, and it cannot be waited out: the primitive unmounts
        on a timeout, which `getAnimations` never reports. */
     if (el.clientHeight < 1 || el.clientWidth < 1) continue
-    const overX = Math.max(inkRight - padRight, padLeft - inkLeft)
+    /* ── TEXT ASKED TO TRUNCATE IS CLIPPED ON PURPOSE ──
+     *
+     * `text-overflow: ellipsis` is a DECLARATION that the ink runs past the
+     * box and that the box will cut it. The reader sees the ellipsis, which
+     * is the affordance saying so. A Range still reports the unclipped
+     * geometry, so the ink measures wider than the box by design.
+     *
+     * Measured on one watchlist: three video titles reported 52, 117 and
+     * 318px of spill while every one rendered a correct ellipsis, and the
+     * element declared overflow:hidden with text-overflow:ellipsis.
+     *
+     * Narrowed to the INLINE axis, because text-overflow acts on that axis
+     * alone. A label crushed into a short box still spills upward and
+     * downward, and that is the fault this check exists for. */
+    const spillCs = getComputedStyle(el)
+    const truncating = spillCs.textOverflow === 'ellipsis'
+      && spillCs.overflowX !== 'visible'
+    const overX = truncating ? 0 : Math.max(inkRight - padRight, padLeft - inkLeft)
     const overY = Math.max(inkBottom - padBottom, padTop - inkTop)
     if (overX > 1 || overY > 1) out.contentSpill.push({
       el: name(el), text: (el.textContent || '').trim().slice(0, 18),

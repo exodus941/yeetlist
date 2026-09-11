@@ -4,6 +4,11 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>YeeTlist — YouTube Watchlist</title>
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#0f0f0f" />
+<!-- Inline, so the page makes no request for it. /favicon.ico was a 404 on
+     every load. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23ff3030'/%3E%3Cpath d='M12 9l12 7-12 7z' fill='%23fff'/%3E%3C/svg%3E" />
 <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -30,6 +35,9 @@
   <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" vector-effect="non-scaling-stroke"/><path d="m7 10 5 5 5-5" vector-effect="non-scaling-stroke"/><path d="M12 15V3" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" vector-effect="non-scaling-stroke"/><path d="m17 8-5-5-5 5" vector-effect="non-scaling-stroke"/><path d="M12 3v12" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-file-pick" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" vector-effect="non-scaling-stroke"/><path d="M14 2v5h6" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" vector-effect="non-scaling-stroke"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" vector-effect="non-scaling-stroke"/></symbol>
 </defs></svg>
 
 <main class="shell">
@@ -47,35 +55,40 @@
       </span>
       <span class="dot" aria-hidden="true">•</span>
 
-      <!-- Drive. One button before a connection exists, a group after. -->
-      <button id="driveConnect" class="btn btn-sm" type="button">
+      <!-- Drive. One button before a connection exists, a group after.
+
+           Every label sits in its own span, because CSS cannot hide a bare
+           text node. At narrow widths the spans go and each button becomes
+           an icon-only square, so aria-label carries the name that the
+           visible words carried before. -->
+      <button id="driveConnect" class="btn btn-sm" type="button" aria-label="Connect Google Drive">
         <svg class="icon" aria-hidden="true"><use href="#i-cloud"/></svg>
-        Connect Google Drive
+        <span class="btn-label">Connect Google Drive</span>
       </button>
 
       <span id="driveGroup" class="sync" hidden>
-        <button id="driveSync" class="btn btn-sm" type="button">
+        <button id="driveSync" class="btn btn-sm" type="button" aria-label="Sync now">
           <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>
-          Sync now
+          <span class="btn-label">Sync now</span>
         </button>
-        <button id="drivePick" class="btn-text" type="button">
+        <button id="drivePick" class="btn-text" type="button" aria-label="Pick an existing file">
           <svg class="icon" aria-hidden="true"><use href="#i-file-pick"/></svg>
-          Pick existing file
+          <span class="btn-label">Pick existing file</span>
         </button>
-        <button id="driveDisconnect" class="btn-text" type="button">
+        <button id="driveDisconnect" class="btn-text" type="button" aria-label="Disconnect Google Drive">
           <svg class="icon" aria-hidden="true"><use href="#i-unlink"/></svg>
-          Disconnect
+          <span class="btn-label">Disconnect</span>
         </button>
       </span>
 
       <span class="dot" aria-hidden="true">•</span>
-      <button id="importBtn" class="btn-text" type="button">
+      <button id="importBtn" class="btn-text" type="button" aria-label="Import a watchlist file">
         <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>
-        Import
+        <span class="btn-label">Import</span>
       </button>
-      <button id="exportBtn" class="btn-text" type="button">
+      <button id="exportBtn" class="btn-text" type="button" aria-label="Export as Markdown">
         <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
-        Export .md
+        <span class="btn-label">Export .md</span>
       </button>
     </div>
   </header>
@@ -105,12 +118,49 @@
 
   <section class="filters">
     <span class="filters-label">FILTER BY TAG</span>
-    <div id="tagFilters" class="tag-filters"></div>
+
+    <!-- One control for one decision, at every width. A wrapping run of ten
+         pills was four rows tall on a phone and still a long row on a
+         desktop, so both widths get the dropdown. -->
+    <div class="multi" id="tagFilter">
+      <button class="multi-trigger" id="tagFilterTrigger" type="button"
+              aria-expanded="false" aria-haspopup="listbox" aria-controls="tagFilterList">
+        <svg class="icon" aria-hidden="true"><use href="#i-tag"/></svg>
+        <span class="multi-value" id="tagFilterValue">All videos</span>
+        <svg class="icon multi-chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+      </button>
+      <ul class="multi-panel" id="tagFilterList" role="listbox"
+          aria-multiselectable="true" aria-label="Filter by tag" tabindex="-1" hidden></ul>
+    </div>
+
     <label class="search">
       <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
       <input id="search" placeholder="Search titles, channels, or tags" aria-label="Search titles, channels, or tags" />
     </label>
   </section>
+
+  <!-- The card stack replaces the header row at narrow widths, so sorting
+       needs a control of its own. It writes the same state the column
+       headers write. -->
+  <div class="sort-bar">
+    <label class="sort-field">
+      <span class="filters-label">SORT BY</span>
+      <select id="sortKey" class="input">
+        <option value="title">Video Title</option>
+        <option value="channel">Channel</option>
+        <option value="duration">Duration</option>
+        <option value="uploadedAt">Uploaded</option>
+        <option value="addedAt">Added</option>
+      </select>
+    </label>
+    <label class="sort-dir">
+      <span class="sr-only">Sort direction</span>
+      <select id="sortDir" class="input">
+        <option value="1">Ascending</option>
+        <option value="-1">Descending</option>
+      </select>
+    </label>
+  </div>
 
   <section class="table-wrap">
     <table>
@@ -121,7 +171,7 @@
               <input id="allCheck" class="checkbox" type="checkbox" aria-label="Select all videos" />
             </label>
           </th>
-          <th scope="col"><button class="th-sort" type="button" data-key="title">VIDEO <svg class="icon" aria-hidden="true"><use href="#i-sort"/></svg></button></th>
+          <th scope="col"><button class="th-sort" type="button" data-key="title">VIDEO TITLE <svg class="icon" aria-hidden="true"><use href="#i-sort"/></svg></button></th>
           <th scope="col"><button class="th-sort" type="button" data-key="channel">CHANNEL <svg class="icon" aria-hidden="true"><use href="#i-sort"/></svg></button></th>
           <th scope="col" class="amount"><button class="th-sort" type="button" data-key="duration">DURATION <svg class="icon" aria-hidden="true"><use href="#i-sort"/></svg></button></th>
           <th scope="col"><button class="th-sort" type="button" data-key="uploadedAt">UPLOADED <svg class="icon" aria-hidden="true"><use href="#i-sort"/></svg></button></th>
