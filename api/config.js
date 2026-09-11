@@ -14,18 +14,17 @@
 
 export default function handler(req, res) {
   const clientId = process.env.GOOGLE_CLIENT_ID || '';
-  const apiKey = process.env.GOOGLE_API_KEY || '';
 
-  /* A short cache is safe: these change only when the console changes, and
+  /* A short cache is safe: this changes only when the console changes, and
      a stale copy would otherwise survive a credential rotation for hours. */
   res.setHeader('Cache-Control', 'public, max-age=300');
 
+  /* GOOGLE_API_KEY is no longer served. It existed for the Google Picker,
+     which is gone, and publishing a value nothing reads is its own fault. */
   return res.status(200).json({
     clientId,
-    apiKey,
-    /* The page needs to know which features it can offer before it draws a
-       control nobody can use. */
+    /* The page needs to know whether it can offer Drive at all, before it
+       draws a control nobody can use. */
     driveEnabled: Boolean(clientId),
-    pickerEnabled: Boolean(clientId && apiKey),
   });
 }

@@ -43,7 +43,6 @@ const DRIVE = (() => {
   let token = null;
   let tokenExpiry = 0;
   let client = null;
-  let pickerReady = false;
 
   const remembered = () => {
     try { return JSON.parse(localStorage.getItem(REMEMBER) || 'null'); }
@@ -197,50 +196,18 @@ const DRIVE = (() => {
     ), 'Saving ' + FILENAME);
   }
 
-  /* The Picker is how a file YeeTlist did not create becomes reachable.
-     Choosing one grants drive.file access to that single file, nothing more. */
-  const pickerLoaded = () => new Promise((resolve, reject) => {
-    if (pickerReady) return resolve();
-    if (!window.gapi) {
-      const script = document.createElement('script');
-      script.src = 'https://apis.google.com/js/api.js';
-      script.onerror = () => reject(new Error('The Google Picker script did not load.'));
-      script.onload = () => gapi.load('picker', () => { pickerReady = true; resolve(); });
-      document.head.append(script);
-      return;
-    }
-    gapi.load('picker', () => { pickerReady = true; resolve(); });
-  });
+  /* THE GOOGLE PICKER IS GONE, DELIBERATELY.
+     It existed to adopt a yeetlist.md that YeeTlist did not create, because
+     drive.file cannot see such a file until the reader hands it over. Its
+     only control was a button called "Pick existing file", and that name now
+     means the DEVICE filesystem, which is what a reader expects of it.
 
-  async function pick() {
-    const { apiKey } = await settings();
-    if (!apiKey) throw new Error('Picking an existing file needs GOOGLE_API_KEY to be set.');
-    const access = await getToken({ interactive: false });
-    await pickerLoaded();
+     Code nothing can reach is a fault, so it came out rather than sitting
+     behind no button. GOOGLE_API_KEY was needed for this and nothing else,
+     so that variable is now unused too.
 
-    return new Promise((resolve) => {
-      const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
-        .setMimeTypes('text/markdown,text/plain,application/octet-stream')
-        .setMode(google.picker.DocsViewMode.LIST);
-
-      new google.picker.PickerBuilder()
-        .setOAuthToken(access)
-        .setDeveloperKey(apiKey)
-        .setTitle('Choose your yeetlist.md')
-        .addView(view)
-        .setCallback((data) => {
-          if (data.action === google.picker.Action.PICKED) {
-            const chosen = data.docs[0];
-            remember({ fileId: chosen.id });
-            resolve({ id: chosen.id, name: chosen.name });
-          } else if (data.action === google.picker.Action.CANCEL) {
-            resolve(null);
-          }
-        })
-        .build()
-        .setVisible(true);
-    });
-  }
+     Nothing else is lost: a yeetlist.md YeeTlist wrote on another device is
+     still found by name, which is the case that matters. */
 
   return {
     FILENAME,
@@ -248,7 +215,7 @@ const DRIVE = (() => {
     connected, fileId, syncedAt, remember, forget,
     connect: () => getToken({ interactive: !connected() }),
     resume: () => getToken({ interactive: false }),
-    find, meta, read, create, update, pick,
+    find, meta, read, create, update,
     disconnect() {
       const held = token;
       token = null;

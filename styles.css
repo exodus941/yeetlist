@@ -565,6 +565,8 @@ header {
    labels land on the heading's line.
    ========================================================================== */
 
+/* The heading and its action sit on one baseline. The overline that used to
+   stack above the heading is gone, so nothing offsets the two sides. */
 .list-head {
   display: flex;
   align-items: baseline;
@@ -628,11 +630,13 @@ header {
    One tab stop, because a composite widget is one tab stop.
    ========================================================================== */
 
+/* The tag control takes its own width. The search field is what expands, so
+   this must not compete for the slack. */
 .multi {
   position: relative;
-  flex: 1;
+  flex: 0 0 auto;
+  width: 220px;
   min-width: 0;
-  max-width: 340px;
 }
 
 .multi-trigger {
@@ -738,12 +742,14 @@ header {
   .multi-option[aria-selected="true"] .multi-box { outline: 2px solid Highlight }
 }
 
+/* The search field takes the whole remaining width of the row. Everything
+   else in it states its own size, so this is the only member that grows. */
 .search {
   display: flex;
   align-items: center;
   gap: var(--icon-gap);
-  width: 264px;
-  flex: 0 0 auto;
+  flex: 1;
+  min-width: 0;
   padding: 0 var(--space-md);
   border: 1px solid #444;
   border-radius: var(--radius-sm);
@@ -1238,8 +1244,12 @@ dialog menu {
   .add-row .input { flex: none; width: 100% }
   .add-row .btn { width: 100% }
 
+  /* Orphaned elements go full width. The search field and the clear button
+     each land on their own line here, so each takes the whole line. */
   .filters { flex-wrap: wrap }
-  .search { order: 3; width: 100%; flex: 1 1 100% }
+  .multi { flex: 1 1 auto; width: auto }
+  .search { order: 3; flex: 1 1 100% }
+  #clearFilter { order: 4; flex: 1 1 100% }
 
   /* The table becomes a stack of cards. Eight columns cannot fold into
      375px, and a sideways scroller is the answer this file calls a last

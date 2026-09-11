@@ -102,8 +102,8 @@ function render() {
   const filtering = activeTags.size > 0 || Boolean(searchTerm);
 
   $('#listCount').textContent = filtering
-    ? `${filtered.length} of ${videos.length} ${videos.length === 1 ? 'video' : 'videos'}`
-    : `${videos.length} ${videos.length === 1 ? 'video' : 'videos'} waiting`;
+    ? `${filtered.length} of ${videos.length} Saved ${videos.length === 1 ? 'Video' : 'Videos'}`
+    : `${videos.length} Saved ${videos.length === 1 ? 'Video' : 'Videos'}`;
 
   $('#rows').innerHTML = listState === 'loading' ? skeleton() : filtered.map(row).join('');
 
@@ -186,9 +186,9 @@ function renderState(shown, filtering) {
     box.hidden = false;
     box.setAttribute('role', 'alert');
     box.innerHTML = `${icon('alert')}
-      <h3>That did not work</h3>
+      <h3>That Did Not Work</h3>
       <p>${escape(stateMessage)}</p>
-      <button class="btn btn-sm" type="button" data-action="retry">${icon('refresh')} Try again</button>`;
+      <button class="btn btn-sm" type="button" data-action="retry">${icon('refresh')} Try Again</button>`;
     return;
   }
 
@@ -197,18 +197,18 @@ function renderState(shown, filtering) {
   if (videos.length === 0) {
     box.hidden = false;
     box.innerHTML = `${icon('inbox')}
-      <h3>Your watchlist is clear</h3>
+      <h3>Your Watchlist Is Clear</h3>
       <p>Paste a YouTube link above to save a video for later.</p>
-      <button class="btn btn-sm btn-primary" type="button" data-action="focus-add">Add your first video</button>`;
+      <button class="btn btn-sm btn-primary" type="button" data-action="focus-add">Add Your First Video</button>`;
     return;
   }
 
   if (shown === 0 && filtering) {
     box.hidden = false;
     box.innerHTML = `${icon('search-x')}
-      <h3>No videos match</h3>
+      <h3>No Videos Match</h3>
       <p>${videos.length} ${videos.length === 1 ? 'video is' : 'videos are'} saved, and the current filter hides ${videos.length === 1 ? 'it' : 'them all'}.</p>
-      <button class="btn btn-sm" type="button" data-action="clear-filter">${icon('x')} Clear filters</button>`;
+      <button class="btn btn-sm" type="button" data-action="clear-filter">${icon('x')} Clear Filters</button>`;
     return;
   }
 
@@ -223,13 +223,13 @@ function renderTagFilter() {
   const chosen = [...activeTags];
 
   $('#tagFilterValue').textContent = chosen.length === 0
-    ? 'All videos'
-    : chosen.length === 1 ? chosen[0] : `${chosen.length} tags`;
+    ? 'All Videos'
+    : chosen.length === 1 ? chosen[0] : `${chosen.length} Tags`;
 
   const counts = new Map(tags.map((tag) => [tag, videos.filter((v) => v.tags?.includes(tag)).length]));
 
   $('#tagFilterList').innerHTML = tags.length === 0
-    ? `<li class="multi-option" aria-disabled="true">No tags yet</li>`
+    ? `<li class="multi-option" aria-disabled="true">No Tags Yet</li>`
     : tags.map((tag, i) => `<li class="multi-option" role="option" id="tagOpt-${i}"
         data-tag="${escape(tag)}" aria-selected="${activeTags.has(tag) ? 'true' : 'false'}">
         <span class="multi-box">${icon('check')}</span>
@@ -476,7 +476,7 @@ function openDelete(ids) {
   const many = deletion.length !== 1;
   const required = `delete ${deletion.length} videos`;
 
-  $('#confirmTitle').textContent = many ? `Delete ${deletion.length} videos?` : 'Remove this video?';
+  $('#confirmTitle').textContent = many ? `Delete ${deletion.length} Videos?` : 'Remove This Video?';
   $('#confirmText').textContent = many
     ? 'This removes them from your watchlist on every device you have connected. It cannot be undone.'
     : 'This removes the video from your watchlist on every device you have connected.';
@@ -857,13 +857,11 @@ function renderDrive() {
    Pick appears only with an API key for the Picker. */
 async function renderDriveAvailability() {
   try {
-    const { driveEnabled, pickerEnabled } = await DRIVE.settings();
+    const { driveEnabled } = await DRIVE.settings();
     $('#driveConnect').hidden = !driveEnabled || DRIVE.connected();
-    $('#drivePick').hidden = !pickerEnabled;
     if (!driveEnabled) driveStatus('local', 'Stored locally');
   } catch {
     $('#driveConnect').hidden = true;
-    $('#drivePick').hidden = true;
   }
 }
 
@@ -952,17 +950,6 @@ async function drivePush() {
   }
 }
 
-async function drivePick() {
-  try {
-    const chosen = await DRIVE.pick();
-    if (!chosen) return;
-    $('#addStatus').textContent = `Using ${chosen.name} from your Drive.`;
-    await drivePull({ announce: true });
-  } catch (error) {
-    driveStatus('error', 'Sync failed');
-    $('#addStatus').textContent = error.message;
-  }
-}
 
 /* ==========================================================================
    Wiring
@@ -1195,7 +1182,6 @@ $('#importFile').addEventListener('change', (event) => {
 
 $('#driveConnect').addEventListener('click', () => driveConnect({ interactive: true }));
 $('#driveSync').addEventListener('click', () => drivePull({ announce: true }));
-$('#drivePick').addEventListener('click', drivePick);
 $('#driveDisconnect').addEventListener('click', () => {
   DRIVE.disconnect();
   renderDrive();

@@ -67,13 +67,9 @@
       </button>
 
       <span id="driveGroup" class="sync" hidden>
-        <button id="driveSync" class="btn btn-sm" type="button" aria-label="Sync now">
+        <button id="driveSync" class="btn btn-sm" type="button" aria-label="Sync Now">
           <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>
-          <span class="btn-label">Sync now</span>
-        </button>
-        <button id="drivePick" class="btn-text" type="button" aria-label="Pick an existing file">
-          <svg class="icon" aria-hidden="true"><use href="#i-file-pick"/></svg>
-          <span class="btn-label">Pick existing file</span>
+          <span class="btn-label">Sync Now</span>
         </button>
         <button id="driveDisconnect" class="btn-text" type="button" aria-label="Disconnect Google Drive">
           <svg class="icon" aria-hidden="true"><use href="#i-unlink"/></svg>
@@ -82,6 +78,9 @@
       </span>
 
       <span class="dot" aria-hidden="true">•</span>
+      <!-- One file control, reading from the device. The file type picks the
+           operation: a .md or .json merges a watchlist, an .html is parsed
+           for YouTube links. -->
       <button id="importBtn" class="btn-text" type="button" aria-label="Import a watchlist or bookmarks file">
         <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>
         <span class="btn-label">Import</span>
@@ -94,15 +93,15 @@
   </header>
 
   <section class="add-card">
-    <label for="videoUrl">Add a video</label>
+    <label for="videoUrl">Add a Video</label>
     <div class="add-row">
       <input id="videoUrl" class="input" placeholder="Paste a YouTube link…" autocomplete="off" />
       <button id="addBtn" class="btn btn-primary" type="button">
-        Add to watchlist
+        Add to Watchlist
         <svg class="icon" aria-hidden="true"><use href="#i-enter"/></svg>
       </button>
     </div>
-    <p id="addStatus" class="hint" role="status">Video details are fetched automatically. <a href="#sync-note">About syncing</a></p>
+    <p id="addStatus" class="hint" role="status">Video details are fetched automatically. <a href="#sync-note">About Syncing</a></p>
   </section>
 
   <!-- A long import gets a shape, a count and a way out. The bar carries the
@@ -110,7 +109,7 @@
        announcing every percent is noise. -->
   <section id="importPanel" class="import-panel" hidden aria-labelledby="importTitle">
     <div class="import-head">
-      <h3 id="importTitle">Importing bookmarks</h3>
+      <h3 id="importTitle">Importing Bookmarks</h3>
       <button id="importCancel" class="btn-text" type="button">
         <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
         Cancel
@@ -123,14 +122,12 @@
     <p id="importCounts" class="hint" role="status"></p>
   </section>
 
+  <!-- The heading carries the count, so the overline that used to repeat
+       "SAVED VIDEOS" above it is gone. One row, two items, one baseline. -->
   <section class="list-head">
-    <div>
-      <p class="eyebrow">SAVED VIDEOS</p>
-      <h2 id="listCount" role="status">0 videos waiting</h2>
-    </div>
+    <h2 id="listCount" role="status">0 Saved Videos</h2>
     <div class="list-actions">
-      <button id="deleteSelected" class="btn btn-sm btn-danger-outline" type="button" disabled>Delete selected</button>
-      <button id="clearFilter" class="btn-text" type="button">Clear filters</button>
+      <button id="deleteSelected" class="btn btn-sm btn-danger-outline" type="button" disabled>Delete Selected</button>
     </div>
   </section>
 
@@ -155,6 +152,13 @@
       <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
       <input id="search" placeholder="Search titles, channels, or tags" aria-label="Search titles, channels, or tags" />
     </label>
+
+    <!-- The medium step, not sm. It shares a row with the tag control and
+         the search field, and a control row is one stated height. -->
+    <button id="clearFilter" class="btn" type="button">
+      <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+      <span class="btn-label">Clear Filters</span>
+    </button>
   </section>
 
   <!-- The card stack replaces the header row at narrow widths, so sorting

@@ -15,9 +15,8 @@ http.createServer(async (req, res) => {
   // environment, so neither is in the repository.
   if (requestUrl.pathname === '/api/config') {
     const clientId = process.env.GOOGLE_CLIENT_ID || '';
-    const apiKey = process.env.GOOGLE_API_KEY || '';
     res.writeHead(200, {'Content-Type':'application/json'});
-    return res.end(JSON.stringify({ clientId, apiKey, driveEnabled: Boolean(clientId), pickerEnabled: Boolean(clientId && apiKey) }));
+    return res.end(JSON.stringify({ clientId, driveEnabled: Boolean(clientId) }));
   }
   // Mirrors api/videos.js. Up to 50 ids in one call, so a bookmarks import
   // costs one quota unit per chunk rather than one per video.
