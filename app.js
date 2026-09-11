@@ -163,13 +163,21 @@ const row = (v) => `<tr class="${selected.has(v.id) ? 'row-selected' : ''}" data
   <td class="cell-added"><span class="cell-name">Added</span>${date(v.addedAt)}</td>
   <td class="cell-tags">
     <div class="tags">
-      ${(v.tags || []).map((t) => `<span class="tag-chip">${escape(hashed(t))}</span>`).join('')}
-      <label class="tag-input-hit">
-        <input class="tag-input" data-id="${escape(v.id)}" placeholder="+ add tags"
-               aria-label="Add tags to ${escape(v.title)}" autocomplete="off"
-               role="combobox" aria-expanded="false" aria-autocomplete="list"
-               aria-controls="tagSuggest">
-      </label>
+      ${(v.tags || []).map((t) => `<span class="tag-chip">
+        <span>${escape(hashed(t))}</span>
+        <button class="tag-remove" type="button" data-id="${escape(v.id)}" data-tag="${escape(t)}"
+                aria-label="Remove ${escape(hashed(t))} from ${escape(v.title)}">${icon('x')}</button>
+      </span>`).join('')}
+      <span class="tag-add">
+        <button class="tag-add-btn" type="button" aria-label="Add a tag to ${escape(v.title)}"
+                aria-expanded="false">${icon('plus')}</button>
+        <label class="tag-input-hit">
+          <input class="tag-input" data-id="${escape(v.id)}" placeholder="Tag name"
+                 aria-label="Add tags to ${escape(v.title)}" autocomplete="off"
+                 role="combobox" aria-expanded="false" aria-autocomplete="list"
+                 aria-controls="tagSuggest">
+        </label>
+      </span>
     </div>
   </td>
   <td class="cell-remove">
@@ -425,6 +433,20 @@ function accept(tag) {
    Mutations
    ========================================================================== */
 
+/* Dropping the last video carrying a tag retires that tag, so an active
+   filter on it must go too. Left behind, the multiselect would keep offering
+   a tag that matches nothing and the list would read as empty for no visible
+   reason. */
+function removeTag(id, tag) {
+  const video = videos.find((v) => v.id === id);
+  if (!video) return;
+
+  video.tags = (video.tags || []).filter((t) => t !== tag);
+  save();
+  if (!allTags().includes(tag)) activeTags.delete(tag);
+  render();
+}
+
 function addTags(id, raw) {
   const tags = raw.split(',').map((t) => t.trim().replace(/^#/, '')).filter(Boolean);
   const video = videos.find((v) => v.id === id);
@@ -436,8 +458,10 @@ function addTags(id, raw) {
 
   save();
   render();
-  /* The row was rebuilt, so put the cursor back where the reader left it. */
-  $(`.tag-input[data-id="${CSS.escape(id)}"]`)?.focus();
+  /* The row was rebuilt, and render() draws the collapsed state, which is
+     what a landed tag should leave behind. Focus goes to the plus so a
+     keyboard reader stays where they were and can add another. */
+  $(`tr[data-id="${CSS.escape(id)}"] .tag-add-btn`)?.focus();
 }
 
 async function refreshMissingMetadata() {
@@ -1107,9 +1131,32 @@ $('#allCheck').addEventListener('change', (event) => {
 });
 
 $('#rows').addEventListener('click', (event) => {
+  const add = event.target.closest('.tag-add-btn');
+  if (add) return expandTagField(add.closest('.tag-add'));
+
+  const tag = event.target.closest('.tag-remove');
+  if (tag) return removeTag(tag.dataset.id, tag.dataset.tag);
+
   const button = event.target.closest('.row-remove');
   if (button) openDelete([button.dataset.id]);
 });
+
+/* One open field at a time. Two of them would leave a row looking ready for
+   input it is not going to receive. */
+function expandTagField(wrap) {
+  if (!wrap) return;
+  $$('.tag-add[data-expanded]').forEach(collapseTagField);
+  wrap.dataset.expanded = 'true';
+  wrap.querySelector('.tag-add-btn').setAttribute('aria-expanded', 'true');
+  wrap.querySelector('.tag-input').focus();
+}
+
+function collapseTagField(wrap) {
+  if (!wrap || !wrap.dataset.expanded) return;
+  delete wrap.dataset.expanded;
+  wrap.querySelector('.tag-add-btn')?.setAttribute('aria-expanded', 'false');
+  wrap.querySelector('.tag-input').value = '';
+}
 
 $('#deleteSelected').addEventListener('click', () => openDelete(selected));
 
@@ -1140,8 +1187,23 @@ $('#rows').addEventListener('focusin', (event) => {
   if (event.target.classList.contains('tag-input')) openSuggest(event.target);
 });
 
+/* Leaving an untouched field collapses it. Leaving one with text in it does
+   NOT, because collapsing would throw away what was typed.
+
+   relatedTarget says where focus WENT, which is the question being asked.
+   Reading document.activeElement in a timeout instead gave the wrong answer:
+   in a tab that is not focused it can still name the field that just blurred,
+   so the collapse never ran. The timeout stays only so a pointerdown on a
+   suggestion lands first. */
 $('#rows').addEventListener('focusout', (event) => {
-  if (event.target.classList.contains('tag-input')) setTimeout(closeSuggest, 0);
+  if (!event.target.classList.contains('tag-input')) return;
+  const wrap = event.target.closest('.tag-add');
+  const wentTo = event.relatedTarget;
+  setTimeout(() => {
+    closeSuggest();
+    if (!wrap || (wentTo && wrap.contains(wentTo))) return;
+    if (!wrap.querySelector('.tag-input').value.trim()) collapseTagField(wrap);
+  }, 0);
 });
 
 $('#rows').addEventListener('keydown', (event) => {
@@ -1155,7 +1217,16 @@ $('#rows').addEventListener('keydown', (event) => {
     return;
   }
   if (event.key === 'ArrowUp' && open) { event.preventDefault(); moveSuggest(-1); return; }
-  if (event.key === 'Escape' && open) { event.preventDefault(); closeSuggest(); return; }
+  /* Escape closes the suggestions first. With none open it collapses the
+     field, so one key walks all the way back out. */
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    if (open) return closeSuggest();
+    const wrap = input.closest('.tag-add');
+    collapseTagField(wrap);
+    wrap?.querySelector('.tag-add-btn')?.focus();
+    return;
+  }
 
   if (event.key === 'Enter') {
     event.preventDefault();

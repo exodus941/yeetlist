@@ -1007,15 +1007,18 @@ tbody tr.row-selected > td:first-child::before {
    and a flex container will not ellipsise its own text. A stated line-height
    equal to the target floor does both jobs: it centres the single line and
    gives the anchor its height. One writer per property. */
-/* The cap is what the table can afford, measured rather than picked. In a
-   1316px container the other columns take 804px: check 48, duration 97,
-   uploaded 172, added 171, metatags 264, remove 52. That leaves 512 for the
-   title and the channel, and 48 of it is their cell padding. So the two caps
-   share 464px. At 420 and 180 they asked for 600 and the table ran 137px
-   past its container. */
+/* The cap is what the table can afford, measured rather than picked, and it
+   shrank again when the tag chips gained a remove button. Each chip grew
+   20px, so the widest realistic tags cell went from 240px of demand to 272.
+   The 32px came out of here, because the title is the one column that
+   degrades gracefully: it truncates and says the rest on hover.
+
+   In a 1316px container the other columns take the rest. At 420 and 180 the
+   two text caps asked for 600 against the 464 available, and the table ran
+   137px past its container. */
 .video-link {
   display: block;
-  max-width: 300px;
+  max-width: 332px;
   overflow: hidden;
   line-height: max(var(--target-mouse), var(--control-floor));
   color: var(--text);
@@ -1058,12 +1061,16 @@ th.amount { text-align: end }
    field asks for 96px, and 124 + 12 + 96 is 232. The row then grew to hold a
    second line, and rows with one chip stayed short, so the table read as
    ragged for no reason a reader could see. */
+/* Sized for the COLLAPSED state, which is what a row shows almost all of the
+   time: two chips at 61 and 99, a 4px gap between them, 12px before the add
+   control and 24px for it. The field only exists while someone is typing in
+   it, and it is free to take a second line then. */
 .tags {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs);
-  min-width: 240px;
+  min-width: 208px;
 }
 
 /* A chip is a LABEL, so it never reads the touch floor. Given the floor it
@@ -1072,16 +1079,111 @@ th.amount { text-align: end }
 
    It sits beside the tag field, which IS a control and does take the floor.
    Two different kinds of thing, so two heights, and that is correct. */
+/* The trailing padding is smaller than the leading one, because the remove
+   button supplies its own inset. Equal padding would stand the mark twice as
+   far from the edge as the label stands from the other. */
 .tag-chip {
   display: inline-flex;
   align-items: center;
+  gap: var(--space-2xs);
   min-height: var(--control-sm);
-  padding: 0 var(--space-sm);
+  padding-inline: var(--space-sm) var(--space-2xs);
   border-radius: var(--radius-pill);
   background: var(--tag-bg);
   color: var(--tag-ink);
   font-size: var(--text-xs);
 }
+
+/* An icon-only control, so it is square and centres on its own box. Drawn at
+   24px and reached at the floor through an overhang, which costs no layout
+   and leaves the chip at the size it was.
+
+   I first wrote this off as unreachable, claiming neighbouring targets would
+   collide. Measured, two of them sit 78.8px apart, because a chip carries a
+   label before its button. Even a one-character tag leaves 30px, against the
+   20px two 44px targets need. The horizontal case was never the problem.
+
+   The VERTICAL case is. Chips wrap, and a 44px target on a 24px button
+   reaches 8px past the 28px chip. Two wrapped lines 4px apart would overlap
+   by 12px, so the row gap opens to 16px at a coarse pointer and nothing
+   meets. */
+.tag-remove {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  height: var(--target-mouse);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color var(--duration-hover) var(--ease),
+    background-color var(--duration-hover) var(--ease);
+}
+
+/* min() against zero stops it: at a fine pointer the button already clears
+   its floor, so the inset resolves to 0 and there is no overhang at all. */
+.tag-remove::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2));
+}
+
+.tag-remove:hover { color: var(--danger-quiet); background: #ffffff14 }
+
+@media (forced-colors: active) {
+  .tag-remove:hover { outline: 1px solid Highlight }
+}
+
+/* COLLAPSED, THE ADD CONTROL IS A 24px PLUS.
+   It expands into a field on click, and shrinks back once a tag lands or on
+   leaving it untouched. That is worth more than the interaction: as a
+   permanent field it demanded 96px of every row, which is what pushed the
+   tags column to 272px and took that width from the title. */
+.tag-add {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  /* Written as the subtraction, because a flex gap and a margin ADD. The
+     chips sit 4px apart, and this stands 12px from the last of them. */
+  margin-inline-start: calc(var(--space-md) - var(--space-xs));
+}
+
+.tag-add-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  height: var(--target-mouse);
+  padding: 0;
+  border: 1px dashed #4a4a4a;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color var(--duration-hover) var(--ease),
+    border-color var(--duration-hover) var(--ease),
+    background-color var(--duration-hover) var(--ease);
+}
+
+.tag-add-btn:hover { color: var(--text); border-color: #777; background: #ffffff14 }
+
+.tag-add-btn::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2));
+}
+
+/* One of the two shows at a time. The wrapper carries the state, so neither
+   half has to know about the other. */
+.tag-add[data-expanded] .tag-add-btn { display: none }
+.tag-add:not([data-expanded]) .tag-input-hit { display: none }
 
 /* The label is the target and the field is what a reader sees, the same
    shape the checkbox uses.
@@ -1095,12 +1197,9 @@ th.amount { text-align: end }
    absolutely positioned child that block is this label. So 100% is the
    label's own height. min() against zero stops it: a label already past the
    floor gets no overhang. */
-/* The field stands further from the chips than they stand from each other,
-   because it is a different kind of thing from the run beside it. 4px inside
-   the run against 12px before the field is three to one.
-
-   The margin is written as the SUBTRACTION, because a flex gap and a margin
-   ADD. Left at 12 it would paint 16, which is a distance nobody chose. */
+/* The separation from the chips now lives on .tag-add, which wraps both
+   states. Leaving it here too would make two writers for one gap, and the
+   painted distance would be 20px rather than the 12 anybody chose. */
 .tag-input-hit {
   position: relative;
   display: flex;
@@ -1108,7 +1207,6 @@ th.amount { text-align: end }
   flex: 1;
   min-width: 96px;
   min-height: var(--control-sm);
-  margin-inline-start: calc(var(--space-md) - var(--space-xs));
 }
 
 .tag-input-hit::after {
@@ -1492,8 +1590,12 @@ dialog menu {
   .date-full { display: none }
   .date-day { display: inline }
 
-  /* A run of like things, so one gap serves both axes. */
-  .tags { min-width: 0 }
+  /* A run of like things, so one gap serves both axes horizontally. The ROW
+     gap opens, because each chip's remove button reaches 8px past the chip
+     to make its 44px target. Two wrapped lines 4px apart would put those
+     targets 12px into each other, and a tap near the boundary would remove a
+     tag from the wrong line. */
+  .tags { min-width: 0; row-gap: var(--space-lg) }
 
   /* An action row that breaks, breaks into pairs, and one gap serves both
      axes because a line break is not a group boundary. */
