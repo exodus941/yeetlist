@@ -923,9 +923,9 @@ tbody tr:last-child td { border-bottom: 0 }
    because a truncated date is a wrong date. */
 .cell-dur, .cell-up, .cell-added { white-space: nowrap }
 
-/* Capped so the fixed-width date columns have room. Measured against the
-   table's own container rather than picked. */
-.cell-chan .truncate { max-width: 180px }
+/* The other half of the 464px the two text columns share. 300 for the title
+   and 160 here leaves 4px of slack against the container. */
+.cell-chan .truncate { max-width: 160px }
 
 /* The day-only form is for the card view. At this width the column header
    says which date it is, so the full form carries the time too. */
@@ -1007,9 +1007,15 @@ tbody tr.row-selected > td:first-child::before {
    and a flex container will not ellipsise its own text. A stated line-height
    equal to the target floor does both jobs: it centres the single line and
    gives the anchor its height. One writer per property. */
+/* The cap is what the table can afford, measured rather than picked. In a
+   1316px container the other columns take 804px: check 48, duration 97,
+   uploaded 172, added 171, metatags 264, remove 52. That leaves 512 for the
+   title and the channel, and 48 of it is their cell padding. So the two caps
+   share 464px. At 420 and 180 they asked for 600 and the table ran 137px
+   past its container. */
 .video-link {
   display: block;
-  max-width: 420px;
+  max-width: 300px;
   overflow: hidden;
   line-height: max(var(--target-mouse), var(--control-floor));
   color: var(--text);
@@ -1047,12 +1053,17 @@ tbody tr.row-selected > td:first-child::before {
 
 th.amount { text-align: end }
 
+/* Wide enough for two chips and the field on one line. At 160px the field
+   wrapped below them: two chips measure about 124px with their gap, the
+   field asks for 96px, and 124 + 12 + 96 is 232. The row then grew to hold a
+   second line, and rows with one chip stayed short, so the table read as
+   ragged for no reason a reader could see. */
 .tags {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs);
-  min-width: 160px;
+  min-width: 240px;
 }
 
 /* A chip is a LABEL, so it never reads the touch floor. Given the floor it
@@ -1084,6 +1095,12 @@ th.amount { text-align: end }
    absolutely positioned child that block is this label. So 100% is the
    label's own height. min() against zero stops it: a label already past the
    floor gets no overhang. */
+/* The field stands further from the chips than they stand from each other,
+   because it is a different kind of thing from the run beside it. 4px inside
+   the run against 12px before the field is three to one.
+
+   The margin is written as the SUBTRACTION, because a flex gap and a margin
+   ADD. Left at 12 it would paint 16, which is a distance nobody chose. */
 .tag-input-hit {
   position: relative;
   display: flex;
@@ -1091,6 +1108,7 @@ th.amount { text-align: end }
   flex: 1;
   min-width: 96px;
   min-height: var(--control-sm);
+  margin-inline-start: calc(var(--space-md) - var(--space-xs));
 }
 
 .tag-input-hit::after {
