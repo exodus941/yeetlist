@@ -593,22 +593,244 @@ function exportFile() {
   URL.revokeObjectURL(link.href);
 }
 
+/* The file type picks the operation. A .md or .json merges a watchlist. An
+   .html is a bookmarks export, so it gets parsed for YouTube links. */
 function importFile(file) {
+  const isHtml = /\.html?$/i.test(file.name) || file.type === 'text/html';
   const reader = new FileReader();
+  reader.onerror = () => toast('error', 'That file could not be read.');
   reader.onload = () => {
+    const text = String(reader.result);
+    if (isHtml) return importBookmarks(text);
+
     try {
-      const incoming = parseFile(String(reader.result));
+      const incoming = parseFile(text);
       const merged = merge({ videos, deleted: tombstones }, incoming);
       videos = merged.videos;
       tombstones = merged.deleted;
       save();
       render();
-      $('#addStatus').textContent = `Imported. ${videos.length} ${videos.length === 1 ? 'video' : 'videos'} now saved.`;
+      toast('ok', `Imported ${videos.length} ${videos.length === 1 ? 'video' : 'videos'}.`);
     } catch {
-      $('#addStatus').textContent = 'That file is not a YeeTlist export.';
+      toast('error', 'That file is not a YeeTlist export.',
+        'Export a .md from YeeTlist, or pick a bookmarks .html file instead.');
     }
   };
   reader.readAsText(file);
+}
+
+/* ==========================================================================
+   Bookmarks import
+   ========================================================================== */
+
+/* An id is exactly eleven characters of the URL alphabet. Validating it here
+   keeps a playlist id, a channel handle and a stray query value out. */
+const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
+const YT_HOST = /(^|\.)(youtube\.com|youtube-nocookie\.com|youtu\.be)$/i;
+
+function videoIdFrom(href) {
+  let url;
+  try { url = new URL(String(href), 'https://www.youtube.com'); } catch { return null; }
+  if (!YT_HOST.test(url.hostname)) return null;
+
+  const take = (v) => (VIDEO_ID.test(v || '') ? v : null);
+
+  if (/youtu\.be$/i.test(url.hostname)) return take(url.pathname.slice(1).split('/')[0]);
+  if (url.searchParams.get('v')) return take(url.searchParams.get('v'));
+
+  /* /shorts, /embed, /v and /live all carry the id as the first segment. A
+     /playlist or /@channel has no video in it and drops out here. */
+  const path = url.pathname.match(/^\/(?:shorts|embed|v|live)\/([^/?#]+)/);
+  return path ? take(path[1]) : null;
+}
+
+/* DOMParser neither runs scripts nor fetches anything for text/html, and the
+   result is never put into the live document. Only hrefs are read from it. */
+function youtubeLinksIn(html) {
+  const found = new Map();
+
+  const add = (href, title) => {
+    const id = videoIdFrom(href);
+    if (!id || found.has(id)) return;
+    found.set(id, String(title || '').replace(/\s+/g, ' ').trim().slice(0, 300));
+  };
+
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('a[href]').forEach((a) => add(a.getAttribute('href'), a.textContent));
+  } catch { /* fall through to the text scan */ }
+
+  /* Belt and braces: some exporters write bare URLs with no anchor at all.
+     The anchor pass runs first, so a link with a real title keeps it. */
+  const bare = html.match(/https?:\/\/[^\s"'<>)\]]+/g) || [];
+  bare.forEach((href) => add(href, ''));
+
+  return found;
+}
+
+const importRun = { active: false, cancelled: false };
+
+function showImportPanel(total) {
+  $('#importPanel').hidden = false;
+  $('#importCancel').disabled = false;
+  setImportProgress(0, total, { added: 0, duplicate: 0, failed: 0 });
+}
+
+function setImportProgress(done, total, counts) {
+  const percent = total ? Math.round((done / total) * 100) : 0;
+  $('#importFill').style.width = percent + '%';
+  $('#importBar').setAttribute('aria-valuenow', String(percent));
+  $('#importCounts').textContent =
+    `${done} of ${total} checked. ${counts.added} added`
+    + (counts.duplicate ? `, ${counts.duplicate} already saved` : '')
+    + (counts.failed ? `, ${counts.failed} could not be read` : '') + '.';
+}
+
+/* Chunked, because videos.list takes 50 ids per call and costs one quota unit
+   either way. Ten keeps the bar moving: at 50 a 200-link file would advance
+   four times, which is not a progress bar. */
+async function importBookmarks(html) {
+  if (importRun.active) return;
+
+  const found = youtubeLinksIn(html);
+  if (found.size === 0) {
+    return toast('warn', 'No YouTube links in that file.',
+      'It was read successfully and held no youtube.com or youtu.be video links.');
+  }
+
+  const known = new Set(videos.map((v) => v.id));
+  const fresh = [...found.keys()].filter((id) => !known.has(id));
+  const counts = { added: 0, duplicate: found.size - fresh.length, failed: 0 };
+
+  if (fresh.length === 0) {
+    return toast('warn', 'Nothing new to import.', found.size === 1
+      ? 'That link was already in your watchlist.'
+      : `All ${found.size} links were already in your watchlist.`);
+  }
+
+  importRun.active = true;
+  importRun.cancelled = false;
+  showImportPanel(fresh.length);
+
+  let done = 0;
+  const CHUNK = 10;
+
+  try {
+    for (let i = 0; i < fresh.length; i += CHUNK) {
+      if (importRun.cancelled) break;
+      const chunk = fresh.slice(i, i + CHUNK);
+
+      let resolved = [];
+      try {
+        const response = await fetch('/api/videos?ids=' + chunk.join(','));
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Request failed.');
+        resolved = data.videos || [];
+      } catch (error) {
+        /* One bad chunk must not end the run, but a refused key would fail
+           every chunk in turn, so the reason is surfaced once at the end. */
+        importRun.error = error.message;
+      }
+
+      const byId = new Map(resolved.map((v) => [v.id, v]));
+      const addedAt = new Date().toISOString();
+
+      chunk.forEach((id) => {
+        const data = byId.get(id);
+        if (!data) { counts.failed += 1; return; }
+        videos.push({ ...data, addedAt, tags: [] });
+        tombstones = tombstones.filter((t) => t.id !== id);
+        counts.added += 1;
+      });
+
+      done += chunk.length;
+      /* Saved per chunk, so closing the tab mid-import keeps what resolved. */
+      save();
+      setImportProgress(done, fresh.length, counts);
+      render();
+    }
+
+    /* HOLD AT THE END, OR THE BAR NEVER ARRIVES.
+       An import that fits one chunk set 0%, then 100%, then hid the panel in
+       the same tick. Sampled every 60ms it read 0% four times running: the
+       full bar existed for less than a frame. A panel that appears at zero
+       and vanishes reads as broken rather than as finished. */
+    if (!importRun.cancelled) await new Promise((r) => setTimeout(r, 500));
+  } finally {
+    importRun.active = false;
+    $('#importPanel').hidden = true;
+    $('#importFill').style.width = '0%';
+  }
+
+  render();
+  reportImport(counts, found.size, importRun.cancelled);
+  importRun.error = null;
+}
+
+function reportImport(counts, total, cancelled) {
+  const detail = [
+    counts.duplicate ? `${counts.duplicate} already saved` : null,
+    counts.failed ? `${counts.failed} could not be read` : null,
+    importRun.error ? importRun.error : null,
+  ].filter(Boolean).join(' · ');
+
+  const noun = counts.added === 1 ? 'video' : 'videos';
+
+  if (cancelled) {
+    return toast('warn', `Import stopped. ${counts.added} ${noun} added.`,
+      detail || `${total - counts.added - counts.duplicate} were not checked.`);
+  }
+  if (counts.added === 0) {
+    return toast('error', 'Nothing was imported.', detail || 'None of the links could be read.');
+  }
+  toast(counts.failed || importRun.error ? 'warn' : 'ok',
+    `Imported ${counts.added} ${noun}.`, detail);
+}
+
+/* ==========================================================================
+   Toasts
+   ========================================================================== */
+
+/* A TOAST THAT PERSISTS MUST NOT COVER A CONTROL.
+   Fixed to the bottom corner, two of them sat on the remove buttons of the
+   last two rows: 6 covered findings at 28x28 and 52x64. They intercept
+   clicks, and they stay until dismissed, so those buttons were unreachable
+   for as long as the toast was up.
+
+   Reserving the room is the fix rather than auto-dismissing. The count is
+   the reason the toast exists, and a toast that removes itself takes the
+   number away before it has been read. */
+function reserveToastRoom() {
+  const box = $('#toasts');
+  const height = box.children.length ? Math.ceil(box.getBoundingClientRect().height) : 0;
+  document.body.style.paddingBlockEnd = height ? `calc(${height}px + var(--space-2xl))` : '';
+}
+
+const TOAST_LIMIT = 3;
+
+function toast(kind, title, detail) {
+  const node = document.createElement('div');
+  node.className = 'toast';
+  node.dataset.kind = kind;
+  node.innerHTML = `
+    <span class="toast-mark">${icon(kind === 'ok' ? 'check' : 'alert')}</span>
+    <div class="toast-body">
+      <div class="toast-title">${escape(title)}</div>
+      ${detail ? `<div class="toast-detail">${escape(detail)}</div>` : ''}
+    </div>
+    <button class="btn btn-sm btn-icon toast-close" type="button" aria-label="Dismiss">${icon('x')}</button>`;
+
+  node.querySelector('.toast-close').addEventListener('click', () => {
+    node.remove();
+    reserveToastRoom();
+  });
+
+  const box = $('#toasts');
+  box.append(node);
+  /* Capped, or the reserved room grows without bound and eats the page. */
+  while (box.children.length > TOAST_LIMIT) box.firstElementChild.remove();
+  reserveToastRoom();
+  return node;
 }
 
 /* ==========================================================================
@@ -951,6 +1173,19 @@ addEventListener('resize', positionSuggest);
 
 $('#exportBtn').addEventListener('click', exportFile);
 $('#importBtn').addEventListener('click', () => $('#importFile').click());
+
+/* Cancel stops before the next chunk. A request already in flight is left to
+   finish, so whatever it resolved is kept rather than thrown away.
+
+   The guard matters: 30 links resolve in under 1.4s, so the panel can be gone
+   before a hand reaches the button. Without it a late click set `cancelled`
+   on a finished run and wrote "Stopping…" onto a hidden panel. */
+$('#importCancel').addEventListener('click', () => {
+  if (!importRun.active) return;
+  importRun.cancelled = true;
+  $('#importCancel').disabled = true;
+  $('#importCounts').textContent = 'Stopping after the current batch…';
+});
 $('#importFile').addEventListener('change', (event) => {
   if (event.target.files[0]) importFile(event.target.files[0]);
   event.target.value = '';

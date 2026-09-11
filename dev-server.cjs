@@ -19,6 +19,25 @@ http.createServer(async (req, res) => {
     res.writeHead(200, {'Content-Type':'application/json'});
     return res.end(JSON.stringify({ clientId, apiKey, driveEnabled: Boolean(clientId), pickerEnabled: Boolean(clientId && apiKey) }));
   }
+  // Mirrors api/videos.js. Up to 50 ids in one call, so a bookmarks import
+  // costs one quota unit per chunk rather than one per video.
+  if (requestUrl.pathname === '/api/videos') {
+    const ids = String(requestUrl.searchParams.get('ids') || '').split(',').map(s => s.trim()).filter(s => /^[A-Za-z0-9_-]{11}$/.test(s));
+    if (!ids.length || ids.length > 50) { res.writeHead(400, {'Content-Type':'application/json'}); return res.end(JSON.stringify({error:'Send between 1 and 50 valid video ids.'})); }
+    try {
+      if (!process.env.YOUTUBE_API_KEY) {
+        const videos = await Promise.all(ids.map(async id => {
+          try { const o = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`).then(r => r.ok ? r.json() : null)
+            return o ? { id, title:o.title, channel:o.author_name, duration:'—', uploadedAt:null, limited:true } : null } catch { return null }
+        }));
+        res.writeHead(200, {'Content-Type':'application/json'}); return res.end(JSON.stringify({videos:videos.filter(Boolean), limited:true}));
+      }
+      const data = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&maxResults=50&id=${ids.join(',')}&key=${process.env.YOUTUBE_API_KEY}`).then(r => r.json());
+      if (data.error) { res.writeHead(502, {'Content-Type':'application/json'}); return res.end(JSON.stringify({error:'YouTube refused the request: ' + (data.error.message || 'no reason given')})); }
+      const videos = (data.items || []).map(v => ({ id:v.id, title:v.snippet.title, channel:v.snippet.channelTitle, duration:duration(v.contentDetails && v.contentDetails.duration), uploadedAt:v.snippet.publishedAt }));
+      res.writeHead(200, {'Content-Type':'application/json'}); return res.end(JSON.stringify({videos}));
+    } catch { res.writeHead(502, {'Content-Type':'application/json'}); return res.end(JSON.stringify({error:'Could not reach YouTube.'})); }
+  }
   if (requestUrl.pathname === '/api/video') {
     const input = requestUrl.searchParams.get('url') || '', id = idFrom(input);
     if (!id) { res.writeHead(400, {'Content-Type':'application/json'}); return res.end(JSON.stringify({error:'Please paste a valid YouTube video link.'})); }

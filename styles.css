@@ -447,6 +447,119 @@ header {
 .hint a { color: var(--tag-ink) }
 
 /* ==========================================================================
+   Import progress
+
+   A long job gets the SHAPE of what is coming, a count, and a way out. The
+   panel sits where the adding happens, directly under the add card.
+   ========================================================================== */
+
+.import-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+  padding: var(--space-lg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.import-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+}
+
+.import-panel h3 { font-size: var(--text-sm) }
+
+/* 6px sits on the space grid: multiples of 2 are legal below 8. */
+.progress-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+}
+
+/* A value change reads at the hover step. The reduced-motion block at the top
+   of this file cuts it to 1ms, so the bar jumps rather than crawls. */
+.progress-fill {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width var(--duration-hover) var(--ease);
+}
+
+.import-panel .hint { margin-top: 0 }
+
+/* The bar is the only mark in forced colors, where a background is dropped. */
+@media (forced-colors: active) {
+  .progress-track { border: 1px solid CanvasText }
+  .progress-fill { background: Highlight; forced-color-adjust: none }
+}
+
+/* ==========================================================================
+   Toasts
+
+   They persist until dismissed. A count is the reason the toast exists, and
+   an auto-dismissing one takes the number away before it has been read.
+   ========================================================================== */
+
+.toasts {
+  position: fixed;
+  z-index: var(--layer-toast);
+  inset-block-end: var(--space-lg);
+  inset-inline-end: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: min(380px, calc(100vw - var(--space-2xl)));
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-md) var(--space-md) var(--space-lg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: 0 8px 24px #000000a8;
+  pointer-events: auto;
+}
+
+/* The mark carries the outcome, so it takes the meaning colour. A reader who
+   cannot separate two hues still gets the wording beside it. */
+.toast-mark { flex: 0 0 auto; margin-top: var(--space-2xs); color: var(--ok) }
+.toast[data-kind="warn"] .toast-mark { color: var(--warn) }
+.toast[data-kind="error"] .toast-mark { color: var(--danger) }
+
+.toast-body { flex: 1; min-width: 0 }
+.toast-title { font-weight: 650 }
+.toast-detail { margin-top: var(--space-2xs); color: var(--text-muted); font-size: var(--text-xs) }
+
+@media (prefers-reduced-motion: no-preference) {
+  .toast { animation: toast-in var(--duration-panel) var(--ease) }
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(var(--space-sm)) }
+}
+
+@media (max-width: 850px) {
+  .toasts {
+    inset-inline: var(--space-lg);
+    width: auto;
+  }
+}
+
+@media (forced-colors: active) {
+  .toast { border: 1px solid CanvasText }
+}
+
+/* ==========================================================================
    List head
    A heading beside its actions. The row sits on one baseline, so the button
    labels land on the heading's line.
