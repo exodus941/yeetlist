@@ -1,13 +1,11 @@
-/* Hands the browser the two PUBLIC Google identifiers, read from the Vercel
-   environment so the repository carries neither.
+/* Hands the browser the PUBLIC Google client ID, read from the Vercel
+   environment so the repository carries none.
 
-   Be clear about what this does and does not buy. Both values reach the
-   browser either way, and anyone can read them from devtools or by calling
-   this endpoint. So this keeps them out of git; it does not make them
-   secret. What actually protects them lives in the Google console:
-
-     - the client ID works only from an Authorized JavaScript origin
-     - the API key is restricted by HTTP referrer, and to the Picker API
+   Be clear about what this does and does not buy. The value reaches the
+   browser either way, and anyone can read it from devtools or by calling
+   this endpoint. So this keeps it out of git; it does not make it secret.
+   What actually protects it lives in the Google console: the client ID works
+   only from an Authorized JavaScript origin.
 
    The client SECRET is never here, and the browser-only token flow never
    asks for one. */
