@@ -19,6 +19,12 @@ const date = (value) => value
   ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
   : '—';
 
+/* The card view shows the upload as a day and the addition in full, so the
+   two are told apart by their shape rather than by a label. */
+const dateOnly = (value) => value
+  ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value))
+  : '—';
+
 const seconds = (value) => String(value ?? '')
   .split(':')
   .map(Number)
@@ -143,16 +149,19 @@ const row = (v) => `<tr class="${selected.has(v.id) ? 'row-selected' : ''}" data
   </td>
   <td class="cell-title">
     <a class="video-link" href="https://www.youtube.com/watch?v=${encodeURIComponent(v.id)}"
-       target="_blank" rel="noopener">
-      <span class="video-title">${escape(v.title)}</span>
-      <span class="subtle">youtube.com</span>
-    </a>
+       target="_blank" rel="noopener" title="${escape(v.title)}">${escape(v.title)}</a>
   </td>
-  <td class="cell-fact" data-label="Channel">${escape(v.channel)}</td>
-  <td class="cell-fact amount" data-label="Duration">${escape(v.duration || '—')}</td>
-  <td class="cell-fact" data-label="Uploaded">${date(v.uploadedAt)}</td>
-  <td class="cell-fact" data-label="Added">${date(v.addedAt)}</td>
-  <td class="cell-tags" data-label="Metatags">
+  <td class="cell-chan">
+    <span class="cell-name">Channel</span>
+    <span class="truncate" title="${escape(v.channel)}">${escape(v.channel)}</span>
+  </td>
+  <td class="cell-dur amount"><span class="cell-name">Duration</span>${escape(v.duration || '—')}</td>
+  <td class="cell-up">
+    <span class="cell-name">Uploaded</span>
+    <span class="date-full">${date(v.uploadedAt)}</span><span class="date-day">${dateOnly(v.uploadedAt)}</span>
+  </td>
+  <td class="cell-added"><span class="cell-name">Added</span>${date(v.addedAt)}</td>
+  <td class="cell-tags">
     <div class="tags">
       ${(v.tags || []).map((t) => `<span class="tag-chip">${escape(hashed(t))}</span>`).join('')}
       <label class="tag-input-hit">

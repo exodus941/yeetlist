@@ -912,6 +912,25 @@ tbody tr:last-child td { border-bottom: 0 }
    across the columns holding data. */
 .col-check, .col-remove { width: 1% }
 
+/* A date is one run that must not break. Left to wrap, "Sep 11, 2026, 6:05
+   PM" folded onto two lines and made every row in the table taller. nowrap
+   makes the column demand its own content width instead.
+
+   The CHANNEL is not in that list, and putting it there cost 169px of table
+   overflow. A 51-character channel name with nowrap demands every pixel it
+   needs, and four such columns plus a 420px title cap pushed the table past
+   its container. The two TEXT columns truncate instead. The dates cannot,
+   because a truncated date is a wrong date. */
+.cell-dur, .cell-up, .cell-added { white-space: nowrap }
+
+/* Capped so the fixed-width date columns have room. Measured against the
+   table's own container rather than picked. */
+.cell-chan .truncate { max-width: 180px }
+
+/* The day-only form is for the card view. At this width the column header
+   says which date it is, so the full form carries the time too. */
+.date-day { display: none }
+
 .check { text-align: center }
 
 /* The label is the target, never the 16px box drawn inside it. */
@@ -976,39 +995,45 @@ tbody tr.row-selected > td:first-child::before {
   background: var(--accent);
 }
 
-/* The anchor is the target, and it reaches the floor by its own height.
+/* One line, truncated, with the full title on hover through the title
+   attribute. The "youtube.com" caption is gone: every video here is a
+   YouTube video, so the line said nothing.
 
-   An overhang was tried first and does not work here: the clipping that
-   makes the ellipsis must sit on the element holding the text, and
-   overflow:hidden clips that element's own pseudo-element. Hit-testing the
-   result gave 21.5px against a 24px floor. So the clipping moved to an inner
-   span and the anchor grew instead.
-
-   A caption directly below its heading is a GROUP, so the distance is zero
-   on purpose. Declared rather than left absent, because an absent gap and a
-   chosen one read the same to anything measuring it. */
+   The anchor is both the text and the target. It reaches the floor by its own
+   min-height rather than by an overhang, because overflow:hidden clips an
+   element's own pseudo-element and a hit test measured 21.5px of a 24px
+   floor that way. */
+/* A block, not a flex box. Flex centring would hide the label from the row
+   and a flex container will not ellipsise its own text. A stated line-height
+   equal to the target floor does both jobs: it centres the single line and
+   gives the anchor its height. One writer per property. */
 .video-link {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  row-gap: 0;
-  min-height: max(var(--target-mouse), var(--control-floor));
-  max-width: 320px;
-  color: inherit;
-  text-decoration: none;
-}
-
-.video-title {
   display: block;
+  max-width: 420px;
   overflow: hidden;
+  line-height: max(var(--target-mouse), var(--control-floor));
   color: var(--text);
   font-weight: 650;
+  text-decoration: none;
   text-overflow: ellipsis;
   white-space: nowrap;
   transition: color var(--duration-hover) var(--ease);
 }
 
-.video-link:hover .video-title { color: var(--accent); text-decoration: underline }
+.video-link:hover { color: var(--accent); text-decoration: underline }
+
+/* Any run that must stay on one line and say so on hover. */
+.truncate {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The column headers name these at a wide width. In the card view the table
+   semantics are gone, so each cell carries its own name for a screen reader
+   and nothing for the eye. */
+.cell-name { display: none }
 
 .subtle { color: var(--text-muted); font-size: var(--text-xs) }
 
@@ -1357,35 +1382,97 @@ dialog menu {
   tbody tr > td { padding: 0; border: 0 }
   tbody tr:last-child td { border: 0 }
 
-  .cell-check  { grid-column: 1; grid-row: 1 }
-  .cell-title  { grid-column: 2; grid-row: 1 }
-  .cell-remove { grid-column: 3; grid-row: 1 }
+  /* Three lines, each a left run and a right run.
 
-  /* The facts and the tags start on the title's edge, not the checkbox's, so
-     the card reads as one column of text under its own heading. */
-  .cell-fact, .cell-tags { grid-column: 2 / -1 }
+     Line 1  checkbox   title, one line, truncated   delete
+     Line 2  channel, one line, truncated            duration
+     Line 3  uploaded, day only                      added, in full
 
-  .cell-fact {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-lg);
-    font-size: var(--text-xs);
+     Lines 2 and 3 start on the TITLE's edge rather than the checkbox's, so
+     the card reads as one column of text under its own heading. The right
+     column is sized by the widest of the delete button, the duration and
+     the added date, and every member of it is aligned to the end. */
+  /* THE DELETE BUTTON LEAVES THE GRID, AND THAT IS WHAT GIVES THE TITLE ITS
+     WIDTH. A grid column is shared by every row, so the button and the
+     "added" date sat in one track. max-content sized it to the date at
+     126px, and the title was left 119px of a 313px card: it truncated after
+     three words. Positioned out of flow, the button sizes nothing, the title
+     spans both columns, and its cell reserves the button's width so the two
+     never overlap. Measured 119px to 213px. */
+  /* TWO COLUMNS, AND EACH LINE'S PAIR SHARES ONE CELL.
+
+     Three tracks did not work. A grid column is shared by every row, so the
+     delete button, the duration and the "added" date all sat in col 3.
+     max-content sized it to the widest of them at 126px, which left the
+     title 119px of a 313px card and pinned the channel to the same 119px.
+     The gap from the channel to the duration came out at 101px.
+
+     So there are two tracks now. Each pair occupies ONE cell, the left run
+     at its start and the right run at its end, and the left run caps itself
+     so the two never meet. The delete button is out of flow entirely, and
+     sizes nothing. */
+  tbody tr {
+    position: relative;
+    grid-template-columns: max-content minmax(0, 1fr);
+    row-gap: var(--space-xs);
   }
 
-  /* data-label is the column heading the stack no longer has. A label owns
-     the distance to what it names, and here that distance is the row gap. */
-  .cell-fact::before {
-    content: attr(data-label);
-    color: var(--text-muted);
-    font-weight: 700;
-    letter-spacing: var(--track-label);
-    font-size: var(--text-2xs);
-    text-transform: uppercase;
-    flex: 0 0 auto;
+  .cell-check { grid-column: 1; grid-row: 1 }
+  .cell-title { grid-column: 2; grid-row: 1; padding-inline-end: calc(var(--control-lg) + var(--space-sm)) }
+
+  /* The channel cell STRETCHES, and that is load-bearing. With
+     justify-self:start it shrink-wrapped its own content, so the percentage
+     cap below resolved against the thing it was sizing. The channel measured
+     0px wide and the text disappeared. Stretched, 100% is the grid cell. */
+  .cell-chan  { grid-column: 2; grid-row: 2 }
+  .cell-dur   { grid-column: 2; grid-row: 2; justify-self: end }
+  .cell-up    { grid-column: 2; grid-row: 3; justify-self: start }
+  .cell-added { grid-column: 2; grid-row: 3; justify-self: end }
+  .cell-tags  { grid-column: 2; grid-row: 4 }
+
+  .cell-remove {
+    position: absolute;
+    inset-block-start: var(--space-md);
+    inset-inline-end: var(--space-md);
   }
 
+  .cell-dur, .cell-added { text-align: end }
+
+  .cell-chan, .cell-dur, .cell-up, .cell-added { font-size: var(--text-xs) }
+  .cell-up, .cell-added { color: var(--text-muted) }
+
+  /* The channel takes every pixel it can and stops 48px short of the
+     duration, which is their number. 4.5em covers the widest duration this
+     renders, "1:04:41" in the mono face at this size. */
+  .cell-chan { min-width: 0; max-width: 100% }
+  .cell-chan .truncate { max-width: calc(100% - var(--space-3xl) - 4.5em) }
+
+  /* The tags are a different kind of thing from the three fact lines, so
+     they stand clear of them. Padding rather than a margin, because the row
+     gap is one writer already and a padding cannot be consumed. */
+  .cell-tags { padding-block-start: var(--space-sm) }
+
+  /* The names exist for a screen reader only. `display: grid` on the row
+     removes the table semantics, so the column headers no longer associate
+     with these cells and each one has to carry its own. */
+  .cell-name {
+    display: block;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* The card gives the title its width, so the desktop cap comes off. The
+     line-height stays at the floor: line 1 is already 44px tall from the
+     checkbox's hit area, so matching it costs no height and keeps the
+     title's own target the same size as the row it sits in. */
   .video-link { max-width: none }
+
+  .date-full { display: none }
+  .date-day { display: inline }
 
   /* A run of like things, so one gap serves both axes. */
   .tags { min-width: 0 }
