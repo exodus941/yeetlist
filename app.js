@@ -27,6 +27,24 @@ const dateOnly = (value) => value
   ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value))
   : '—';
 
+/* Whole words, and a unit is dropped where it is zero. "5 hours 3 minutes 47
+   seconds", never "5 hours 0 minutes 47 seconds".
+
+   A video whose duration never arrived reads as "—", and seconds() answers 0
+   for it. That UNDERSTATES the total rather than hiding it, which is the
+   honest way round: the count above still includes that video, so dropping it
+   from the sum entirely would make the two lines disagree. */
+const runtime = (total) => {
+  const parts = [
+    [Math.floor(total / 3600), 'hour'],
+    [Math.floor(total / 60) % 60, 'minute'],
+    [total % 60, 'second'],
+  ].filter(([value]) => value > 0);
+
+  if (!parts.length) return '0 seconds';
+  return parts.map(([value, unit]) => `${value} ${unit}${value === 1 ? '' : 's'}`).join(' ');
+};
+
 const seconds = (value) => String(value ?? '')
   .split(':')
   .map(Number)
@@ -122,6 +140,15 @@ function render() {
     ? `${filtered.length} of ${videos.length} Saved ${videos.length === 1 ? 'Video' : 'Videos'}`
     : `${videos.length} Saved ${videos.length === 1 ? 'Video' : 'Videos'}`;
 
+  /* The runtime answers the question a count cannot: is there time for this.
+     So it reads the FILTERED set, the same as the line above it. A total for
+     the whole library beside a filtered count would be two answers to two
+     different questions, stacked. */
+  const runtimeWords = runtime(filtered.reduce((total, v) => total + seconds(v.duration), 0));
+  const runtimeLine = $('#listRuntime');
+  runtimeLine.textContent = runtimeWords;
+  runtimeLine.hidden = !filtered.length;
+
   $('#rows').innerHTML = listState === 'loading' ? skeleton() : filtered.map(row).join('');
 
   renderState(filtered.length, filtering);
@@ -142,7 +169,7 @@ function render() {
 /* One rendering for both shapes. At narrow widths CSS turns each row into a
    card, and data-label is what gives every fact its name once the header row
    is gone. Two renderings of the same data would drift. */
-const row = (v) => `<tr class="${selected.has(v.id) ? 'row-selected' : ''}" data-id="${escape(v.id)}">
+const row = (v) => `<tr class="${[selected.has(v.id) ? 'row-selected' : '', v.dead ? 'row-dead' : ''].filter(Boolean).join(' ')}" data-id="${escape(v.id)}">
   <td class="check cell-check">
     <label class="check-hit">
       <input class="checkbox select" data-id="${escape(v.id)}" type="checkbox"
@@ -151,7 +178,8 @@ const row = (v) => `<tr class="${selected.has(v.id) ? 'row-selected' : ''}" data
   </td>
   <td class="cell-title">
     <a class="video-link" href="https://www.youtube.com/watch?v=${encodeURIComponent(v.id)}"
-       target="_blank" rel="noopener" title="${escape(v.title)}">${escape(v.title)}</a>
+       target="_blank" rel="noopener"
+       title="${v.dead ? 'Unavailable on YouTube. ' : ''}${escape(v.title)}">${escape(v.title)}</a>
   </td>
   <td class="cell-chan">
     <span class="cell-name">Channel</span>
@@ -168,6 +196,7 @@ const row = (v) => `<tr class="${selected.has(v.id) ? 'row-selected' : ''}" data
   </td>
   <td class="cell-tags">
     <div class="tags">
+      ${v.dead ? `<span class="dead-chip">${icon('alert')}Unavailable</span>` : ''}
       ${(v.tags || []).map((t) => `<span class="tag-chip">
         <span>${escape(hashed(t))}</span>
         <button class="tag-remove" type="button" data-id="${escape(v.id)}" data-tag="${escape(t)}"
@@ -469,24 +498,58 @@ function addTags(id, raw) {
   $(`tr[data-id="${CSS.escape(id)}"] .tag-add-btn`)?.focus();
 }
 
-async function refreshMissingMetadata() {
-  const incomplete = videos.filter((v) =>
-    (!v.duration || v.duration === '—' || !v.uploadedAt) && !metadataRequested.has(v.id));
-  if (!incomplete.length) return;
+/* ONE PASS FILLS THE GAPS AND FINDS THE DEAD, because both questions are
+   answered by the same request.
 
-  incomplete.forEach((v) => metadataRequested.add(v.id));
+   It asks about EVERY video rather than only the ones missing data. A video
+   that was fine last week can be removed or made private this week, and
+   nothing else would ever notice. videos.list costs one quota unit per call
+   of up to 50 ids, so checking 500 videos costs 10 units against a daily
+   10,000. The old path spent one request per video and learned less. */
+async function refreshMetadata() {
+  const pending = videos.filter((v) => !metadataRequested.has(v.id));
+  if (!pending.length) return;
 
-  const refreshed = await Promise.all(incomplete.map(async (video) => {
+  pending.forEach((v) => metadataRequested.add(v.id));
+
+  const found = new Map();
+  let trustworthy = true;
+
+  for (let at = 0; at < pending.length; at += 50) {
+    const chunk = pending.slice(at, at + 50);
     try {
-      const response = await fetch(`/api/video?url=${encodeURIComponent('https://www.youtube.com/watch?v=' + video.id)}`);
-      if (!response.ok) return video;
+      const response = await fetch('/api/videos?ids=' + chunk.map((v) => v.id).join(','));
       const data = await response.json();
-      return { ...video, ...data, tags: video.tags, addedAt: video.addedAt };
-    } catch { return video; }
-  }));
 
-  const updates = new Map(refreshed.map((v) => [v.id, v]));
-  videos = videos.map((v) => updates.get(v.id) || v);
+      /* ABSENCE ONLY MEANS DEAD WHEN THE ANSWER WAS GOOD. A refused key, a
+         502 or a dropped connection also return nothing, and marking a whole
+         library dead on a network blip is the worst thing this can do.
+
+         The oEmbed fallback is untrustworthy for the same reason. It fetches
+         each video separately and drops the ones that fail, so a timeout
+         reads exactly like a deletion. It fills metadata and is never
+         allowed to condemn anything. */
+      if (!response.ok || data.limited) trustworthy = false;
+      (data.videos || []).forEach((v) => found.set(v.id, v));
+    } catch {
+      trustworthy = false;
+    }
+  }
+
+  videos = videos.map((video) => {
+    if (!pending.some((p) => p.id === video.id)) return video;
+
+    const fresh = found.get(video.id);
+    if (fresh) {
+      /* Back from the dead is a real case: a video set private and then made
+         public again. Clearing the flag costs nothing and a stale one is a
+         row the reader distrusts for no reason. */
+      const { dead, ...rest } = video;
+      return { ...rest, ...fresh, tags: video.tags, addedAt: video.addedAt };
+    }
+    return trustworthy ? { ...video, dead: true } : video;
+  });
+
   save();
   render();
 }
@@ -1266,7 +1329,7 @@ $('#state').addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]')?.dataset.action;
   if (action === 'clear-filter') clearFilters();
   if (action === 'focus-add') $('#videoUrl').focus();
-  if (action === 'retry') { listState = 'ready'; render(); refreshMissingMetadata(); }
+  if (action === 'retry') { listState = 'ready'; render(); refreshMetadata(); }
 });
 
 /* ---- tag autocomplete ---------------------------------------------------- */
@@ -1404,7 +1467,7 @@ if (arrivedWith) {
 driveResuming = DRIVE.connected();
 renderDrive();
 render();
-refreshMissingMetadata();
+refreshMetadata();
 renderDriveAvailability();
 
 /* ONE WRITER FOR THE STATUS LINE, AND IT IS renderDrive. This used to set

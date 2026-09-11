@@ -31,6 +31,7 @@
   <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-cloud-check" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z" vector-effect="non-scaling-stroke"/><path d="m9 13 2 2 4-4" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" vector-effect="non-scaling-stroke"/><path d="M21 3v5h-5" vector-effect="non-scaling-stroke"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" vector-effect="non-scaling-stroke"/><path d="M3 21v-5h5" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18" vector-effect="non-scaling-stroke"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" vector-effect="non-scaling-stroke"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" vector-effect="non-scaling-stroke"/><path d="M10 11v6" vector-effect="non-scaling-stroke"/><path d="M14 11v6" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-unlink" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" vector-effect="non-scaling-stroke"/><path d="m16 17 5-5-5-5" vector-effect="non-scaling-stroke"/><path d="M21 12H9" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" vector-effect="non-scaling-stroke"/><path d="m7 10 5 5 5-5" vector-effect="non-scaling-stroke"/><path d="M12 15V3" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" vector-effect="non-scaling-stroke"/><path d="m17 8-5-5-5 5" vector-effect="non-scaling-stroke"/><path d="M12 3v12" vector-effect="non-scaling-stroke"/></symbol>
@@ -124,29 +125,38 @@
   </section>
 
   <!-- The heading carries the count, so the overline that used to repeat
-       "SAVED VIDEOS" above it is gone. One row, two items, one baseline. -->
-  <section class="list-head">
-    <h2 id="listCount" role="status">0 Saved Videos</h2>
-    <div class="list-actions">
-      <button id="deleteSelected" class="btn btn-sm btn-danger-outline" type="button" disabled>Delete Selected</button>
-    </div>
+       "SAVED VIDEOS" above it is gone.
+
+       ONE STATUS REGION, NOT TWO. The count and the runtime answer one
+       question and change together, so a reader hears a single update. Two
+       regions would read them out as two separate announcements. -->
+  <section class="list-head" role="status">
+    <h2 id="listCount">0 Saved Videos</h2>
+    <p id="listRuntime" class="list-runtime" hidden></p>
   </section>
 
   <section class="filters">
-    <span class="filters-label">FILTER BY TAG</span>
+    <!-- A LABEL AND WHAT IT NAMES ARE ONE GROUP, so they are one element.
+         Flex cannot give one pair its own gap, and the row's comment has
+         claimed 16 against 8 while every painted gap measured 16. A label
+         equidistant from its own control and from the next group tells a
+         reader nothing about which two belong together. -->
+    <div class="filters-group">
+      <span class="filters-label">FILTER BY TAG</span>
 
-    <!-- One control for one decision, at every width. A wrapping run of ten
-         pills was four rows tall on a phone and still a long row on a
-         desktop, so both widths get the dropdown. -->
-    <div class="multi" id="tagFilter">
-      <button class="multi-trigger" id="tagFilterTrigger" type="button"
-              aria-expanded="false" aria-haspopup="listbox" aria-controls="tagFilterList">
-        <svg class="icon" aria-hidden="true"><use href="#i-tag"/></svg>
-        <span class="multi-value" id="tagFilterValue">All videos</span>
-        <svg class="icon multi-chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
-      </button>
-      <ul class="multi-panel" id="tagFilterList" role="listbox"
-          aria-multiselectable="true" aria-label="Filter by tag" tabindex="-1" hidden></ul>
+      <!-- One control for one decision, at every width. A wrapping run of ten
+           pills was four rows tall on a phone and still a long row on a
+           desktop, so both widths get the dropdown. -->
+      <div class="multi" id="tagFilter">
+        <button class="multi-trigger" id="tagFilterTrigger" type="button"
+                aria-expanded="false" aria-haspopup="listbox" aria-controls="tagFilterList">
+          <svg class="icon" aria-hidden="true"><use href="#i-tag"/></svg>
+          <span class="multi-value" id="tagFilterValue">All videos</span>
+          <svg class="icon multi-chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+        </button>
+        <ul class="multi-panel" id="tagFilterList" role="listbox"
+            aria-multiselectable="true" aria-label="Filter by tag" tabindex="-1" hidden></ul>
+      </div>
     </div>
 
     <label class="search">
@@ -154,8 +164,15 @@
       <input id="search" placeholder="Search titles, channels, or tags" aria-label="Search titles, channels, or tags" />
     </label>
 
-    <!-- The medium step, not sm. It shares a row with the tag control and
-         the search field, and a control row is one stated height. -->
+    <!-- The medium step, not sm. Both of these share a row with the tag
+         control and the search field, and a control row is one stated
+         height. Delete Selected carried btn-sm beside the old heading, and
+         it takes the row's height here instead. -->
+    <button id="deleteSelected" class="btn btn-danger-outline" type="button" disabled>
+      <svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>
+      <span class="btn-label">Delete Selected</span>
+    </button>
+
     <button id="clearFilter" class="btn" type="button">
       <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
       <span class="btn-label">Clear Filters</span>
