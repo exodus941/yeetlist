@@ -28,9 +28,17 @@
      and 1.135 between the two. The accent bar still carries the selection,
      and it reads 3.91 on the new fill against a 3.0 bar for a graphic.
 
-     The cost is stated: --line on a selected row falls to 1.088, so the row's
-     own bottom rule goes faint inside a selection. The fill change carries
-     that boundary instead, at 1.237. */
+     THE DIVIDER IS ABSENT ON BOTH OF THESE PLANES, AND THAT IS NOT A COST. A
+     td draws --line-subtle #282828, so the hairline reads 1.105 on the hover
+     and 1.027 on the selection. What separates two rows is whichever of the
+     hairline and the fill step a reader can see, and the fill step takes over
+     exactly where the hairline stops: 1.090 under a hovered row and 1.237
+     under a selected one.
+
+     Two adjacent SELECTED rows are the one pair with neither, at 1.027 and
+     1.000. They meet with no seam on purpose, because they are one selection.
+
+     Measured over all seven adjacent pairs before this was left alone. */
   --row-hover: #202020;
   --row-selected: #2a2a2a;
 
@@ -43,9 +51,11 @@
      candidate. The step alone is the same MECHANISM as the plain hover, which
      is what keeps the four planes one ladder a reader can order.
 
-     The cost is stated: --line on this plane falls to 1.029, so the row's own
-     bottom rule disappears while the pointer is on it. It is transient and it
-     returns the moment the pointer leaves. */
+     THIS COSTS NOTHING, AND AN EARLIER VERSION OF THIS COMMENT SAID IT DID.
+     It named --line #303030 at 1.029. Nothing draws a row divider with that.
+     A td draws --line-subtle #282828, which reads 1.150 here against 1.027 on
+     the plane below it. So the new plane GIVES BACK some of a hairline that
+     was already absent, rather than spending one. */
   --row-selected-hover: #323232;
 
   /* A DROPDOWN OPTION SITS ON --surface-raised, WHICH IS A DIFFERENT GROUND.
