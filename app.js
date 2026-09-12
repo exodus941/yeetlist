@@ -1396,17 +1396,30 @@ $('#tagFilterTrigger').addEventListener('keydown', (event) => {
 });
 
 /* A click anywhere else closes it. Pointerdown, so a click that lands on
-   another control still reaches that control. */
+   another control still reaches that control.
+
+   CAPTURE PHASE, BECAUSE THIS ASKS WHERE THE POINTER LANDED. That is a fact
+   about the moment the event STARTED, and on the bubble phase the answer had
+   already changed. Picking a suggestion runs the list's own handler first,
+   which rewrites the list, so the very element the pointer went down on is
+   detached by the time this ran. closest() then walked up from a node with no
+   parent and returned null, which reads exactly like a click on the page.
+
+   Measured on one pick: the same LI reported connected true and inside the
+   list on capture, and connected false and outside it on bubble. The tag was
+   applied and the panel closed under the reader.
+
+   Reading isConnected instead would be a guess that detached means inside.
+   The phase is the fact. */
 addEventListener('pointerdown', (event) => {
   if (multi.open && !event.target.closest('#tagFilter')) closeMulti();
 
   /* The suggestion list is appended to the BODY so it can escape the panel's
-     clipping, so it is outside #tagBulk. Picking a suggestion would otherwise
-     close the panel under the pointer before the click landed. */
+     clipping, so it is outside #tagBulk. */
   if (bulkOpen && !event.target.closest('#tagBulk') && !event.target.closest('#tagSuggest')) {
     closeBulk();
   }
-});
+}, true);
 
 /* ---- sorting ------------------------------------------------------------ */
 

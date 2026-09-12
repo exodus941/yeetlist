@@ -14,11 +14,33 @@
   --surface-raised: #202020;
   --surface-sunken: #111;
 
-  /* row planes. The order is stripe < hover < selection, and the distance
-     between them is what a reader uses to tell a pointer from a choice.
-     Measured against --bg: hover 1.10:1, selected 1.18:1. */
-  --row-hover: #1a1a1a;
-  --row-selected: #202020;
+  /* ROW PLANES. The order is hover < selection, and the distance between them
+     is what a reader uses to tell a pointer from a choice.
+
+     MEASURED AGAINST THE ROW AT REST, NEVER AGAINST THE PAGE. A row paints
+     --surface itself, so --surface is what a hover REPLACES. The old comment
+     compared both planes to --bg, which is the ground behind the table and
+     not the colour that changes. Against --bg the hover read 1.10 and looked
+     solved. Against the row it read 1.02, and a reader saw nothing at all.
+
+     Both planes moved, because nothing between the old rest and the old
+     selection clears the bar. Hover 1.09 against the row, selection 1.237,
+     and 1.135 between the two. The accent bar still carries the selection,
+     and it reads 3.91 on the new fill against a 3.0 bar for a graphic.
+
+     The cost is stated: --line on a selected row falls to 1.088, so the row's
+     own bottom rule goes faint inside a selection. The fill change carries
+     that boundary instead, at 1.237. */
+  --row-hover: #202020;
+  --row-selected: #2a2a2a;
+
+  /* A DROPDOWN OPTION SITS ON --surface-raised, WHICH IS A DIFFERENT GROUND.
+     One pair cannot serve both: the old --row-hover is DARKER than a panel,
+     so it painted a dark band where the table paints a light one. One role,
+     two grounds, two directions. Measured on the panel: hover 1.135 and
+     selected 1.309, with 1.153 between them. */
+  --option-hover: #2a2a2a;
+  --option-selected: #343434;
 
   /* ---- lines ----------------------------------------------------------- */
   /* --line divides structure. --line-subtle divides content of one kind.
@@ -901,8 +923,8 @@ header {
   cursor: pointer;
 }
 
-.multi-option:hover { background: var(--row-hover) }
-.multi-option.active { background: var(--row-selected); color: var(--text) }
+.multi-option:hover { background: var(--option-hover) }
+.multi-option.active { background: var(--option-selected); color: var(--text) }
 
 /* The tick is the mark that says chosen. A fill alone would leave a reader
    who cannot separate two greys with nothing to read. */
@@ -1608,12 +1630,12 @@ th.amount { text-align: end }
   cursor: pointer;
 }
 
-.tag-suggest li:hover { background: var(--row-hover) }
+.tag-suggest li:hover { background: var(--option-hover) }
 
 /* The active option is marked by its fill AND by its start edge, so the mark
    survives a reader who cannot separate two greys. */
 .tag-suggest li.active {
-  background: var(--row-selected);
+  background: var(--option-selected);
   box-shadow: inset var(--select-bar) 0 0 0 var(--accent);
   padding-inline-start: var(--select-inset);
   color: var(--text);
