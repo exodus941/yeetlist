@@ -1087,11 +1087,19 @@ header {
   --band: var(--page-pad);
 }
 
+/* THE BAND CLEARS THE BORDER BY ITS OWN WIDTH. An absolutely positioned
+   child's containing block is the PADDING box, so bottom:100% lands on the
+   INSIDE of the 1px top border. A pseudo-element paints above its parent's
+   border, so the band erased it. Measured: border at y 16 to 17, band bottom
+   at 17, one pixel of overlap, and the border gone.
+
+   It cost the top of the band too. At bottom:100% the band ran 1 to 17 and
+   left the row at y 0 unpainted. Now it runs 0 to 16 and the border is back. */
 .add-card::before {
   content: "";
   position: absolute;
   inset-inline: -1px;
-  bottom: 100%;
+  bottom: calc(100% + 1px);
   height: var(--band);
   background: var(--bg);
 }
@@ -1104,8 +1112,20 @@ header {
 .filters,
 .sort-bar { background: var(--bg) }
 
-/* The rule separates the stack from the first row passing behind it. */
-.sort-bar { box-shadow: 0 1px 0 var(--line) }
+/* THE RULE SITS ABOVE THE BAND'S OWN FOOT, NOT ON IT. It separates the stack
+   from the first row passing behind it, and the list keeps its 12px rhythm
+   under it. A shadow can only paint at the border-box edge, so the card
+   would have met the rule with 0px between them and its 8px corners against
+   a straight line. A background image can be placed anywhere.
+
+   The percentage resolves against (box height - image height), so
+   calc(100% - 12px) puts the 1px line exactly on the content box's foot. */
+.sort-bar {
+  background:
+    linear-gradient(var(--line), var(--line)) 0 calc(100% - var(--space-md)) /
+      100% 1px no-repeat,
+    var(--bg);
+}
 
 /* ==========================================================================
    Table
@@ -1945,10 +1965,24 @@ dialog menu {
     inset-inline-end: auto;
   }
 
-  /* The filters rule must not touch the sort bar. A rule between sections
-     sits INSIDE the gap, so it takes the filters' own 12px above it and the
-     same below. */
-  .sort-bar { margin-block: var(--space-md) var(--space-md) }
+  /* A MARGIN IS NEVER PAINTED, SO THE SORT BAR'S SEPARATION IS PADDING. The
+     bar carried 12px of margin below it. That margin is outside every box
+     the stack paints, so the list scrolled through it: measured a 12px strip
+     at y 378 to 390 showing a card's tag button behind the stuck stack.
+
+     ONE WRITER FOR EACH GAP. The distance above was two writers, the filters'
+     own 12px foot plus the bar's 12px head, so it read 24 at rest and 12 when
+     stuck, because a stuck element ignores its margin. The filters band gives
+     up its foot and the bar owns both distances. 12 above and 12 below, at
+     rest and stuck alike. */
+  .filters { padding-block-end: 0 }
+
+  .sort-bar {
+    display: flex;
+    gap: var(--space-lg);
+    margin-block: 0;
+    padding-block: var(--space-md);
+  }
 
   /* The table becomes a stack of cards. Eight columns cannot fold into
      375px, and a sideways scroller is the answer this file calls a last
@@ -1956,7 +1990,6 @@ dialog menu {
 
      One DOM either way. Each cell carries data-label, which is what names
      the fact once the header row is gone. */
-  .sort-bar { display: flex; gap: var(--space-lg); margin-bottom: var(--space-md) }
 
   .table-wrap { overflow-x: visible; border: 0; min-height: 0 }
   /* THE COLUMNS GO, OR THE TABLE KEEPS A WIDTH NO ROW USES. The rows here
@@ -1966,7 +1999,15 @@ dialog menu {
      with no scroller. The header is hidden, the rows are cards, so nothing
      is left for a column to size. */
   colgroup { display: none }
-  table { min-width: 0; table-layout: auto; border-collapse: separate }
+  /* border-spacing: 0, because the tbody is a flex column here and its own
+     12px gap is the only writer. The default 2px put a stray strip above the
+     first card, so the stack's 12px foot read 14. */
+  table {
+    min-width: 0;
+    table-layout: auto;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
   thead { display: none }
   tbody { display: flex; flex-direction: column; gap: var(--space-md) }
 
