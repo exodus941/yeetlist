@@ -854,16 +854,20 @@ header {
    which is the proximity bar. 16 against 8.
    ========================================================================== */
 
-/* NO BORDERS. They belonged to a band with space around it. Sticky closed
-   that space up, so each one landed on a neighbour's edge: the top border met
-   the add card's bottom border at y 176, and the bottom border met the first
-   row's top border at y 202. Two 1px rules of one weight, touching, say one
-   boundary twice. The stack's single foot rule is below. */
+/* NO TOP BORDER. It belonged to a band with space above it. Sticky closed
+   that space up, so it met the add card's own bottom border at y 176: two 1px
+   rules of one weight, touching, saying one boundary twice.
+
+   THE BOTTOM BORDER STAYS, BECAUSE IT IS THE TABLE'S TOP EDGE. .table-wrap
+   declares border-top: 0 and takes this one instead. That is what keeps the
+   rule at the BAND'S foot: the table's own top scrolls away, and the band
+   still ends in a line. Deleting it opened the table on three sides. */
 .filters {
   display: flex;
   align-items: center;
   gap: var(--space-lg);
   padding: var(--space-md) 0;
+  border-bottom: 1px solid var(--line);
 }
 
 /* THE PAIR IS A CONTAINER, BECAUSE FLEX CANNOT GIVE ONE GAP ITS OWN VALUE.
@@ -1158,28 +1162,22 @@ header {
    scrolls UNDER it. The card already paints --surface. These two paint
    nothing, so the rows would read straight through them.
 
-   ONE RULE FOR THE WHOLE BAND, AT ITS FOOT. Whichever of the two is last
-   carries it, and the other leaves --foot-y unset. A 1px image placed off the
-   box paints nothing, so one declaration serves both states.
-
-   IT CLEARS BOTH NEIGHBOURS BY 12px. A shadow can only paint at the border
-   box edge, which is where the first row starts. The rule read as an
-   underline on the control above it at the content foot. A background image
-   can be placed anywhere: the percentage resolves against (box height - image
-   height), so calc(100% - 12px) over a 25px foot leaves 12 above and 12
-   below. The 1px between them is the rule itself. */
+   THE TABLE VIEW'S FOOT IS THE FILTERS' OWN BOTTOM BORDER, above. The card
+   view has no table borders at all, so the sort bar draws the band's foot. */
 .filters,
+.sort-bar { background: var(--bg) }
+
+/* IT CLEARS BOTH NEIGHBOURS BY 12px. A shadow can only paint at the border
+   box edge, where the first card starts, and its 8px corners would meet a
+   straight line. At the content foot the rule read as an underline on the
+   select above it. A background image can be placed anywhere: the percentage
+   resolves against (box height - image height), so calc(100% - 12px) over a
+   25px foot leaves 12 above and 12 below. The 1px between them is the rule. */
 .sort-bar {
   background:
-    linear-gradient(var(--line), var(--line)) 0 var(--foot-y, -99px) /
+    linear-gradient(var(--line), var(--line)) 0 calc(100% - var(--space-md)) /
       100% 1px no-repeat,
     var(--bg);
-}
-
-/* The table view hides the sort bar, so the filters band is last. */
-.filters {
-  --foot-y: calc(100% - var(--space-md));
-  padding-block-end: calc(var(--space-md) * 2 + 1px);
 }
 
 /* ==========================================================================
@@ -2031,22 +2029,25 @@ dialog menu {
      up its foot and the bar owns both distances. 12 above and 12 below, at
      rest and stuck alike.
 
-     AND THE SORT BAR IS LAST HERE, so it takes the band's foot rule and the
-     filters band gives that up too. `initial` is the one value that makes
-     var() fall back: an EMPTY value substitutes nothing, which leaves
-     background-position invalid and takes the whole fill down with it. The
-     fallback puts the 1px image off the box, where it paints nothing. */
+     AND THE SORT BAR IS LAST HERE, so it draws the band's foot and the
+     filters give up their bottom border. There is no table border in this
+     view for that border to be the top of, and inside one band it would mark
+     a boundary nobody needs.
+
+     16px, THE SAME STEP THE FILTERS WRAP AT. The band is one group of list
+     controls, so every line in it sits the same distance from the next. At
+     12 the sort row sat closer to the buttons than the filter rows sit to
+     each other. */
   .filters {
-    --foot-y: initial;
     padding-block-end: 0;
+    border-bottom: 0;
   }
 
   .sort-bar {
-    --foot-y: calc(100% - var(--space-md));
     display: flex;
     gap: var(--space-lg);
     margin-block: 0;
-    padding-block: var(--space-md) calc(var(--space-md) * 2 + 1px);
+    padding-block: var(--space-lg) calc(var(--space-md) * 2 + 1px);
   }
 
   /* The table becomes a stack of cards. Eight columns cannot fold into
