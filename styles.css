@@ -289,10 +289,15 @@
    Shell
    ========================================================================== */
 
+/* --page-pad is the shell's own top padding, published so the sticky stack
+   can hold the same distance from the viewport edge that the page holds at
+   rest. A custom property inherits, and no selector can ask an ancestor for
+   its padding. */
 .shell {
+  --page-pad: var(--space-xl);
   max-width: 1380px;
   margin: auto;
-  padding: var(--space-xl) var(--space-2xl) var(--space-3xl);
+  padding: var(--page-pad) var(--space-2xl) var(--space-3xl);
 }
 
 /* ==========================================================================
@@ -571,12 +576,6 @@ header {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
-}
-
-.add-card > label {
-  display: block;
-  margin-bottom: var(--space-sm);
-  font-weight: 650;
 }
 
 .add-row {
@@ -1077,7 +1076,25 @@ header {
   z-index: var(--layer-sticky);
 }
 
-.add-card { top: 0 }
+/* IT STOPS SHORT OF THE VIEWPORT EDGE, by the same distance the page holds
+   at rest. Stuck at 0 the card sat flush against the browser chrome.
+
+   THE BAND ABOVE IT HAS TO BE PAINTED, or the list shows through the gap it
+   scrolls under. The pseudo-element is out of flow, so it costs no layout,
+   and it spans the card's own width because every row below is that width. */
+.add-card {
+  top: var(--page-pad);
+  --band: var(--page-pad);
+}
+
+.add-card::before {
+  content: "";
+  position: absolute;
+  inset-inline: -1px;
+  bottom: 100%;
+  height: var(--band);
+  background: var(--bg);
+}
 .filters { top: var(--stick-1, 0px) }
 .sort-bar { top: var(--stick-2, 0px) }
 
@@ -1851,7 +1868,7 @@ dialog menu {
    ========================================================================== */
 
 @media (max-width: 952px) {
-  .shell { padding: var(--space-lg) }
+  .shell { --page-pad: var(--space-lg); padding: var(--page-pad) }
 
   .sync-words { display: none }
 

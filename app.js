@@ -1486,7 +1486,13 @@ $('#sortKey').addEventListener('change', (event) => {
    of nothing under the filters. */
 function stackSticky() {
   const rows = ['.add-card', '.filters', '.sort-bar'].map((q) => $(q));
-  let run = 0;
+
+  /* THE CHAIN STARTS AT THE GAP, NOT AT ZERO. The first row stops short of
+     the viewport edge by the page's own top padding, so every offset below it
+     carries that distance too. Read off the shell, because that is where the
+     value is published and it changes at 952. */
+  const shell = $('.shell');
+  let run = parseFloat(getComputedStyle(shell).getPropertyValue('--page-pad')) || 0;
   rows.forEach((el, i) => {
     if (i > 0) document.documentElement.style.setProperty('--stick-' + i, run + 'px');
     if (el && el.offsetParent !== null) run += el.getBoundingClientRect().height;

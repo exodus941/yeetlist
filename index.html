@@ -94,10 +94,16 @@
     </div>
   </header>
 
+  <!-- NO VISIBLE HEADING. The field's placeholder and the button beside it
+       already say what this does, and the words cost a line at every width.
+
+       THE NAME MOVES TO aria-label RATHER THAN DISAPPEARING. A placeholder is
+       not a name: it is gone the moment anyone types, so a reader who cannot
+       see the button would be left with an unnamed field. -->
   <section class="add-card">
-    <label for="videoUrl">Add a Video</label>
     <div class="add-row">
-      <input id="videoUrl" class="input" placeholder="Paste a YouTube link…" autocomplete="off" />
+      <input id="videoUrl" class="input" placeholder="Paste a YouTube link…"
+             aria-label="Add a video by YouTube link" autocomplete="off" />
       <button id="addBtn" class="btn btn-primary" type="button">
         Add to Watchlist
         <svg class="icon" aria-hidden="true"><use href="#i-enter"/></svg>
