@@ -315,6 +315,14 @@
 /* Two GROUPS, not two runs of text: a brand lockup and a cluster of controls.
    Centring the groups is what stops one group claiming the other's baseline.
    Each group is then internally correct on its own terms. */
+/* A RULE BETWEEN SECTIONS SITS INSIDE THE GAP, HALF EACH SIDE. The shell is a
+   block, so nothing spaced the header from the card below it: 24px above the
+   rule and 0 below, with the card's own top border on the next pixel.
+
+   The 24 below is also what clears the card's band. That band paints the 16px
+   the stuck card holds above itself, and at rest it sat over this rule and
+   erased it. Measured: elementFromPoint at the rule's own y returned the
+   card. It now stands 8px clear of the band's top edge. */
 header {
   display: flex;
   align-items: center;
@@ -322,6 +330,7 @@ header {
   gap: var(--space-lg);
   border-bottom: 1px solid var(--line);
   padding-bottom: var(--space-xl);
+  margin-bottom: var(--space-xl);
 }
 
 .brand {
@@ -845,13 +854,16 @@ header {
    which is the proximity bar. 16 against 8.
    ========================================================================== */
 
+/* NO BORDERS. They belonged to a band with space around it. Sticky closed
+   that space up, so each one landed on a neighbour's edge: the top border met
+   the add card's bottom border at y 176, and the bottom border met the first
+   row's top border at y 202. Two 1px rules of one weight, touching, say one
+   boundary twice. The stack's single foot rule is below. */
 .filters {
   display: flex;
   align-items: center;
   gap: var(--space-lg);
   padding: var(--space-md) 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
 }
 
 /* THE PAIR IS A CONTAINER, BECAUSE FLEX CANNOT GIVE ONE GAP ITS OWN VALUE.
@@ -1144,23 +1156,30 @@ header {
 
 /* AN OPAQUE FILL IS NOT OPTIONAL. A sticky element stays in flow, so the list
    scrolls UNDER it. The card already paints --surface. These two paint
-   nothing, so the rows would read straight through them. */
+   nothing, so the rows would read straight through them.
+
+   ONE RULE FOR THE WHOLE BAND, AT ITS FOOT. Whichever of the two is last
+   carries it, and the other leaves --foot-y unset. A 1px image placed off the
+   box paints nothing, so one declaration serves both states.
+
+   IT CLEARS BOTH NEIGHBOURS BY 12px. A shadow can only paint at the border
+   box edge, which is where the first row starts. The rule read as an
+   underline on the control above it at the content foot. A background image
+   can be placed anywhere: the percentage resolves against (box height - image
+   height), so calc(100% - 12px) over a 25px foot leaves 12 above and 12
+   below. The 1px between them is the rule itself. */
 .filters,
-.sort-bar { background: var(--bg) }
-
-/* THE RULE SITS ABOVE THE BAND'S OWN FOOT, NOT ON IT. It separates the stack
-   from the first row passing behind it, and the list keeps its 12px rhythm
-   under it. A shadow can only paint at the border-box edge, so the card
-   would have met the rule with 0px between them and its 8px corners against
-   a straight line. A background image can be placed anywhere.
-
-   The percentage resolves against (box height - image height), so
-   calc(100% - 12px) puts the 1px line exactly on the content box's foot. */
 .sort-bar {
   background:
-    linear-gradient(var(--line), var(--line)) 0 calc(100% - var(--space-md)) /
+    linear-gradient(var(--line), var(--line)) 0 var(--foot-y, -99px) /
       100% 1px no-repeat,
     var(--bg);
+}
+
+/* The table view hides the sort bar, so the filters band is last. */
+.filters {
+  --foot-y: calc(100% - var(--space-md));
+  padding-block-end: calc(var(--space-md) * 2 + 1px);
 }
 
 /* ==========================================================================
@@ -2010,14 +2029,24 @@ dialog menu {
      own 12px foot plus the bar's 12px head, so it read 24 at rest and 12 when
      stuck, because a stuck element ignores its margin. The filters band gives
      up its foot and the bar owns both distances. 12 above and 12 below, at
-     rest and stuck alike. */
-  .filters { padding-block-end: 0 }
+     rest and stuck alike.
+
+     AND THE SORT BAR IS LAST HERE, so it takes the band's foot rule and the
+     filters band gives that up too. `initial` is the one value that makes
+     var() fall back: an EMPTY value substitutes nothing, which leaves
+     background-position invalid and takes the whole fill down with it. The
+     fallback puts the 1px image off the box, where it paints nothing. */
+  .filters {
+    --foot-y: initial;
+    padding-block-end: 0;
+  }
 
   .sort-bar {
+    --foot-y: calc(100% - var(--space-md));
     display: flex;
     gap: var(--space-lg);
     margin-block: 0;
-    padding-block: var(--space-md);
+    padding-block: var(--space-md) calc(var(--space-md) * 2 + 1px);
   }
 
   /* The table becomes a stack of cards. Eight columns cannot fold into
