@@ -34,6 +34,20 @@
   --row-hover: #202020;
   --row-selected: #2a2a2a;
 
+  /* A SELECTED ROW STILL ANSWERS THE POINTER. Without this it went dead under
+     the cursor: both rules weighed (0,1,2), and the selection rule came later
+     in the file, so it won every time.
+
+     Their choice, from four rendered on real rows. One more neutral step,
+     1.120 against the selected plane, plus the wider bar from a louder
+     candidate. The step alone is the same MECHANISM as the plain hover, which
+     is what keeps the four planes one ladder a reader can order.
+
+     The cost is stated: --line on this plane falls to 1.029, so the row's own
+     bottom rule disappears while the pointer is on it. It is transient and it
+     returns the moment the pointer leaves. */
+  --row-selected-hover: #323232;
+
   /* A DROPDOWN OPTION SITS ON --surface-raised, WHICH IS A DIFFERENT GROUND.
      One pair cannot serve both: the old --row-hover is DARKER than a panel,
      so it painted a dark band where the table paints a light one. One role,
@@ -152,6 +166,11 @@
      Both ship, because a build that flushes the first column adds the width
      to its own number rather than taking the sum. */
   --select-bar: 4px;
+
+  /* The bar widens under the pointer rather than changing colour. A brighter
+     red was shown beside it and not taken. 6px is inside --select-inset at
+     16px, so the label does not move and the gap to it goes 12 to 10. */
+  --select-bar-hover: 6px;
   --select-inset: calc(var(--space-md) + var(--select-bar));
 
   /* ---- stacking -------------------------------------------------------- */
@@ -1200,10 +1219,16 @@ tbody tr:last-child td { border-bottom: 0 }
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
 }
 
-/* A row plane says what it is. Hover is a pointer, selection is a choice. */
+/* A row plane says what it is. Hover is a pointer, selection is a choice, and
+   a selected row under the pointer is both. */
 tbody tr { transition: background-color var(--duration-hover) var(--ease) }
 tbody tr:hover { background: var(--row-hover) }
 tbody tr.row-selected { background: var(--row-selected) }
+
+/* (0,2,2) against (0,1,2), so this wins wherever it sits in the file. Written
+   at equal weight it would have depended on the order, which is the fault
+   that made a selected row inert in the first place. */
+tbody tr.row-selected:hover { background: var(--row-selected-hover) }
 
 /* The bar is a pseudo-element, stretched one hairline past each end, because
    an inset shadow stops short of the row's own bottom rule and reads as a
@@ -1217,7 +1242,10 @@ tbody tr.row-selected > td:first-child::before {
   inset-inline-start: 0;
   width: var(--select-bar);
   background: var(--accent);
+  transition: width var(--duration-hover) var(--ease);
 }
+
+tbody tr.row-selected:hover > td:first-child::before { width: var(--select-bar-hover) }
 
 /* One line, truncated, with the full title on hover through the title
    attribute. The "youtube.com" caption is gone: every video here is a
@@ -1877,8 +1905,13 @@ dialog menu {
     background: var(--surface);
   }
 
+  /* A card view is reached by a finger, so hover says nothing here and both
+     planes go back to their resting colour. The selected case needs its own
+     line: (0,2,2) beats the (0,1,2) above it whatever the order, so without
+     this a selected card would light up and the reset would look applied. */
   tbody tr:hover { background: var(--surface) }
-  tbody tr.row-selected { background: var(--row-selected); border-color: var(--accent) }
+  tbody tr.row-selected,
+  tbody tr.row-selected:hover { background: var(--row-selected); border-color: var(--accent) }
 
   /* The bar is the row's edge on a table. On a card the border says it, so
      the pseudo-element would draw a second mark over the radius. */
