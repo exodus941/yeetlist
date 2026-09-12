@@ -62,6 +62,9 @@ let sort = { key: 'addedAt', dir: -1 };
    them: adding a tag widens the result, which is what a reader expects from
    a tag filter. */
 let activeTags = new Set();
+/* The same OR. Untagged beside #music reads as "music videos and the ones I
+   have not sorted yet", which is the same widening every other option does. */
+let untaggedOnly = false;
 let searchTerm = '';
 let deletion = null;
 let listState = 'ready';
@@ -104,6 +107,17 @@ function save() {
 const allTags = () =>
   [...new Set(videos.flatMap((v) => v.tags || []))].sort((a, b) => a.localeCompare(b));
 
+/* UNTAGGED IS NOT A TAG, SO IT GETS ITS OWN FLAG. A tag is whatever the
+   reader typed, so a sentinel string in activeTags would collide the day
+   somebody names a tag "untagged". */
+const bare = (v) => (v.tags || []).length === 0;
+const bareCount = () => videos.filter(bare).length;
+
+/* It only earns a place in the menu where it can return something. With no
+   tags at all it selects the whole library, which is what no filter already
+   does. One writer for that condition: the menu and the prune both read it. */
+const bareOffered = () => bareCount() > 0 && allTags().length > 0;
+
 /* A tag is stored bare and shown with a hash. Keeping the hash out of storage
    means no migration, no chance of a double hash, and an export whose JSON
    payload does not change shape.
@@ -117,7 +131,9 @@ function filteredVideos() {
   return videos
     .filter((v) => {
       const haystack = `${v.title} ${v.channel} ${(v.tags || []).map(hashed).join(' ')}`.toLowerCase();
-      const tagged = activeTags.size === 0 || (v.tags || []).some((t) => activeTags.has(t));
+      const tagged = (activeTags.size === 0 && !untaggedOnly)
+        || (v.tags || []).some((t) => activeTags.has(t))
+        || (untaggedOnly && bare(v));
       return tagged && haystack.includes(searchTerm);
     })
     .sort((a, b) => {
@@ -133,8 +149,13 @@ function filteredVideos() {
    ========================================================================== */
 
 function render() {
+  /* A FILTER THAT LEAVES THE MENU HAS TO TURN ITSELF OFF. Tag the last bare
+     video and the option goes, so the filter would sit on with nothing on
+     screen to show it or clear it. The tags already retire this way. */
+  if (untaggedOnly && !bareOffered()) untaggedOnly = false;
+
   const filtered = filteredVideos();
-  const filtering = activeTags.size > 0 || Boolean(searchTerm);
+  const filtering = activeTags.size > 0 || untaggedOnly || Boolean(searchTerm);
 
   $('#listCount').textContent = filtering
     ? `${filtered.length} of ${videos.length} Saved ${videos.length === 1 ? 'Video' : 'Videos'}`
@@ -294,28 +315,49 @@ function renderState(shown, filtering) {
    own value is broken. One tag reads as its name, several as a count. */
 function renderTagFilter() {
   const tags = allTags();
-  const chosen = [...activeTags];
+  const chosen = activeTags.size + (untaggedOnly ? 1 : 0);
 
-  $('#tagFilterValue').textContent = chosen.length === 0
-    ? 'All Videos'
-    : chosen.length === 1 ? hashed(chosen[0]) : `${chosen.length} Tags`;
+  /* The noun has to stay true. Two tags are Tags. A tag beside Untagged are
+     not both tags, so the pair is Filters. */
+  $('#tagFilterValue').textContent =
+    chosen === 0 ? 'All Videos'
+      : chosen > 1 ? `${chosen} ${untaggedOnly ? 'Filters' : 'Tags'}`
+        : untaggedOnly ? 'Untagged Videos'
+          : hashed([...activeTags][0]);
 
   const counts = new Map(tags.map((tag) => [tag, videos.filter((v) => v.tags?.includes(tag)).length]));
 
-  $('#tagFilterList').innerHTML = tags.length === 0
-    ? `<li class="multi-option" aria-disabled="true">No Tags Yet</li>`
-    /* data-tag stays BARE. It is the key, and only the visible text is
-       hashed. Hashing the key would break every lookup against `videos`. */
-    : tags.map((tag, i) => `<li class="multi-option" role="option" id="tagOpt-${i}"
+  /* data-tag stays BARE. It is the key, and only the visible text is
+     hashed. Hashing the key would break every lookup against `videos`. */
+  const items = tags.map((tag, i) => `<li class="multi-option" role="option" id="tagOpt-${i}"
         data-tag="${escape(tag)}" aria-selected="${activeTags.has(tag) ? 'true' : 'false'}">
         <span class="multi-box">${icon('check')}</span>
         <span>${escape(hashed(tag))}</span>
         <span class="multi-count">${counts.get(tag)}</span>
-      </li>`).join('');
+      </li>`);
+
+  /* THE SEPARATOR IS PRESENTATIONAL. A listbox takes option and group
+     children, so a role="separator" among them is not a child the role
+     allows. The option's own words say what it is. */
+  if (bareOffered()) {
+    items.push(`<li class="multi-sep" role="presentation"></li>`);
+    items.push(`<li class="multi-option" role="option" id="tagOptUntagged"
+        data-untagged="true" aria-selected="${untaggedOnly ? 'true' : 'false'}">
+        <span class="multi-box">${icon('check')}</span>
+        <span>Untagged Videos</span>
+        <span class="multi-count">${bareCount()}</span>
+      </li>`);
+  }
+
+  $('#tagFilterList').innerHTML = items.length
+    ? items.join('')
+    : `<li class="multi-option" aria-disabled="true">No Tags Yet</li>`;
 
   /* An option removed while the panel is open must not leave the active
-     index pointing past the end of the list. */
-  if (multi.index >= tags.length) multi.index = tags.length - 1;
+     index pointing past the end of the list. Count the OPTIONS, not the
+     tags: the list also holds a separator now. */
+  const open = multiOptions().length;
+  if (multi.index >= open) multi.index = open - 1;
 }
 
 /* Paint is not a state. The sorted column says so in aria-sort, and its mark
@@ -1339,6 +1381,7 @@ $('#search').addEventListener('input', (event) => {
 
 const clearFilters = () => {
   activeTags.clear();
+  untaggedOnly = false;
   searchTerm = '';
   $('#search').value = '';
   render();
@@ -1383,8 +1426,13 @@ function moveMulti(step) {
   $('#tagFilterTrigger').setAttribute('aria-activedescendant', options[multi.index].id);
 }
 
-function toggleTag(tag) {
-  if (activeTags.has(tag)) activeTags.delete(tag); else activeTags.add(tag);
+/* It takes the OPTION, not a tag string, because one option in the list is
+   not a tag and has no key to pass. */
+function toggleOption(option) {
+  if (option.dataset.untagged) untaggedOnly = !untaggedOnly;
+  else if (activeTags.has(option.dataset.tag)) activeTags.delete(option.dataset.tag);
+  else activeTags.add(option.dataset.tag);
+
   const held = multi.index;
   render();
   /* render() rebuilt the list, so put the active mark back where it was. */
@@ -1399,7 +1447,7 @@ $('#tagFilterTrigger').addEventListener('click', () => {
 
 $('#tagFilterList').addEventListener('click', (event) => {
   const option = event.target.closest('[role=option]');
-  if (option) toggleTag(option.dataset.tag);
+  if (option) toggleOption(option);
 });
 
 $('#tagFilterTrigger').addEventListener('keydown', (event) => {
@@ -1412,7 +1460,7 @@ $('#tagFilterTrigger').addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && multi.open) { event.preventDefault(); closeMulti(); return; }
   if ((event.key === 'Enter' || event.key === ' ') && multi.open && multi.index >= 0) {
     event.preventDefault();
-    toggleTag(multiOptions()[multi.index].dataset.tag);
+    toggleOption(multiOptions()[multi.index]);
   }
 });
 

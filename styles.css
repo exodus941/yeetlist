@@ -72,6 +72,12 @@
   --line: #303030;
   --line-subtle: #282828;
 
+  /* A LINE IS CHOSEN AGAINST THE GROUND IT SITS ON, and a dropdown panel is
+     one step up from a card. --line reads 1.345 on --surface and only 1.235
+     on --surface-raised, which is the floor. #363636 reads 1.348 there, so a
+     rule on a panel carries the same weight as a rule on a card. */
+  --line-raised: #363636;
+
   /* ---- text ------------------------------------------------------------ */
   --text: #f1f1f1;
   --text-muted: #a8a8a8;
@@ -977,6 +983,16 @@ header {
 .multi-option .multi-box .icon { width: var(--space-md); height: var(--space-md); opacity: 0 }
 .multi-option[aria-selected="true"] .multi-box .icon { opacity: 1 }
 
+/* Untagged is not one of the tags above it, so a rule says where the list
+   ends. It sits INSIDE the gap, 4px each side, so the run of options keeps
+   its own rhythm. The panel is a raised plane, so the line is the raised
+   one: --line reads 1.235 here, against 1.348 for --line-raised. */
+.multi-sep {
+  height: 1px;
+  margin: var(--space-xs) var(--space-sm);
+  background: var(--line-raised);
+}
+
 .multi-count {
   margin-inline-start: auto;
   color: var(--text-quiet);
@@ -987,6 +1003,11 @@ header {
 @media (forced-colors: active) {
   .multi-option.active { outline: 2px solid Highlight; outline-offset: -2px }
   .multi-option[aria-selected="true"] .multi-box { outline: 2px solid Highlight }
+
+  /* Forced colors drops a background, so the separator would have no marker
+     at all. A border replaces it and the box gives up its height to pay for
+     it, so nothing below moves: 0 + 1 is the same 1px. */
+  .multi-sep { height: 0; border-top: 1px solid CanvasText }
 }
 
 /* The search field takes the whole remaining width of the row. Everything
@@ -1075,6 +1096,21 @@ header {
   position: sticky;
   z-index: var(--layer-sticky);
 }
+
+/* A PANEL OPENS DOWNWARD, SO THE STACK PAINTS IN REVERSE DOM ORDER. A sticky
+   element carrying a z-index makes a stacking context, so the filter menu's
+   own --layer-dropdown is trapped inside .filters and cannot reach past it.
+   At one z-index for all three, DOM order decides, and DOM order is exactly
+   backwards here: the sort bar came later, so it won.
+
+   Measured: the open tag menu ran from y 302 to 487 and the sort bar's select
+   answered elementFromPoint at the middle option's own centre. The reader
+   could see the option and not press it.
+
+   These are offsets inside the sticky band, not new layers. Nothing here can
+   reach 300, which is where a dropdown starts. */
+.add-card { z-index: calc(var(--layer-sticky) + 2) }
+.filters { z-index: calc(var(--layer-sticky) + 1) }
 
 /* IT STOPS SHORT OF THE VIEWPORT EDGE, by the same distance the page holds
    at rest. Stuck at 0 the card sat flush against the browser chrome.
