@@ -1041,6 +1041,56 @@ header {
 .sort-bar select { cursor: pointer }
 
 /* ==========================================================================
+   The controls stay while the list scrolls
+
+   THREE ELEMENTS, NOT THE BLOCKS AROUND THEM. Their crops bound the add ROW,
+   the filter row and the sort row. The "Add a Video" label, the hint under it
+   and the list heading scroll away, because none of those is a control and a
+   sticky stack is paid for in list.
+
+   Measured at 375x812: 96 + 250 + 44 = 390, which is 48% of the viewport and
+   leaves 422px of list. The whole add card and the heading would have taken
+   64%.
+
+   EACH ONE'S top IS THE RUNNING SUM OF THE ONES ABOVE IT, and no selector can
+   ask a previous sibling for its height. A ResizeObserver writes the two
+   properties, so a wrapped filter row or a different width re-stacks with no
+   typed number anywhere. The fallback of 0 puts them all at the top, which is
+   the pre-sticky arrangement rather than a broken one.
+
+   AN OPAQUE FILL IS NOT OPTIONAL. A sticky element is still in flow, so the
+   list scrolls UNDER it. Transparent, the rows would read straight through
+   the controls.
+   ========================================================================== */
+
+/* A STICKY ELEMENT CANNOT LEAVE ITS PARENT, which is why the add ROW alone
+   does not work. Measured with position:sticky and top:0 on it: the card is
+   223px tall at 375, so the row travelled 79px and then went with the card.
+   At scrollY 442 its top read -255.
+
+   So the CARD is the sticky element. Its label and its hint ride along,
+   because nothing can pin a child past its own container's bottom edge. */
+.add-card,
+.filters,
+.sort-bar {
+  position: sticky;
+  z-index: var(--layer-sticky);
+}
+
+.add-card { top: 0 }
+.filters { top: var(--stick-1, 0px) }
+.sort-bar { top: var(--stick-2, 0px) }
+
+/* AN OPAQUE FILL IS NOT OPTIONAL. A sticky element stays in flow, so the list
+   scrolls UNDER it. The card already paints --surface. These two paint
+   nothing, so the rows would read straight through them. */
+.filters,
+.sort-bar { background: var(--bg) }
+
+/* The rule separates the stack from the first row passing behind it. */
+.sort-bar { box-shadow: 0 1px 0 var(--line) }
+
+/* ==========================================================================
    Table
    ========================================================================== */
 

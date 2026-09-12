@@ -157,10 +157,18 @@ function render() {
 
   /* Three states. Indeterminate is the honest answer when some of the rows
      below are chosen and some are not. */
-  const box = $('#allCheck');
   const chosen = filtered.filter((v) => selected.has(v.id)).length;
-  box.checked = filtered.length > 0 && chosen === filtered.length;
-  box.indeterminate = chosen > 0 && chosen < filtered.length;
+  const all = filtered.length > 0 && chosen === filtered.length;
+  const some = chosen > 0 && chosen < filtered.length;
+
+  /* ONE RENDERER FOR BOTH BOXES. The table's header cell holds one and the
+     sort bar holds the other, because the card view renders no header. Two
+     writers would let them disagree about a state neither reader can check. */
+  [$('#allCheck'), $('#allCheckBar')].forEach((box) => {
+    box.checked = all;
+    box.indeterminate = some;
+    box.disabled = filtered.length === 0;
+  });
 
   $('#deleteSelected').disabled = selected.size === 0;
   $('#tagSelected').disabled = selected.size === 0;
@@ -323,8 +331,21 @@ function renderSortState() {
     else th.removeAttribute('aria-sort');
   });
 
-  $('#sortKey').value = sort.key;
-  $('#sortDir').value = String(sort.dir);
+  /* THE KEY OPTION CARRIES THE ARROW, so the collapsed trigger says both the
+     key and the direction. Every other key is left plain, or the menu reads
+     as five directions rather than one. */
+  const key = $('#sortKey');
+  const arrow = sort.dir === 1 ? ' ↑' : ' ↓';
+  [...key.options].forEach((o) => {
+    if (o.value.startsWith('dir:')) return;
+    o.textContent = o.dataset.label || (o.dataset.label = o.textContent);
+    if (o.value === sort.key) o.textContent += arrow;
+  });
+  key.value = sort.key;
+
+  key.setAttribute('aria-label',
+    'Sort by ' + (key.selectedOptions[0]?.dataset.label || sort.key)
+    + ', ' + (sort.dir === 1 ? 'ascending' : 'descending'));
 }
 
 /* ==========================================================================
@@ -1435,12 +1456,53 @@ $('thead').addEventListener('click', (event) => {
 });
 
 $('#sortKey').addEventListener('change', (event) => {
-  sort.key = event.target.value;
+  const picked = event.target.value;
+
+  /* A DIRECTION IS AN ACTION. Applying it and returning the value to the key
+     is what keeps the trigger showing the key. Without this the menu would
+     read "Descending" and the sort key would be invisible. */
+  if (picked.startsWith('dir:')) {
+    sort.dir = Number(picked.slice(4));
+    render();
+    return;
+  }
+
+  sort.key = picked;
   render();
 });
 
-$('#sortDir').addEventListener('change', (event) => {
-  sort.dir = Number(event.target.value);
+/* ---- the sticky stack ---------------------------------------------------- */
+
+/* NO SELECTOR CAN ASK A PREVIOUS SIBLING FOR ITS HEIGHT, so each row's offset
+   is written here and read by the stylesheet. Three rows stick: the add row,
+   the filter row and the sort row.
+
+   It re-measures on every resize AND on every content change, because the
+   filter row wraps at narrow widths and the sort row is hidden entirely above
+   952. A typed offset would be right at one width and wrong at the next.
+
+   A HIDDEN ROW CONTRIBUTES NOTHING. offsetParent is null for display:none, so
+   the sort row drops out of the sum on a desktop rather than reserving 44px
+   of nothing under the filters. */
+function stackSticky() {
+  const rows = ['.add-card', '.filters', '.sort-bar'].map((q) => $(q));
+  let run = 0;
+  rows.forEach((el, i) => {
+    if (i > 0) document.documentElement.style.setProperty('--stick-' + i, run + 'px');
+    if (el && el.offsetParent !== null) run += el.getBoundingClientRect().height;
+  });
+}
+
+if (typeof ResizeObserver === 'function') {
+  const watch = new ResizeObserver(stackSticky);
+  ['.add-card', '.filters', '.sort-bar'].forEach((q) => { const el = $(q); if (el) watch.observe(el); });
+}
+addEventListener('resize', stackSticky);
+stackSticky();
+
+$('#allCheckBar').addEventListener('change', (event) => {
+  const filtered = filteredVideos();
+  filtered.forEach((v) => { if (event.target.checked) selected.add(v.id); else selected.delete(v.id); });
   render();
 });
 

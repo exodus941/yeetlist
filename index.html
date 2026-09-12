@@ -234,6 +234,19 @@
   <!-- The card stack replaces the header row at narrow widths, so sorting
        needs a control of its own. It writes the same state the column
        headers write. -->
+  <!-- ONE MENU, TWO DECISIONS, AND A RULE BETWEEN THEM. The direction had its
+       own dropdown beside this one. An hr inside a select is real HTML and
+       renders as a separator, so the two groups read apart without an
+       optgroup heading claiming they are different kinds of thing.
+
+       A DIRECTION OPTION IS AN ACTION, NOT A VALUE. A select shows whichever
+       option was picked last, so picking "Descending" would leave the trigger
+       reading "Descending" and the sort key invisible. The handler applies it
+       and puts the value back on the key, and the key's own label carries the
+       arrow, so the collapsed trigger still says both.
+
+       The arrow is a character because an option element cannot hold an svg.
+       It is the one place the icon-set rule has no mechanism to offer. -->
   <div class="sort-bar">
     <label class="sort-field">
       <span class="filters-label">SORT BY</span>
@@ -243,14 +256,26 @@
         <option value="duration">Duration</option>
         <option value="uploadedAt">Uploaded</option>
         <option value="addedAt">Added</option>
+        <hr />
+        <option value="dir:1">Ascending</option>
+        <option value="dir:-1">Descending</option>
       </select>
     </label>
-    <label class="sort-dir">
-      <span class="sr-only">Sort direction</span>
-      <select id="sortDir" class="select-field">
-        <option value="1">Ascending</option>
-        <option value="-1">Descending</option>
-      </select>
+
+    <!-- THE CARD VIEW HAS NO COLUMN HEADERS, so the select-all box in the
+         table's header cell is unreachable here. This one writes the same
+         state and render() paints both, so they cannot disagree.
+
+         A CHECKBOX RATHER THAN A BUTTON. The state is three-way: none, some,
+         all. A button can say two of those and would lie about the third,
+         which is the case a reader most needs to see.
+
+         It carries a visible label. The positional exceptions are a table
+         row, a header cell, a card and a matrix cell, and a control bar is
+         none of them. -->
+    <label class="sort-all">
+      <input id="allCheckBar" class="checkbox" type="checkbox" />
+      <span>Select All</span>
     </label>
   </div>
 
