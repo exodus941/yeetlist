@@ -604,8 +604,7 @@ function applyPendingTags() {
   pendingTags = [];
   closeBulk({ refocus: true });
   render();
-  $('#addStatus').textContent =
-    `Added ${added} tag${added === 1 ? '' : 's'} to ${ids.size} video${ids.size === 1 ? '' : 's'}.`;
+  say(`Added ${added} tag${added === 1 ? '' : 's'} to ${ids.size} video${ids.size === 1 ? '' : 's'}.`);
 }
 
 function clearSelectedTags() {
@@ -624,8 +623,7 @@ function clearSelectedTags() {
 
   closeBulk({ refocus: true });
   render();
-  $('#addStatus').textContent =
-    `Cleared the tags from ${touched} video${touched === 1 ? '' : 's'}.`;
+  say(`Cleared the tags from ${touched} video${touched === 1 ? '' : 's'}.`);
 }
 
 function renderBulk() {
@@ -755,13 +753,38 @@ async function refreshMetadata() {
   render();
 }
 
+/* ==========================================================================
+   The status line
+
+   ONE WRITER. Twelve call sites used to set #addStatus directly, so the
+   dismiss control and the timer would have been twelve things to remember.
+
+   A MESSAGE GOES AFTER 15 SECONDS. Nothing cleared the line before, so the
+   first message of a session stayed until another replaced it, and one about
+   a video added an hour ago still sat under the field.
+   ========================================================================== */
+
+const STATUS_LIFE = 15000;
+let statusTimer = 0;
+
+function say(text, markup = false) {
+  const line = $('#addStatus');
+  if (markup) line.innerHTML = text; else line.textContent = text;
+
+  /* The control is hidden rather than absent, so there is nothing to build
+     and nothing to wire on each message. */
+  $('#addStatusDismiss').hidden = !text;
+
+  clearTimeout(statusTimer);
+  statusTimer = text ? setTimeout(() => say(''), STATUS_LIFE) : 0;
+}
+
 async function addVideo() {
   const url = $('#videoUrl').value.trim();
-  const status = $('#addStatus');
   if (!url) return;
 
   $('#addBtn').disabled = true;
-  status.textContent = 'Reading video details…';
+  say('Reading video details…');
 
   try {
     const response = await fetch(`/api/video?url=${encodeURIComponent(url)}`);
@@ -773,12 +796,14 @@ async function addVideo() {
     tombstones = tombstones.filter((t) => t.id !== data.id);
     save();
     $('#videoUrl').value = '';
-    status.innerHTML = data.limited
+    /* The only message that is not plain text: it names an environment
+       variable, so the name is set in the code face. */
+    say(data.limited
       ? 'Added. Set <code>YOUTUBE_API_KEY</code> in Vercel to fetch duration and upload date.'
-      : 'Added to your watchlist.';
+      : 'Added to your watchlist.', data.limited);
     render();
   } catch (error) {
-    status.textContent = error.message || 'Could not add that video.';
+    say(error.message || 'Could not add that video.');
   } finally {
     $('#addBtn').disabled = false;
   }
@@ -1272,7 +1297,7 @@ async function driveConnect({ interactive = true } = {}) {
   } catch (error) {
     if (interactive) {
       driveStatus('error', 'Not connected');
-      $('#addStatus').textContent = error.message;
+      say(error.message);
       renderDrive();
       return;
     }
@@ -1306,7 +1331,7 @@ async function drivePull({ announce = false } = {}) {
       const created = await DRIVE.create(fileText());
       DRIVE.remember({ fileId: created.id, syncedAt: created.modifiedTime });
       driveStatus('ok', 'Synced to Drive');
-      if (announce) $('#addStatus').textContent = `Created ${DRIVE.FILENAME} in your Drive.`;
+      if (announce) say(`Created ${DRIVE.FILENAME} in your Drive.`);
       return;
     }
 
@@ -1325,14 +1350,14 @@ async function drivePull({ announce = false } = {}) {
 
     if (announce) {
       const gained = videos.length - before;
-      $('#addStatus').textContent = gained > 0
+      say(gained > 0
         ? `Read ${DRIVE.FILENAME} from Drive. ${gained} ${gained === 1 ? 'video' : 'videos'} added.`
-        : `Read ${DRIVE.FILENAME} from Drive. Nothing new.`;
+        : `Read ${DRIVE.FILENAME} from Drive. Nothing new.`);
     }
     await drivePush();
   } catch (error) {
     driveStatus('error', 'Sync failed');
-    $('#addStatus').textContent = error.message;
+    say(error.message);
   }
 }
 
@@ -1360,7 +1385,7 @@ async function drivePush() {
     driveStatus('ok', 'Synced to Drive');
   } catch (error) {
     driveStatus('error', 'Sync failed');
-    $('#addStatus').textContent = error.message;
+    say(error.message);
   } finally {
     pushing = false;
   }
@@ -1624,6 +1649,10 @@ $('#tagBulkClear').addEventListener('click', clearSelectedTags);
    second implementation of the link flow would drift from this one. */
 $('#driveAlertAction').addEventListener('click', () => driveConnect({ interactive: true }));
 
+/* say('') clears the timer as well as the words, so a dismissed message
+   cannot be cleared a second time fifteen seconds later. */
+$('#addStatusDismiss').addEventListener('click', () => say(''));
+
 /* Escape walks back out one step at a time: the suggestion list, then the
    panel.
 
@@ -1768,7 +1797,7 @@ $('#driveDisconnect').addEventListener('click', async () => {
      button that did not work. */
   const done = DRIVE.disconnect();
   renderDrive();
-  $('#addStatus').textContent = 'Disconnected. Your watchlist stays in this browser.';
+  say('Disconnected. Your watchlist stays in this browser.');
   await done;
   renderDrive();
 });
@@ -1810,7 +1839,7 @@ renderDriveAvailability();
    watchlist LIVES, which is locally and correctly. The message reports what
    just failed. */
 if (arrivedWith === 'error') {
-  $('#addStatus').textContent = describeLinkFailure(arriving.get('reason') || '');
+  say(describeLinkFailure(arriving.get('reason') || ''));
 }
 
 /* A remembered connection resumes without a prompt. It fails quietly when

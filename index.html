@@ -109,11 +109,21 @@
         <svg class="icon" aria-hidden="true"><use href="#i-enter"/></svg>
       </button>
     </div>
-    <!-- IT STAYS AS AN EMPTY LIVE REGION. Ten runtime messages are written
-         here: reading a video, every add error, four Drive outcomes, and the
-         bulk tag result. A live region has to be in the document before
-         anything is written into it, so this cannot be created on demand. -->
-    <p id="addStatus" class="hint" role="status"></p>
+    <!-- AN EMPTY LIVE REGION, ALWAYS PRESENT. Twenty-four runtime messages
+         are written here: reading a video, every add error, the Drive
+         outcomes and failures, and the bulk tag result. A live region has to
+         be in the document before anything is written into it, so neither
+         this nor its wrapper may be created on demand or hidden.
+
+         THE BUTTON SITS OUTSIDE THE REGION. Inside it, a screen reader would
+         announce "Dismiss this message" as part of every message. -->
+    <div class="status-line">
+      <p id="addStatus" class="hint" role="status"></p>
+      <button id="addStatusDismiss" class="status-x" type="button" hidden
+              aria-label="Dismiss this message">
+        <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+      </button>
+    </div>
   </section>
 
   <!-- A BROKEN LINK IS THE ONE FAULT A READER HAS TO ACT ON, so it takes a

@@ -611,6 +611,61 @@ header {
    as a gap nobody asked for. */
 .hint:empty { margin: 0 }
 
+/* THE ROW CARRIES THE MESSAGE'S TYPE, or the cap band below is computed from
+   the wrong size. The mark's lift is stated in em, and em resolves against
+   the element carrying the transform. */
+.status-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  font-size: var(--text-xs);
+}
+
+/* THE ROW OWNS THE DISTANCE, NOT ITS CHILD. Left on the message, the wrapper
+   met the add row at 0.00px and the 12px was written one level too deep. */
+.status-line .hint { flex: 1; min-width: 0; margin: 0 }
+
+/* A row with nothing in it owns no distance. :has() takes the weight of its
+   argument, so this beats the rule above whatever the order. */
+.status-line:has(.hint:empty) { margin-top: 0 }
+
+/* AN ICON-ONLY CONTROL IS SQUARE, AND IT IS DRAWN AT THE MARK SIZE. The touch
+   floor is a REACH, not a size: written as a height it would put a 44px box
+   on an 18px line. The ::after is out of flow, so the target costs no layout,
+   and 100% resolves against the element, so one rule serves every size.
+
+   IT BELONGS TO THE MESSAGE'S FIRST LINE. A flex box with no text takes its
+   baseline from its bottom margin edge, so the box lands ON the baseline. The
+   lift is what centres it between the cap line and that baseline, which is
+   the same treatment every mark beside a label takes here. */
+.status-x {
+  flex: 0 0 auto;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: baseline;
+  aspect-ratio: 1;
+  height: var(--mark);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transform: translateY(calc((100% - 0.75em) / 2));
+  transition: color var(--duration-hover) var(--ease);
+}
+
+.status-x::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2));
+}
+
+.status-x:hover { color: var(--text) }
+
 .hint a { color: var(--tag-ink) }
 
 /* ==========================================================================
@@ -1134,32 +1189,38 @@ header {
 .filters { z-index: calc(var(--layer-sticky) + 1) }
 
 /* IT STOPS SHORT OF THE VIEWPORT EDGE, by the same distance the page holds
-   at rest. Stuck at 0 the card sat flush against the browser chrome.
+   at rest. Stuck at 0 the card sat flush against the browser chrome. */
+.add-card { top: var(--page-pad) }
 
-   THE BAND ABOVE IT HAS TO BE PAINTED, or the list shows through the gap it
-   scrolls under. The pseudo-element is out of flow, so it costs no layout,
-   and it spans the card's own width because every row below is that width. */
-.add-card {
-  top: var(--page-pad);
-  --band: var(--page-pad);
-}
+/* THAT GAP HAS TO BE PAINTED, or the list scrolls through it.
 
-/* THE BAND CLEARS THE BORDER BY ITS OWN WIDTH. An absolutely positioned
-   child's containing block is the PADDING box, so bottom:100% lands on the
-   INSIDE of the 1px top border. A pseudo-element paints above its parent's
-   border, so the band erased it. Measured: border at y 16 to 17, band bottom
-   at 17, one pixel of overlap, and the border gone.
+   A FIXED STRIP, NOT A BAND ON THE CARD. The card used to carry an absolutely
+   positioned ::before sized to the gap. Two numbers had to agree, its height
+   and the card's own `top`, and its box was measured from the card's PADDING
+   box, so the 1px border counted twice. Both faults shipped.
 
-   It cost the top of the band too. At bottom:100% the band ran 1 to 17 and
-   left the row at y 0 unpainted. Now it runs 0 to 16 and the border is back. */
-.add-card::before {
+   The reader still saw rows through the gap on a phone after it measured
+   exact here: 224 stuck scroll positions, 40 x positions, 16 rows each, zero
+   leaks. So the mechanism goes rather than the arithmetic.
+
+   Fixed to the viewport, it reads one number, spans the FULL width rather
+   than the card's, and knows nothing about any element's box. It covers the
+   shell's own top padding at rest, where nothing paints.
+
+   IT TAKES THE TAP TOO. At pointer-events: none a press in that 16px reached
+   the row hidden behind it, so a delete button nobody can see was pressable.
+   The sticky band above it absorbs a press for the same reason, and nothing
+   interactive ever sits in the page's own top margin. */
+.shell::before {
   content: "";
-  position: absolute;
-  inset-inline: -1px;
-  bottom: calc(100% + 1px);
-  height: var(--band);
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline: 0;
+  height: var(--page-pad);
+  z-index: calc(var(--layer-sticky) + 3);
   background: var(--bg);
 }
+
 .filters { top: var(--stick-1, 0px) }
 .sort-bar { top: var(--stick-2, 0px) }
 
