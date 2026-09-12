@@ -1909,7 +1909,7 @@ dialog menu {
     column-gap: var(--space-md);
     row-gap: var(--space-sm);
     align-items: start;
-    padding: var(--space-md);
+    padding: var(--space-lg);
     border: 1px solid var(--line);
     border-radius: var(--radius-lg);
     background: var(--surface);
@@ -1965,8 +1965,85 @@ dialog menu {
     row-gap: var(--space-xs);
   }
 
-  .cell-check { grid-column: 1; grid-row: 1 }
-  .cell-title { grid-column: 2; grid-row: 1; padding-inline-end: calc(var(--control-lg) + var(--space-sm)) }
+  /* CENTRED ON LINE 1, NOT PARKED AT ITS TOP. The row declares align-items:
+     start, which is right for the text cells and wrong for a 16px control
+     beside a 44px line: it sat 13.5px above the title's cap band.
+
+     Line 1 is as tall as the title's own target, and the title's text is
+     centred in it, so centring the box here lands on the band with no
+     arithmetic.
+
+     AND THE CELL STRETCHES RATHER THAN CENTRING ITSELF. A block wrapping an
+     inline child is a TALLER box: this td measured 21px around a 16px label,
+     because it carries the line box's descender space. Centring that 21px
+     cell then left the box 2.5px above the row's own centre. Stretched to the
+     row and centring its child, the two agree.
+
+     Measured after: 0.5px off the title's cap band, against the mark's 0.5 on
+     the other side of the same line. */
+  .cell-check {
+    grid-column: 1;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+  }
+
+  /* THE TITLE CLEARS THE DELETE TARGET, NEVER THE DELETE MARK. The button is
+     out of flow and reserves nothing, so this padding is the only thing
+     keeping the two apart.
+
+     Reserving the MARK was my first answer and it was 7px short. A target
+     centred on a 14px mark reaches (14 + 44) / 2 = 29px in from the content
+     edge, while the mark itself stops at 14. Measured before the fix: a tap
+     28px from the edge opened the delete button while the title's own link
+     was still under it.
+
+     Written as the arithmetic, so a change to either the mark or the floor
+     moves it. 29 plus the published clearance is 37. */
+  .cell-title {
+    grid-column: 2;
+    grid-row: 1;
+    padding-inline-end: calc(
+      (var(--mark) + max(var(--target-mouse), var(--control-floor))) / 2 + var(--space-sm)
+    );
+  }
+
+  /* ==========================================================================
+     A CONTROL'S OWN BOX SITS ON THE MARGIN. ITS TARGET OVERHANGS IT.
+
+     Both of these were sized AT the touch floor, so 44px of box carried a
+     16px checkbox and a 14px mark, each centred with 14 or 15px of slack on
+     every side. The slack is invisible and it is layout, so the drawn control
+     stood 14px inside a margin the text sits on, and the card read as two
+     different left edges.
+
+     A target bigger than its box costs nothing, because the ::after is out of
+     flow. inset resolves against this element, so 100% is its own size: for a
+     16px box against a 44px floor that is -14px a side, which is exactly 44.
+     min() against zero stops it, so a control already past the floor gets no
+     overhang rather than a negative one.
+
+     Measured after, from the card's content edge: checkbox box 0, mark 0, and
+     both targets still 44.
+     ========================================================================= */
+  .check-hit,
+  .row-remove {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .check-hit::after,
+  .row-remove::after {
+    content: "";
+    position: absolute;
+    inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2));
+  }
+
+  /* The button becomes its mark. The height is the single writer, because a
+     stated width would defeat the aspect ratio. */
+  .row-remove { height: var(--mark) }
 
   /* The channel cell STRETCHES, and that is load-bearing. With
      justify-self:start it shrink-wrapped its own content, so the percentage
@@ -1978,10 +2055,20 @@ dialog menu {
   .cell-added { grid-column: 2; grid-row: 3; justify-self: end }
   .cell-tags  { grid-column: 2; grid-row: 4 }
 
+  /* Out of flow, so it sizes no track. The insets read the CARD'S padding
+     token, so moving the padding moves the button with it.
+
+     IT IS AS TALL AS LINE 1 AND CENTRES ITS OWN MARK. Being out of flow it
+     cannot take align-self from the grid, and pinned at the content top the
+     14px mark sat 12.5px above the title's cap band. The height reads the
+     same token the title's line box does, so the two cannot drift. */
   .cell-remove {
     position: absolute;
-    inset-block-start: var(--space-md);
-    inset-inline-end: var(--space-md);
+    display: flex;
+    align-items: center;
+    height: max(var(--target-mouse), var(--control-floor));
+    inset-block-start: var(--space-lg);
+    inset-inline-end: var(--space-lg);
   }
 
   .cell-dur, .cell-added { text-align: end }
