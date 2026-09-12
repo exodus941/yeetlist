@@ -191,6 +191,10 @@ function render() {
     box.disabled = filtered.length === 0;
   });
 
+  /* The FIELD decides, never searchTerm. A run of spaces is a search nobody
+     can see and still something to clear. */
+  $('#searchClear').hidden = !$('#search').value;
+
   $('#deleteSelected').disabled = selected.size === 0;
   $('#tagSelected').disabled = selected.size === 0;
   $('#clearFilter').disabled = !filtering;
@@ -1402,6 +1406,25 @@ $('#videoUrl').addEventListener('keydown', (event) => { if (event.key === 'Enter
 $('#search').addEventListener('input', (event) => {
   searchTerm = event.target.value.toLowerCase();
   render();
+});
+
+/* Focus goes back to the field, because clearing a search is the start of
+   typing another one, not the end of the task. */
+function clearSearch() {
+  $('#search').value = '';
+  searchTerm = '';
+  $('#search').focus();
+  render();
+}
+
+$('#searchClear').addEventListener('click', clearSearch);
+
+/* Escape only acts where there is something to clear. Swallowed on an empty
+   field it would stop every outer Escape from ever reaching its handler. */
+$('#search').addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || !event.target.value) return;
+  event.preventDefault();
+  clearSearch();
 });
 
 const clearFilters = () => {

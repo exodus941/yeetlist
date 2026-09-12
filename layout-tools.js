@@ -1590,9 +1590,34 @@ function sweep (within = null, exclude = null) {
        */
       const statesOwnSize = c => !!(c.style && (c.style.height || c.style.width
         || c.style.blockSize || c.style.inlineSize))
+
+      /* ── A CONTROL THAT CARRIES A TARGET OVERHANG HAS GIVEN UP ITS BOX ──
+       *
+       * The touch floor is a REACH, not a size. Written as a height it becomes
+       * layout, and the drawn control then sits half the difference inside
+       * whatever edge its container establishes. The repair is to size the
+       * control to its own MARK and put the reach on an absolutely positioned
+       * ::after at a negative inset, which costs no layout.
+       *
+       * So such a control is 14px tall beside a 44px field on purpose, and the
+       * row-height check demanded the opposite of the rule that produced it.
+       * It fired on a search field's clear button: a 14px box beside a 42px
+       * label, reported as "a control row is one stated height".
+       *
+       * Read the PROPERTY, never a class: an ::after that is out of flow and
+       * reaches outside its host is a target, and nothing else is. */
+      const carriesOverhang = (c) => {
+        try {
+          const a = getComputedStyle(c, '::after')
+          if (!a || a.content === 'none' || a.position !== 'absolute') return false
+          return ['top', 'right', 'bottom', 'left']
+            .some(side => parseFloat(a[side]) < -0.01)
+        } catch { return false }
+      }
+
       for (const band of bands) {
         if (isSpecimenRow) continue
-        const ctrls = band
+        const ctrls = band.filter(c => !carriesOverhang(c))
         if (ctrls.length < 2) continue
         for (const kind of new Set(ctrls.map(kindOf))) {
           const same = ctrls.filter(c => kindOf(c) === kind)

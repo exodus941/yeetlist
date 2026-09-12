@@ -204,10 +204,21 @@
       </div>
     </div>
 
-    <label class="search">
-      <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
-      <input id="search" placeholder="Search titles, channels, or tags" aria-label="Search titles, channels, or tags" />
-    </label>
+    <!-- THE LABEL WRAPS THE FIELD, NOT THE WHOLE BOX. A button is a labelable
+         element, so a label holding one that it does not label is invalid,
+         and the label's activation would forward the press to the input as
+         well. Wrapping only the mark and the input keeps click-to-focus on
+         the mark and needs no script. -->
+    <div class="search">
+      <label class="search-hit">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <input id="search" placeholder="Search titles, channels, or tags" aria-label="Search titles, channels, or tags" />
+      </label>
+      <button id="searchClear" class="search-clear" type="button" hidden
+              aria-label="Clear the search">
+        <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+      </button>
+    </div>
 
     <!-- THE PANEL IS THE ROW'S TAG EDITOR, NOT A SECOND ONE. It carries the
          same .tags, .tag-chip and .tag-add markup, so the chips, the

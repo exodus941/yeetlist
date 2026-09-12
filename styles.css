@@ -1088,13 +1088,31 @@ header {
 
 /* The search field takes the whole remaining width of the row. Everything
    else in it states its own size, so this is the only member that grows. */
+/* THE PADDING BELONGS TO THE LABEL, NOT THE BOX. On the box it sat outside
+   the label, so a press on the field's own inset stopped focusing the input.
+   On the label it is inside the focus target, and with the control hidden the
+   label spans the whole field again. */
+/* THE ROW WRAPS RATHER THAN CRUSHING THE FIELD. At min-width: 0 a text input
+   shrinks for ever, and this row holds 822px of controls that will not give.
+   Measured across the band, text area first: 22px at a 967 viewport, 65 at
+   1010, 155 at 1100, 305 at 1250. The clear control took 42 of that, so a
+   fault that was already there got materially worse.
+
+   THE FLOOR IS THE FIELD'S OWN PLACEHOLDER, which is 203.6px of ink in the
+   shipped face. Everything else in the sum is a published token: the label's
+   start inset, the mark and its gap, then the control with its two margins.
+   The label gives up its end inset while the control is there. */
+.filters { flex-wrap: wrap }
+
 .search {
   display: flex;
   align-items: center;
-  gap: var(--icon-gap);
   flex: 1;
-  min-width: 0;
-  padding: 0 var(--space-md);
+  min-width: calc(
+    204px + var(--space-md) + var(--mark) + var(--icon-gap)
+    + var(--mark) + var(--space-lg) + var(--space-md)
+  );
+  padding: 0;
   border: 1px solid #444;
   border-radius: var(--radius-sm);
   background: var(--surface-sunken);
@@ -1103,7 +1121,66 @@ header {
   transition: border-color var(--duration-hover) var(--ease);
 }
 
+/* The mark and the field are the part a press should focus.
+
+   IT REACHES OVER THE FIELD'S OWN BORDER. Held to the content box it measured
+   42 against a 44 floor, so the two border rows focused nothing. The negative
+   margin is what gives the stretch those 2px back, and it paints nothing, so
+   the border still shows. */
+.search-hit {
+  display: flex;
+  align-items: center;
+  gap: var(--icon-gap);
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  margin-block: -1px;
+  padding-inline: var(--space-md);
+}
+
+/* The end inset is the control's job while it is there. Kept on the label as
+   well, it spent 12px of the field on a distance the margin already holds. */
+.search:has(.search-clear:not([hidden])) .search-hit { padding-inline-end: 0 }
+
 .search:focus-within { border-color: #777 }
+
+/* THE GAP CLEARS THE CONTROL'S TARGET, NOT ITS BOX. The mark is drawn at 14px
+   and reaches (44 - 14) / 2 = 15px back from it on a finger. At the row's own
+   8px the last 7px of the label would have pressed CLEAR instead of placing
+   the caret, and clearing the search is not what that press means. 16px stops
+   the reach 1px short of the label.
+
+   EACH CHILD STATES ITS OWN DISTANCE, so the row publishes none. A container
+   gap and a margin ADD, which is a distance nobody chose. The end margin is
+   the field's own inset, held here so the label can take the whole width
+   whenever the control is hidden. */
+.search-clear {
+  flex: 0 0 auto;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-inline: var(--space-lg) var(--space-md);
+  aspect-ratio: 1;
+  height: var(--mark);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--duration-hover) var(--ease);
+}
+
+/* Out of flow, so the reach costs no layout, and 100% resolves against the
+   element, so one rule serves every control size. */
+.search-clear::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2));
+}
+
+.search-clear:hover { color: var(--text) }
 
 .search input {
   width: 100%;
@@ -2062,8 +2139,9 @@ dialog menu {
      list it kept order 0 and sat on a line of its own ABOVE the search
      field, 144px wide at 937. Its panel hangs off its end edge, so the panel
      then started 159.7px outside the window. */
-  .filters { flex-wrap: wrap }
-  .search { order: 1; flex: 1 1 100% }
+  /* The wrap itself is now stated once, at every width, beside the field's
+     own floor. Only the order and the full-line basis belong to this width. */
+  .search { order: 1; flex: 1 1 100%; min-width: 0 }
   .filters-group { order: 2; flex: 1 1 100% }
   .filters-group .multi { flex: 1 1 auto; width: auto }
   #tagBulk { order: 3; flex: 1 1 0 }
