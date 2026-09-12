@@ -34,9 +34,38 @@
   /* ---- accent and status ------------------------------------------------ */
   --accent: #ff3030;
   --accent-ink: #ffffff;
+
+  /* A FILL THAT CARRIES WORDS ANSWERS A DIFFERENT BAR FROM A MARK. --accent
+     paints a brand square, a tick, a selection bar and a progress fill, and
+     every one of those is a graphic at 3:1. Two rules paint it under WORDS,
+     and those answer 4.5. One role cannot satisfy both, so it splits.
+
+     Measured on screen before the split: --accent-ink on --accent is 3.67 on
+     three buttons, and the old #ff4444 hover was 3.41. The mark keeps
+     #ff3030 everywhere, so nothing that is not carrying words moved.
+
+     #ff3030 darkened to 88%. White reads 4.63 on the rest state and 5.65 on
+     the hover, and the two sit 1.22 apart, which clears the 1.2 a shape
+     needs. The hover DARKENS: every lighter red fails the bar, because white
+     is already the lightest ink there is. */
+  --accent-fill: #e02a2a;
+  --accent-fill-hover: #c72525;
   --danger: #ff3030;
   --danger-quiet: #ff7474;
+
+  /* The same split, for the same reason, kept separate so a change to the
+     accent cannot silently repaint a delete button. */
+  --danger-fill: #e02a2a;
+  --danger-fill-hover: #c72525;
   --danger-line: #784040;
+
+  /* --danger at 32% over --bg, written as the mixed value so a reader sees
+     one colour rather than an alpha to resolve. A wash carries its own
+     darkness toward whatever words stand on it, so every pair was measured
+     ON IT rather than on the page: --text 11.49, --text-muted 5.46 and the
+     --danger mark 3.53, against bars of 4.5 and 3. The wash itself reads
+     1.48 against --bg and 1.37 against the --surface card above it. */
+  --danger-wash: #5c1a1a;
   --ok: #35be70;
   --warn: #e8a33d;
 
@@ -348,8 +377,12 @@ header {
   font-size: var(--text-md);
 }
 
-.btn-primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
-.btn-primary:hover { background: #ff4444 }
+.btn-primary {
+  background: var(--accent-fill);
+  color: var(--accent-ink);
+  border-color: var(--accent-fill);
+}
+.btn-primary:hover { background: var(--accent-fill-hover); border-color: var(--accent-fill-hover) }
 
 .btn-danger-outline {
   background: transparent;
@@ -358,8 +391,12 @@ header {
 }
 .btn-danger-outline:hover { background: #2a1414 }
 
-.btn-danger { background: var(--danger); color: var(--accent-ink); border-color: var(--danger) }
-.btn-danger:hover { background: #ff4444 }
+.btn-danger {
+  background: var(--danger-fill);
+  color: var(--accent-ink);
+  border-color: var(--danger-fill);
+}
+.btn-danger:hover { background: var(--danger-fill-hover); border-color: var(--danger-fill-hover) }
 
 .btn:disabled { opacity: .4; cursor: not-allowed }
 .btn:disabled:hover { background: var(--surface-raised) }
@@ -512,6 +549,88 @@ header {
    A long job gets the SHAPE of what is coming, a count, and a way out. The
    panel sits where the adding happens, directly under the add card.
    ========================================================================== */
+
+/* ==========================================================================
+   Drive sync is broken
+
+   THE LOUDEST THING ON THE PAGE, because it is the only state a reader must
+   act on. It takes the same box as the panel above it, so the column keeps
+   one edge, and it carries a red wash and a red edge instead of the neutral
+   surface.
+
+   THE EDGE IS --danger, NOT --danger-line. A line role is for dividing. This
+   one is the alert's whole claim on the reader's attention.
+   ========================================================================== */
+
+.alert {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  margin-top: var(--space-md);
+  padding: var(--space-lg) var(--space-xl);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-lg);
+  background: var(--danger-wash);
+}
+
+/* THE MARK IS THE STATUS, so it takes the full role rather than the quiet
+   one. It is also larger than a label's mark: it stands beside a 20px title
+   rather than beside a 14px button label. */
+.alert-mark {
+  flex: 0 0 auto;
+  width: var(--text-xl);
+  height: var(--text-xl);
+  color: var(--danger);
+}
+
+/* The words take the slack, so the button keeps its own width and the title
+   wraps rather than pushing it off the line. */
+.alert-words {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.alert-title {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: var(--track-tight);
+  line-height: var(--leading-tight);
+}
+
+/* 8px under the title, against 16px to the row's own neighbours. The title
+   and this sentence are one group. */
+.alert-body {
+  margin: var(--space-sm) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+}
+
+.alert .btn { flex: 0 0 auto }
+
+/* THE WORDS AND THE BUTTON STACK WHERE THE TITLE LOSES ITS LINE. Below that
+   the row is two lines tall anyway, so stacking costs no height and hands the
+   sentence the whole width.
+
+   MEASURED BY SHRINKING THE REAL ROW, one pixel at a time, with the wrap
+   rule off: the title holds one line at 694 and takes two at 693. Arithmetic
+   gave 694 too, from the WRONG shell padding, and was 32px out. A sum works
+   on a row with two things in it. This one holds four.
+
+   The figure is true of these labels. It is 24 (mark) + 16 + 324.75 (title)
+   + 16 + 198.39 (button) + 50 (the alert's padding and edges) + 32 (the
+   shell's padding below 952). Recompute it if any label changes.
+
+   The mark stays with the title, because a status mark floating above a
+   paragraph reads as attached to the paragraph. The button then takes the
+   whole line, which is what an orphan gets. */
+@media (max-width: 693px) {
+  .alert { flex-wrap: wrap }
+  .alert-mark { align-self: flex-start; margin-top: var(--space-2xs) }
+  .alert .btn { flex: 1 1 100% }
+}
 
 .import-panel {
   display: flex;
@@ -1147,6 +1266,84 @@ th.amount { text-align: end }
 }
 
 /* ==========================================================================
+   Tagging a selection
+
+   The panel borrows .tags, .tag-chip and .tag-add from the row editor, so
+   nothing here restates a chip. What it adds is the box those sit in.
+   ========================================================================== */
+
+.tag-bulk {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+/* ANCHORED TO ITS END EDGE, so it opens inward. This button sits in the right
+   half of a wide row, and a 320px panel hung off its start edge would reach
+   past the window. The row stacks below 953, where the button is the whole
+   line and the two edges meet anyway.
+
+   The width is capped against the VIEWPORT rather than stated, because the
+   panel is wider than the control it hangs from. */
+.tag-panel {
+  position: absolute;
+  z-index: var(--layer-dropdown);
+  inset-inline-end: 0;
+  top: calc(100% + var(--space-xs));
+  width: min(320px, calc(100vw - var(--space-2xl) * 2));
+  padding: var(--space-md);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: 0 8px 24px #000000a8;
+}
+
+/* A readout, so it says what the two buttons below will act on. */
+.tag-panel-count {
+  margin-bottom: var(--space-sm);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+/* An action row that breaks, breaks into pairs, and one gap serves both axes
+   because a line break is not a group boundary. 16px above the pair, which is
+   the published clearance from the text an action answers to. */
+.tag-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+.tag-panel-actions > .btn { flex: 1 1 auto }
+
+/* The chips wrap freely here. A row cell caps this at its column width, and
+   the panel has no column to answer to.
+
+   The chips are a group and the field is not one of them, so the line gap is
+   a step above the 4px between chips. 8 against 4 is the proximity bar. */
+.tag-panel .tags {
+  min-width: 0;
+  row-gap: var(--space-sm);
+}
+
+/* THE FIELD TAKES A WHOLE LINE. Sized by the input's own default it stopped
+   87px short of the edge everything else in the panel sits on. A 100% basis
+   cannot share a line with anything, so the field starts at 0 whether chips
+   exist or not, and it never needs the cell's separation margin. */
+.tag-panel .tag-add { flex: 1 1 100% }
+
+/* A PERMANENT FIELD CARRIES ITS FILL PERMANENTLY. In a row this field is one
+   of two states and a plus marks the other, so the fill can arrive on hover.
+   Here it is the only state, and with no fill its 4px text inset reads as an
+   indent against a label and two buttons that start at 0. The fill is the one
+   it already takes on hover, so the box edge lands on 0 and the 4px becomes
+   the field's own padding. */
+.tag-panel .tag-input { background: var(--surface-sunken) }
+
+/* ==========================================================================
    A video that is gone from YouTube
 
    DEACTIVATED IS THE TEXT, NEVER THE CONTROLS. opacity on a row would dim the
@@ -1265,10 +1462,22 @@ th.amount { text-align: end }
   display: inline-flex;
   align-items: center;
   min-width: 0;
-  /* Written as the subtraction, because a flex gap and a margin ADD. The
-     chips sit 4px apart, and this stands 12px from the last of them. */
-  margin-inline-start: calc(var(--space-md) - var(--space-xs));
 }
+
+/* NO MARGIN OF ITS OWN. The container's 4px gap is the whole distance, and
+   the plus joins the chips' rhythm.
+
+   This carried 12px, to stand the plus clear of the chip run. In a WRAPPING
+   container that is an indent waiting to happen: the plus is not the first
+   child, so the rule applies, and it is first on its own line, so there is
+   nothing to stand clear of. Measured at 8px in both instances, the panel's
+   field and a row whose chips fill the column.
+
+   No selector can ask "first on this line", so a margin cannot be made
+   correct here. The plus also belongs to the chip list rather than sitting
+   beside it, so one gap for the whole run is the honest distance. Where the
+   field IS a separate thing, which is the panel, the panel states its own
+   row gap instead. */
 
 .tag-add-btn {
   position: relative;
@@ -1314,9 +1523,9 @@ th.amount { text-align: end }
    absolutely positioned child that block is this label. So 100% is the
    label's own height. min() against zero stops it: a label already past the
    floor gets no overhang. */
-/* The separation from the chips now lives on .tag-add, which wraps both
-   states. Leaving it here too would make two writers for one gap, and the
-   painted distance would be 20px rather than the 12 anybody chose. */
+/* NO MARGIN HERE EITHER. The container's gap is the only writer for the
+   distance to the chips. A margin on this label, or on .tag-add, is a second
+   one, and two writers paint a distance nobody chose. */
 .tag-input-hit {
   position: relative;
   display: flex;
@@ -1580,14 +1789,34 @@ dialog menu {
      ordering it individually would move it within that pair and nothing
      else. The pair travels as one item.
 
-     The two buttons PAIR on the line they land on, rather than taking one
-     line each. An action row that breaks, breaks into pairs. */
+     The buttons PAIR on the line they land on, rather than taking one line
+     each. An action row that breaks, breaks into pairs.
+
+     TAG SELECTED IS ONE OF THOSE BUTTONS AND HAD NO ORDER. Left out of this
+     list it kept order 0 and sat on a line of its own ABOVE the search
+     field, 144px wide at 937. Its panel hangs off its end edge, so the panel
+     then started 159.7px outside the window. */
   .filters { flex-wrap: wrap }
   .search { order: 1; flex: 1 1 100% }
   .filters-group { order: 2; flex: 1 1 100% }
   .filters-group .multi { flex: 1 1 auto; width: auto }
-  #deleteSelected { order: 3; flex: 1 1 0 }
-  #clearFilter { order: 4; flex: 1 1 0 }
+  #tagBulk { order: 3; flex: 1 1 0 }
+  /* THE TRIGGER, NEVER EVERY BUTTON INSIDE THE WRAPPER. Written as
+     "#tagBulk .btn" this reached the panel's own two buttons and gave each a
+     full line. They fit side by side in 294px and were stacked instead. */
+  #tagSelected { width: 100% }
+  #deleteSelected { order: 4; flex: 1 1 0 }
+  #clearFilter { order: 5; flex: 1 1 0 }
+
+  /* ANCHORED TO ITS START EDGE HERE. Hung off the end edge the panel opens
+     leftward, and on this stacked row the button is the first of three
+     rather than the last thing on a wide line. The page inset is 16px, so
+     opening rightward from the button's start keeps the whole panel inside
+     the window at every width down to 375. */
+  .tag-panel {
+    inset-inline-start: 0;
+    inset-inline-end: auto;
+  }
 
   /* The filters rule must not touch the sort bar. A rule between sections
      sits INSIDE the gap, so it takes the filters' own 12px above it and the

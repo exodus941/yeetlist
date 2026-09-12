@@ -106,6 +106,31 @@
     <p id="addStatus" class="hint" role="status">Video details are fetched automatically. <a href="#sync-note">About Syncing</a></p>
   </section>
 
+  <!-- A BROKEN LINK IS THE ONE FAULT A READER HAS TO ACT ON, so it takes a
+       banner rather than three words in the header. Directly under the add
+       panel, because the fault is about what happens to whatever they add.
+
+       IT ONLY APPEARS WHILE THE LINK IS KNOWN BROKEN: linked, not live, and
+       no request in flight. Every load starts with no token and fetches one,
+       and a red banner during that second would shout at a reader whose sync
+       is about to come back on its own. That exact flash is a fault this app
+       has already shipped once, in the header's status line.
+
+       role="alert" rather than role="status": this asks for an action, and a
+       reader who cannot see it needs to hear about it when it arrives. -->
+  <section id="driveAlert" class="alert" role="alert" hidden>
+    <svg class="icon alert-mark" aria-hidden="true"><use href="#i-unlink"/></svg>
+    <div class="alert-words">
+      <h2 class="alert-title">Google Drive sync is disconnected</h2>
+      <p class="alert-body">Everything you add is saved on this device. It will not
+        reach your other devices until the link is back.</p>
+    </div>
+    <button id="driveAlertAction" class="btn btn-lg btn-danger" type="button">
+      <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>
+      <span class="btn-label">Reestablish Link</span>
+    </button>
+  </section>
+
   <!-- A long import gets a shape, a count and a way out. The bar carries the
        progressbar role; the counts line is the live region, because a bar
        announcing every percent is noise. -->
@@ -164,10 +189,37 @@
       <input id="search" placeholder="Search titles, channels, or tags" aria-label="Search titles, channels, or tags" />
     </label>
 
-    <!-- The medium step, not sm. Both of these share a row with the tag
-         control and the search field, and a control row is one stated
-         height. Delete Selected carried btn-sm beside the old heading, and
-         it takes the row's height here instead. -->
+    <!-- THE PANEL IS THE ROW'S TAG EDITOR, NOT A SECOND ONE. It carries the
+         same .tags, .tag-chip and .tag-add markup, so the chips, the
+         collapsing plus and the autocomplete are the shipped components
+         rather than a copy of them.
+
+         Its chips are what is ABOUT to be applied. They are not the tags the
+         selection already holds, because Apply adds rather than replaces, and
+         a panel showing existing tags would make a removed chip mean "take
+         this off every video" without saying so. -->
+    <div class="tag-bulk" id="tagBulk">
+      <button id="tagSelected" class="btn" type="button" disabled
+              aria-expanded="false" aria-haspopup="dialog" aria-controls="tagBulkPanel">
+        <svg class="icon" aria-hidden="true"><use href="#i-tag"/></svg>
+        <span class="btn-label">Tag Selected</span>
+      </button>
+
+      <div class="tag-panel" id="tagBulkPanel" role="dialog"
+           aria-labelledby="tagBulkCount" hidden>
+        <p class="tag-panel-count" id="tagBulkCount" role="status"></p>
+        <div class="tags" id="tagBulkTags"></div>
+        <div class="tag-panel-actions">
+          <button id="tagBulkClear" class="btn btn-sm btn-danger-outline" type="button">Clear Current Tags</button>
+          <button id="tagBulkApply" class="btn btn-sm btn-primary" type="button" disabled>Apply Tags</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- The medium step, not sm. These share a row with the tag control and
+         the search field, and a control row is one stated height. Delete
+         Selected carried btn-sm beside the old heading, and it takes the
+         row's height here instead. -->
     <button id="deleteSelected" class="btn btn-danger-outline" type="button" disabled>
       <svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>
       <span class="btn-label">Delete Selected</span>

@@ -163,7 +163,13 @@ function render() {
   box.indeterminate = chosen > 0 && chosen < filtered.length;
 
   $('#deleteSelected').disabled = selected.size === 0;
+  $('#tagSelected').disabled = selected.size === 0;
   $('#clearFilter').disabled = !filtering;
+
+  /* A panel about a selection cannot outlive it. Deselecting the last row
+     with the panel open would leave two buttons acting on nothing. */
+  if (bulkOpen && !selected.size) closeBulk();
+  else if (bulkOpen) renderBulk();
 }
 
 /* One rendering for both shapes. At narrow widths CSS turns each row into a
@@ -452,15 +458,23 @@ function moveSuggest(step) {
   else suggest.input.setAttribute('aria-activedescendant', 'tagSuggest-' + suggest.index);
 }
 
+/* ONE FIELD, TWO DESTINATIONS. A row's field writes to that video. The bulk
+   panel's field writes to a pending list that Apply then spreads over the
+   selection. Everything before this point is identical, so the fork is here
+   rather than in two copies of the editor. */
+const isBulk = (el) => Boolean(el?.closest('#tagBulkPanel'));
+
+const commitTagInput = (input, raw) =>
+  isBulk(input) ? addPendingTags(raw) : addTags(input.dataset.id, raw);
+
 /* Replace the fragment being typed, keep any complete tags before it. */
 function accept(tag) {
   const input = suggest.input;
   if (!input) return;
   const parts = input.value.split(',');
   parts[parts.length - 1] = tag;
-  const id = input.dataset.id;
   closeSuggest();
-  addTags(id, parts.join(','));
+  commitTagInput(input, parts.join(','));
 }
 
 /* ==========================================================================
@@ -479,6 +493,130 @@ function removeTag(id, tag) {
   save();
   if (!allTags().includes(tag)) activeTags.delete(tag);
   render();
+}
+
+/* ==========================================================================
+   Tagging a selection
+
+   The pending list is a STAGING set. Nothing reaches a video until Apply, so
+   a reader can build three tags, change their mind and close the panel with
+   the watchlist untouched.
+   ========================================================================== */
+
+const parseTags = (raw) =>
+  raw.split(',').map((t) => t.trim().replace(/^#/, '')).filter(Boolean);
+
+/* Case-insensitive, first spelling wins. "VFX" typed after "vfx" is the same
+   tag, and keeping both would split one filter into two. */
+function mergeTags(existing, incoming) {
+  const seen = new Map(existing.map((t) => [t.toLowerCase(), t]));
+  incoming.forEach((t) => { if (!seen.has(t.toLowerCase())) seen.set(t.toLowerCase(), t); });
+  return [...seen.values()];
+}
+
+function addPendingTags(raw) {
+  const tags = parseTags(raw);
+  if (!tags.length) return;
+  pendingTags = mergeTags(pendingTags, tags);
+  renderBulk();
+  /* The panel was rebuilt, so the field is a new element. Focus goes back to
+     the field rather than to a plus, because the panel is a place to type. */
+  $('#tagBulkPanel .tag-input')?.focus();
+}
+
+function removePendingTag(tag) {
+  pendingTags = pendingTags.filter((t) => t !== tag);
+  renderBulk();
+}
+
+function applyPendingTags() {
+  if (!pendingTags.length || !selected.size) return;
+  const ids = new Set(selected);
+  const added = pendingTags.length;
+
+  videos = videos.map((v) =>
+    ids.has(v.id) ? { ...v, tags: mergeTags(v.tags || [], pendingTags) } : v);
+
+  save();
+  pendingTags = [];
+  closeBulk({ refocus: true });
+  render();
+  $('#addStatus').textContent =
+    `Added ${added} tag${added === 1 ? '' : 's'} to ${ids.size} video${ids.size === 1 ? '' : 's'}.`;
+}
+
+function clearSelectedTags() {
+  if (!selected.size) return;
+  const ids = new Set(selected);
+  const touched = videos.filter((v) => ids.has(v.id) && (v.tags || []).length).length;
+  if (!touched) return;
+
+  videos = videos.map((v) => (ids.has(v.id) ? { ...v, tags: [] } : v));
+  save();
+
+  /* A tag whose last video just lost it is retired, so a filter on it must go
+     too. Left behind, the list reads as empty for no visible reason. */
+  const live = new Set(allTags());
+  [...activeTags].forEach((t) => { if (!live.has(t)) activeTags.delete(t); });
+
+  closeBulk({ refocus: true });
+  render();
+  $('#addStatus').textContent =
+    `Cleared the tags from ${touched} video${touched === 1 ? '' : 's'}.`;
+}
+
+function renderBulk() {
+  const count = selected.size;
+  $('#tagBulkCount').textContent =
+    `${count} video${count === 1 ? '' : 's'} selected`;
+
+  $('#tagBulkTags').innerHTML = `
+    ${pendingTags.map((t) => `<span class="tag-chip">
+      <span>${escape(hashed(t))}</span>
+      <button class="tag-remove" type="button" data-tag="${escape(t)}"
+              aria-label="Remove ${escape(hashed(t))} from the tags to apply">${icon('x')}</button>
+    </span>`).join('')}
+    <span class="tag-add" data-expanded="true">
+      <label class="tag-input-hit">
+        <input class="tag-input" placeholder="Tag name"
+               aria-label="Tags to apply to the selected videos" autocomplete="off"
+               role="combobox" aria-expanded="false" aria-autocomplete="list"
+               aria-controls="tagSuggest">
+      </label>
+    </span>`;
+
+  $('#tagBulkApply').disabled = !pendingTags.length || !count;
+  /* Nothing to clear is not the same as nothing selected, and both disable
+     it. A button that runs and changes nothing reads as broken. */
+  $('#tagBulkClear').disabled =
+    !count || !videos.some((v) => selected.has(v.id) && (v.tags || []).length);
+}
+
+function openBulk() {
+  if (bulkOpen || !selected.size) return;
+  bulkOpen = true;
+  $('#tagBulkPanel').hidden = false;
+  $('#tagSelected').setAttribute('aria-expanded', 'true');
+  renderBulk();
+  /* Open AND ready. The field is the only reason this panel exists, so a
+     reader can type the moment it appears.
+
+     THE LIST STAYS SHUT. Focus runs the same handler a reader's own click
+     runs, so it offered every existing tag over the two buttons below. It
+     also arrived only sometimes, because a click on the trigger can move
+     focus again afterwards. Closing it here makes the opening state one
+     thing rather than two. Typing or ArrowDown still opens it. */
+  $('#tagBulkPanel .tag-input').focus();
+  closeSuggest();
+}
+
+function closeBulk({ refocus = false } = {}) {
+  if (!bulkOpen) return;
+  bulkOpen = false;
+  closeSuggest();
+  $('#tagBulkPanel').hidden = true;
+  $('#tagSelected').setAttribute('aria-expanded', 'false');
+  if (refocus) $('#tagSelected').focus();
 }
 
 function addTags(id, raw) {
@@ -962,6 +1100,10 @@ let driveResuming = false;
    flashes "Stored locally" at a reader who is linked. */
 let driveAvailable = null;
 
+/* Staged in the bulk panel, spread over the selection by Apply. */
+let pendingTags = [];
+let bulkOpen = false;
+
 function driveStatus(state, words) {
   $('#syncDot').dataset.state = state;
   $('#syncWords').textContent = words;
@@ -1017,6 +1159,8 @@ function renderDrive() {
      reader who was already connecting: measured, the busy words never reached
      the screen at all. The markup ships "Stored locally", so an unlinked
      reader sees the right thing while /api/config is still in the air. */
+  const broken = linked && !live && !driveResuming;
+
   if (linked) {
     if (live) { /* whatever the last sync said still stands */ }
     else if (driveResuming) driveStatus('busy', 'Connecting…');
@@ -1024,6 +1168,14 @@ function renderDrive() {
   } else if (driveAvailable !== null) {
     driveStatus('local', 'Stored locally');
   }
+
+  /* THE SAME THREE FACTS THE STATUS LINE READS, so the banner and the header
+     can never disagree. One writer for one state.
+
+     driveResuming is in the condition for the reason the status line has it:
+     a resume runs on every load, and a red banner during that second shouts
+     at a reader whose sync is coming back on its own. */
+  $('#driveAlert').hidden = !broken;
 }
 
 /* A control the deployment cannot honour is worse than an absent one, so the
@@ -1247,6 +1399,13 @@ $('#tagFilterTrigger').addEventListener('keydown', (event) => {
    another control still reaches that control. */
 addEventListener('pointerdown', (event) => {
   if (multi.open && !event.target.closest('#tagFilter')) closeMulti();
+
+  /* The suggestion list is appended to the BODY so it can escape the panel's
+     clipping, so it is outside #tagBulk. Picking a suggestion would otherwise
+     close the panel under the pointer before the click landed. */
+  if (bulkOpen && !event.target.closest('#tagBulk') && !event.target.closest('#tagSuggest')) {
+    closeBulk();
+  }
 });
 
 /* ---- sorting ------------------------------------------------------------ */
@@ -1285,16 +1444,23 @@ $('#allCheck').addEventListener('change', (event) => {
   render();
 });
 
-$('#rows').addEventListener('click', (event) => {
+/* BOUND TO BOTH ROOTS, NEVER WRITTEN TWICE. The bulk panel holds the same
+   editor, so it needs the same five listeners. A second copy of them would
+   drift, and these are the handlers that took four rounds to get right. */
+function onTagClick(event) {
   const add = event.target.closest('.tag-add-btn');
   if (add) return expandTagField(add.closest('.tag-add'));
 
   const tag = event.target.closest('.tag-remove');
-  if (tag) return removeTag(tag.dataset.id, tag.dataset.tag);
+  if (tag) {
+    return isBulk(tag) ? removePendingTag(tag.dataset.tag)
+      : removeTag(tag.dataset.id, tag.dataset.tag);
+  }
 
+  /* A bulk panel holds no rows, so this matches nothing there. */
   const button = event.target.closest('.row-remove');
   if (button) openDelete([button.dataset.id]);
-});
+}
 
 /* One open field at a time. Two of them would leave a row looking ready for
    input it is not going to receive. */
@@ -1307,13 +1473,42 @@ function expandTagField(wrap) {
 }
 
 function collapseTagField(wrap) {
-  if (!wrap || !wrap.dataset.expanded) return;
+  /* THE PANEL'S FIELD IS PERMANENT. A panel whose only job is typing must not
+     open on a plus, so it has no collapsed state to go back to. This guard is
+     what stops a row's field, a blur or an Escape from taking it away. */
+  if (!wrap || !wrap.dataset.expanded || isBulk(wrap)) return;
   delete wrap.dataset.expanded;
   wrap.querySelector('.tag-add-btn')?.setAttribute('aria-expanded', 'false');
   wrap.querySelector('.tag-input').value = '';
 }
 
 $('#deleteSelected').addEventListener('click', () => openDelete(selected));
+
+$('#tagSelected').addEventListener('click', () => {
+  if (bulkOpen) closeBulk(); else openBulk();
+});
+
+$('#tagBulkApply').addEventListener('click', applyPendingTags);
+$('#tagBulkClear').addEventListener('click', clearSelectedTags);
+
+/* The same call the header's own button makes. Two controls, one path: a
+   second implementation of the link flow would drift from this one. */
+$('#driveAlertAction').addEventListener('click', () => driveConnect({ interactive: true }));
+
+/* Escape walks back out one step at a time: the suggestion list, then the
+   panel.
+
+   IT ASKS THE STATE, NEVER defaultPrevented. Both handlers sit on this same
+   element, so they fire in the order they were added, and this one is added
+   first. Reading defaultPrevented here measured a flag nothing had set yet,
+   and Escape closed the whole panel with the list still open. The order was
+   the opposite of what the old comment claimed. */
+$('#tagBulkPanel').addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || event.defaultPrevented) return;
+  if (suggest.input && !suggest.list?.hidden) return;
+  event.preventDefault();
+  closeBulk({ refocus: true });
+});
 
 $('#confirmInput').addEventListener('input', (event) => {
   $('#confirmDelete').disabled =
@@ -1334,13 +1529,9 @@ $('#state').addEventListener('click', (event) => {
 
 /* ---- tag autocomplete ---------------------------------------------------- */
 
-$('#rows').addEventListener('input', (event) => {
+const onTagInput = (event) => {
   if (event.target.classList.contains('tag-input')) openSuggest(event.target);
-});
-
-$('#rows').addEventListener('focusin', (event) => {
-  if (event.target.classList.contains('tag-input')) openSuggest(event.target);
-});
+};
 
 /* Leaving an untouched field collapses it. Leaving one with text in it does
    NOT, because collapsing would throw away what was typed.
@@ -1350,7 +1541,7 @@ $('#rows').addEventListener('focusin', (event) => {
    in a tab that is not focused it can still name the field that just blurred,
    so the collapse never ran. The timeout stays only so a pointerdown on a
    suggestion lands first. */
-$('#rows').addEventListener('focusout', (event) => {
+function onTagFocusOut(event) {
   if (!event.target.classList.contains('tag-input')) return;
   const wrap = event.target.closest('.tag-add');
   const wentTo = event.relatedTarget;
@@ -1359,9 +1550,9 @@ $('#rows').addEventListener('focusout', (event) => {
     if (!wrap || (wentTo && wrap.contains(wentTo))) return;
     if (!wrap.querySelector('.tag-input').value.trim()) collapseTagField(wrap);
   }, 0);
-});
+}
 
-$('#rows').addEventListener('keydown', (event) => {
+function onTagKeydown(event) {
   const input = event.target;
   if (!input.classList.contains('tag-input')) return;
   const open = suggest.input === input && !suggest.list?.hidden;
@@ -1375,8 +1566,12 @@ $('#rows').addEventListener('keydown', (event) => {
   /* Escape closes the suggestions first. With none open it collapses the
      field, so one key walks all the way back out. */
   if (event.key === 'Escape') {
+    if (open) { event.preventDefault(); return closeSuggest(); }
+    /* In the panel the field cannot collapse, so this step of the walk does
+       not exist. Leave the event alone and the panel's own handler closes it.
+       preventDefault here would make Escape do nothing at all. */
+    if (isBulk(input)) return;
     event.preventDefault();
-    if (open) return closeSuggest();
     const wrap = input.closest('.tag-add');
     collapseTagField(wrap);
     wrap?.querySelector('.tag-add-btn')?.focus();
@@ -1386,7 +1581,7 @@ $('#rows').addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
     event.preventDefault();
     if (open && suggest.index >= 0) accept(suggest.options[suggest.index]);
-    else { closeSuggest(); addTags(input.dataset.id, input.value); }
+    else { closeSuggest(); commitTagInput(input, input.value); }
     return;
   }
   if (event.key === 'Tab' && open && suggest.index >= 0) {
@@ -1397,8 +1592,16 @@ $('#rows').addEventListener('keydown', (event) => {
   if (event.key === ',') {
     event.preventDefault();
     closeSuggest();
-    addTags(input.dataset.id, input.value);
+    commitTagInput(input, input.value);
   }
+}
+
+[$('#rows'), $('#tagBulkPanel')].forEach((root) => {
+  root.addEventListener('click', onTagClick);
+  root.addEventListener('input', onTagInput);
+  root.addEventListener('focusin', onTagInput);
+  root.addEventListener('focusout', onTagFocusOut);
+  root.addEventListener('keydown', onTagKeydown);
 });
 
 addEventListener('scroll', positionSuggest, { passive: true, capture: true });
