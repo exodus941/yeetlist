@@ -109,7 +109,11 @@
         <svg class="icon" aria-hidden="true"><use href="#i-enter"/></svg>
       </button>
     </div>
-    <p id="addStatus" class="hint" role="status">Video details are fetched automatically. <a href="#sync-note">About Syncing</a></p>
+    <!-- IT STAYS AS AN EMPTY LIVE REGION. Ten runtime messages are written
+         here: reading a video, every add error, four Drive outcomes, and the
+         bulk tag result. A live region has to be in the document before
+         anything is written into it, so this cannot be created on demand. -->
+    <p id="addStatus" class="hint" role="status"></p>
   </section>
 
   <!-- A BROKEN LINK IS THE ONE FAULT A READER HAS TO ACT ON, so it takes a

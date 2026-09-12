@@ -606,6 +606,11 @@ header {
   font-size: var(--text-xs);
 }
 
+/* AN EMPTY BLOCK STILL CHARGES ITS MARGIN. The add card's status line holds
+   nothing until something happens, and the 12px would sit under the button
+   as a gap nobody asked for. */
+.hint:empty { margin: 0 }
+
 .hint a { color: var(--tag-ink) }
 
 /* ==========================================================================
