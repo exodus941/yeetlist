@@ -1255,38 +1255,40 @@ function exportFile() {
   URL.revokeObjectURL(link.href);
 }
 
-/* The file type picks the operation. A .md or .json merges a watchlist. An
-   .html is a bookmarks export, so it gets parsed for YouTube links. */
+/* A YeeTlist export merges. ANYTHING ELSE IS SCANNED FOR LINKS, so a file
+   this app never wrote is read rather than refused. Its own payload is tried
+   first, because a merge carries tags, dates and tombstones that a scan
+   cannot see. */
 function importFile(file) {
   const isHtml = /\.html?$/i.test(file.name) || file.type === 'text/html';
   const reader = new FileReader();
   reader.onerror = () => toast('error', 'That file could not be read.');
   reader.onload = () => {
     const text = String(reader.result);
-    if (isHtml) return importBookmarks(text);
 
-    try {
-      const incoming = parseFile(text);
-      const merged = merge({ videos, deleted: tombstones }, incoming);
-      videos = merged.videos;
-      tombstones = merged.deleted;
-      save();
-      render();
-      /* A YeeTlist file holds both lists, so the count names both. */
-      const clips = videos.filter((v) => listOf(v) === 'youtube').length;
-      const links = videos.length - clips;
-      toast('ok', `Imported ${clips} ${clips === 1 ? 'video' : 'videos'}`
-        + ` and ${links} ${links === 1 ? 'bookmark' : 'bookmarks'}.`);
-    } catch {
-      toast('error', 'That file is not a YeeTlist export.',
-        'Export a .md from YeeTlist, or pick a bookmarks .html file instead.');
+    if (!isHtml) {
+      try {
+        const incoming = parseFile(text);
+        const merged = merge({ videos, deleted: tombstones }, incoming);
+        videos = merged.videos;
+        tombstones = merged.deleted;
+        save();
+        render();
+        /* A YeeTlist file holds both lists, so the count names both. */
+        const clips = videos.filter((v) => listOf(v) === 'youtube').length;
+        const links = videos.length - clips;
+        return toast('ok', `Imported ${clips} ${clips === 1 ? 'video' : 'videos'}`
+          + ` and ${links} ${links === 1 ? 'bookmark' : 'bookmarks'}.`);
+      } catch { /* not a YeeTlist export, so read it for links instead */ }
     }
+
+    importLinks(text, isHtml);
   };
   reader.readAsText(file);
 }
 
 /* ==========================================================================
-   Bookmarks import
+   Link import
    ========================================================================== */
 
 /* An id is exactly eleven characters of the URL alphabet. Validating it here
@@ -1310,30 +1312,35 @@ function videoIdFrom(href) {
   return path ? take(path[1]) : null;
 }
 
-/* DOMParser neither runs scripts nor fetches anything for text/html, and the
-   result is never put into the live document. Only hrefs are read from it.
-
-   TWO LISTS OUT OF ONE FILE. A YouTube link is a video and everything else is
+/* TWO LISTS OUT OF ONE FILE. A YouTube link is a video and everything else is
    a bookmark, which is the same split the tabs make.
 
-   THE ANCHOR'S OWN TEXT IS THE BOOKMARK'S NAME. A bookmarks file exists to
-   carry a name beside an address, and that name is the one the reader chose.
-   It beats anything a fetch could return, needs no network, and a file of two
-   hundred links costs nothing rather than two hundred requests. */
+   A VIDEO COMES FROM ANYWHERE AND A BOOKMARK COMES FROM AN ENTRY. A video
+   link names one video wherever it sits, so a bare id in a paragraph is safe
+   to take. A page address is not: a bookmarks file lists links somebody
+   saved, while a note, an article or a video description CITES them. Taking
+   every address out of one file read 109 of them, against the 46 videos it
+   holds. Each scanner below decides what an entry is for its own format.
+
+   THE LINK'S OWN TEXT IS THE BOOKMARK'S NAME. That name is the one the reader
+   chose. It beats anything a fetch could return, needs no network, and a file
+   of two hundred links costs nothing rather than two hundred requests. */
 const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, 300);
 
-function linksIn(html) {
-  const clips = new Map();
+/* AN ASSET IS NOT A PAGE. A thumbnail, a favicon or a stylesheet is something
+   a document points at, never something a reader saved. One file's entry
+   lines held 46 of them beside its 46 videos. */
+const ASSET = /\.(?:jpe?g|png|gif|webp|avif|svgz?|bmp|ico|css|js|mjs|json|woff2?|ttf|otf|eot|map)(?:$|[?#])/i;
+const BARE = /https?:\/\/[^\s"'<>)\]]+/g;
+
+function linksIn(text, isHtml) {
+  const clips = new Set();
   const pages = new Map();
 
-  const add = (href, title, fromAnchor) => {
+  const add = (href, title) => {
     const id = videoIdFrom(href);
-    if (id) { if (!clips.has(id)) clips.set(id, clean(title)); return; }
-
-    /* A PAGE COMES FROM AN ANCHOR, NEVER FROM THE TEXT SCAN. That scan reads
-       every http URL in the file, including an exporter's ICON attributes and
-       anything quoted inside one. Those are not links anybody saved. */
-    if (!fromAnchor) return;
+    if (id) { clips.add(id); return; }
+    if (ASSET.test(String(href))) return;
 
     let key;
     try { key = linkId(href); } catch { return; }
@@ -1341,17 +1348,139 @@ function linksIn(html) {
     if (!pages.has(key)) pages.set(key, clean(title));
   };
 
-  try {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    doc.querySelectorAll('a[href]').forEach((a) => add(a.getAttribute('href'), a.textContent, true));
-  } catch { /* fall through to the text scan */ }
+  if (isHtml) scanHtml(text, add); else scanText(text, add);
 
-  /* Belt and braces: some exporters write bare URLs with no anchor at all.
-     The anchor pass runs first, so a link with a real title keeps it. */
-  const bare = html.match(/https?:\/\/[^\s"'<>)\]]+/g) || [];
-  bare.forEach((href) => add(href, '', false));
+  /* Belt and braces, and the whole of the video pass: an address with a video
+     id in it is that video, quoted or saved. The entry pass runs first, so a
+     bookmark that found a name keeps it. */
+  (text.match(BARE) || []).forEach((href) => {
+    const id = videoIdFrom(href);
+    if (id) clips.add(id);
+  });
 
   return { clips, pages };
+}
+
+/* --------------------------------------------------------------------------
+   Markdown, and any other text
+   -------------------------------------------------------------------------- */
+
+const MARKER = /^(?:[-*+]|\d+[.)])\s+/;
+const HEADING = /^#{1,6}\s+/;
+const QUOTE = /^>\s?/;
+/* A field name in front of the address: "**URL**: ", "Link: ", "Source - ". */
+const LABEL = /^(?:\*\*|__)?[A-Za-z0-9][A-Za-z0-9 _/-]{0,24}(?:\*\*|__)?\s*[:–-]\s+/;
+/* A markdown link, an autolink, or a bare address. */
+const LINK = /^(!)?\[([^\]]*)\]\(\s*<?([^\s)<>]+)>?[^)]*\)|^<(https?:\/\/[^>\s]+)>|^(https?:\/\/[^\s"'<>)\]]+)/;
+
+function scanText(text, add) {
+  let heading = '';
+  let headingFree = false;
+
+  for (const raw of String(text).split(/\r?\n/)) {
+    const line = raw.replace(/\t/g, '    ');
+    const indent = line.length - line.replace(/^ +/, '').length;
+    let rest = line.trim().replace(QUOTE, '').trim();
+    if (!rest) continue;
+
+    const head = rest.match(HEADING);
+    if (head) {
+      rest = rest.slice(head[0].length).trim();
+      /* "### 1. Eternal Confinement" names the entry written under it. A
+         heading that is itself a link keeps its words and drops the address. */
+      heading = rest.replace(/^\d+[.)]\s+/, '')
+        .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[*_`#]/g, '').trim();
+      headingFree = true;
+    }
+
+    const marked = MARKER.test(rest);
+    if (marked) rest = rest.replace(MARKER, '');
+
+    /* AN INDENTED LINE WITH NO MARKER IS CONTINUATION PROSE, which is what a
+       markdown list calls the body of the item above it. A description pasted
+       into such a block cites addresses rather than saving them. Nested list
+       items carry their own marker, so they stay entries. */
+    if (indent > 0 && !marked && !head) continue;
+
+    const body = rest.replace(LABEL, '');
+    const m = body.match(LINK);
+    if (!m || m[1]) continue;
+
+    /* A LINE WITH NO MARKER HAS TO BE THE LINK. Without that, every sentence
+       holding an address becomes a bookmark. A list item may carry a note
+       after its link, which is how an annotated list is written. */
+    if (!marked && !head && body.replace(LINK, '').trim().replace(/^[.,;]$/, '')) continue;
+
+    /* A bare address runs to whitespace, so a sentence's full stop joins it.
+       A markdown link is delimited and keeps whatever is inside its brackets. */
+    const href = m[3] || m[4] || (m[5] || '').replace(/[.,;:!?]+$/, '');
+    let name = (m[2] || '').trim();
+    /* A link whose text is its own address carries no name. */
+    if (/^(?:https?:\/\/|www\.)/i.test(name)) name = '';
+    /* A HEADING NAMES AT MOST THE FIRST LINK UNDER IT, or one section title
+       ends up on every link in that section. */
+    if (!name && headingFree) name = heading;
+    headingFree = false;
+
+    add(href, name);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   HTML
+   -------------------------------------------------------------------------- */
+
+/* DOMParser neither runs scripts nor fetches anything for text/html, and the
+   result is never put into the live document. Only hrefs are read from it. */
+const BLOCK = new Set(['li', 'dt', 'dd', 'p', 'div', 'td', 'th', 'section',
+  'article', 'main', 'body', 'blockquote', 'figcaption',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
+const ITEM = new Set(['li', 'dt', 'dd']);
+/* CHROME IS NOT A BOOKMARK. A page's own navigation, masthead and footer are
+   how that site moves you around. A bookmarks export carries none of these,
+   so nothing is lost by refusing them. */
+const CHROME = ['nav', 'header', 'footer'];
+
+/* Nothing but whitespace stands between this node and one edge of its block. */
+function edgeClear(node, block, side) {
+  for (let n = node; n && n !== block; n = n.parentElement) {
+    for (let s = n[side]; s; s = s[side]) {
+      if (s.nodeType === 1 || (s.nodeType === 3 && s.textContent.trim())) return false;
+    }
+  }
+  return true;
+}
+
+function scanHtml(html, add) {
+  let doc;
+  try { doc = new DOMParser().parseFromString(html, 'text/html'); } catch { return; }
+
+  doc.querySelectorAll('a[href]').forEach((a) => {
+    /* Walk up to the nearest block rather than asking closest() for a list of
+       tags. A selector list answers with whichever matches first, which is a
+       property of the file being read rather than of this rule. */
+    /* Asked as an existence question at any depth, because a footer's link
+       usually sits inside a paragraph and the block walk below stops before
+       it. Nothing is kept from the answer, so which tag matched first cannot
+       change the result. */
+    if (CHROME.some((tag) => a.closest(tag))) return;
+
+    let block = null;
+    for (let p = a.parentElement, hops = 0; p && hops < 8; p = p.parentElement, hops += 1) {
+      if (BLOCK.has(p.tagName.toLowerCase())) { block = p; break; }
+    }
+    if (!block) return;
+    if (!edgeClear(a, block, 'previousSibling')) return;
+
+    /* A LIST ITEM IS A SAVED ENTRY EVEN WITH A NOTE AFTER IT. That is the
+       shape of a bookmarks export, whose anchors sit one to a <DT>, and of
+       every hand-written list of links. Outside a list the anchor has to be
+       the whole of its block, or a sentence citing an address is saved. */
+    if (!ITEM.has(block.tagName.toLowerCase())
+      && !edgeClear(a, block, 'nextSibling')) return;
+
+    add(a.getAttribute('href'), a.textContent);
+  });
 }
 
 const importRun = { active: false, cancelled: false };
@@ -1375,14 +1504,15 @@ function setImportProgress(done, total, counts) {
 /* Chunked, because videos.list takes 50 ids per call and costs one quota unit
    either way. Ten keeps the bar moving: at 50 a 200-link file would advance
    four times, which is not a progress bar. */
-async function importBookmarks(html) {
+async function importLinks(text, isHtml) {
   if (importRun.active) return;
 
-  const { clips, pages } = linksIn(html);
+  const { clips, pages } = linksIn(text, isHtml);
   const total = clips.size + pages.size;
   if (total === 0) {
     return toast('warn', 'No links in that file.',
-      'It was read successfully and held no addresses this could save.');
+      'It was read successfully. A video link counts anywhere in the file, and'
+      + ' a bookmark has to be a list entry or a line of its own.');
   }
 
   const known = new Set(videos.map((v) => v.id));

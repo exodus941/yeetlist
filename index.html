@@ -82,10 +82,10 @@
       </span>
 
       <span class="dot" aria-hidden="true">•</span>
-      <!-- One file control, reading from the device. The file type picks the
-           operation: a .md or .json merges a watchlist, an .html is parsed
-           for YouTube links. -->
-      <button id="importBtn" class="btn-text" type="button" aria-label="Import a watchlist or bookmarks file">
+      <!-- One file control, reading from the device. A YeeTlist export merges.
+           Any other file is scanned for links, so a notes file, a bookmarks
+           export or a page saved from the web all import. -->
+      <button id="importBtn" class="btn-text" type="button" aria-label="Import a file of links">
         <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>
         <span class="btn-label">Import</span>
       </button>
@@ -354,7 +354,7 @@
 <!-- One control for one decision. The file type picks the operation: a .md
      or .json merges a YeeTlist export, an .html is read as browser bookmarks
      and its links are sorted into the two lists. -->
-<input id="importFile" type="file" accept=".md,.json,.html,.htm,text/html" hidden />
+<input id="importFile" type="file" accept=".md,.markdown,.txt,.text,.json,.html,.htm,text/*" hidden />
 
 <!-- Toasts persist until dismissed. A count is worth reading, and an
      auto-dismissing toast takes the number away before it is read. -->

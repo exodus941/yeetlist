@@ -43,17 +43,36 @@ address or date added.
 Each list keeps its own tags, filter, search, selection and sort. Switching
 tabs never carries one list's filter onto the other.
 
-**Import a file.** Point it at a `.md` or `.json` YeeTlist export to merge one
-in, or at a browser bookmarks `.html`. A bookmarks file is sorted into the two
-lists: YouTube videos go to the watchlist, and every other link becomes a
-bookmark named by the text on its own anchor. A YouTube playlist or channel is
-a link rather than a video, so it lands in Other Bookmarks instead of being
-dropped.
+**Import a file.** A `.md` or `.json` YeeTlist export merges in, keeping tags,
+dates and deletions. **Any other file is read for links** — a browser
+bookmarks `.html`, a page saved from the web, a notes file, a plain list of
+addresses. Whatever it finds is sorted into the two lists: YouTube videos go
+to the watchlist and every other link becomes a bookmark. A YouTube playlist
+or channel is a link rather than a video, so it lands in Other Bookmarks
+instead of being dropped.
 
-The anchor's text is the name you saved it under, so it beats anything a fetch
-could return. A file of two hundred links costs no requests at all for its
-bookmarks, and one request per fifty for its videos. Both are reported with a
-progress bar and a count.
+A video link counts wherever it appears, because the id names one video
+whether it was saved or merely quoted. **A bookmark has to be an entry**, and
+each format says what that means:
+
+| In | An entry is | Left out |
+|---|---|---|
+| Markdown, text | a list item, a heading, or a line that is nothing but the link | a link inside a sentence, and anything in an indented block under a list item |
+| HTML | a link leading its own list item, or filling its own paragraph | a link mid-sentence, and anything in a `nav`, `header` or `footer` |
+
+Images, stylesheets and other assets are never bookmarks. Neither is a
+`javascript:` or `mailto:` address.
+
+That split is what makes an arbitrary file usable. One 46-video Markdown
+export carries 109 other addresses in its video descriptions: Spotify,
+Bandcamp, Facebook, a thumbnail per entry. Every one of those is cited rather
+than saved, and the import takes the 46 videos and none of the 109.
+
+The link's own text is the name you saved it under, so it beats anything a
+fetch could return. A bare link takes the heading above it, if that heading
+has not already named something, and otherwise the hostname. A file of two
+hundred links costs no requests at all for its bookmarks, and one request per
+fifty for its videos. Both are reported with a progress bar and a count.
 
 **Export a file.** `Export .md` writes `yeetlist.md`: a readable Markdown table
 with a JSON payload underneath, so a round trip loses nothing.
