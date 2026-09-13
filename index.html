@@ -19,6 +19,8 @@
      inside a <use> shadow tree. -->
 <svg hidden aria-hidden="true"><defs>
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M6 3l14 9-14 9z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M12 20h9" vector-effect="non-scaling-stroke"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" vector-effect="non-scaling-stroke"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-enter" viewBox="0 0 24 24"><path d="M20 4v7a4 4 0 0 1-4 4H4" vector-effect="non-scaling-stroke"/><path d="M9 10l-5 5 5 5" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" vector-effect="non-scaling-stroke"/><path d="M21 21l-4.34-4.34" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2" vector-effect="non-scaling-stroke"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" vector-effect="non-scaling-stroke"/></symbol>
@@ -175,6 +177,24 @@
        ONE STATUS REGION, NOT TWO. The count and the runtime answer one
        question and change together, so a reader hears a single update. Two
        regions would read them out as two separate announcements. -->
+  <!-- ONE TAB STOP FOR THE WHOLE STRIP. A composite widget takes Tab once and
+       the arrows move within it. Built with a tabindex on every tab, walking
+       past two costs two presses and a strip of six costs six. -->
+  <div class="tabs" role="tablist" aria-label="Which list">
+    <button class="tab" id="tab-youtube" type="button" role="tab" data-tab="youtube"
+            aria-selected="true" aria-controls="listPanel">
+      <svg class="icon" aria-hidden="true"><use href="#i-play"/></svg>
+      <span>YouTube</span>
+      <span class="tab-count" id="tabCountYoutube"></span>
+    </button>
+    <button class="tab" id="tab-links" type="button" role="tab" data-tab="links"
+            aria-selected="false" aria-controls="listPanel" tabindex="-1">
+      <svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>
+      <span>Other Bookmarks</span>
+      <span class="tab-count" id="tabCountLinks"></span>
+    </button>
+  </div>
+
   <section class="list-head" role="status">
     <h2 id="listCount">0 Saved Videos</h2>
     <p id="listRuntime" class="list-runtime" hidden></p>
@@ -281,16 +301,9 @@
   <div class="sort-bar">
     <label class="sort-field">
       <span class="filters-label">SORT BY</span>
-      <select id="sortKey" class="select-field">
-        <option value="title">Video Title</option>
-        <option value="channel">Channel</option>
-        <option value="duration">Duration</option>
-        <option value="uploadedAt">Uploaded</option>
-        <option value="addedAt">Added</option>
-        <hr />
-        <option value="dir:1">Ascending</option>
-        <option value="dir:-1">Descending</option>
-      </select>
+      <!-- The keys come from the same column spec the header row is built
+           from, so a list cannot offer a sort it has no column for. -->
+      <select id="sortKey" class="select-field"></select>
     </label>
 
     <!-- THE CARD VIEW HAS NO COLUMN HEADERS, so the select-all box in the
@@ -315,32 +328,12 @@
       <!-- Fixed layout, so the table is always exactly as wide as its
            container. Sized caps made its width a constant, and any window
            narrower than that constant overflowed. -->
-      <colgroup>
-        <col class="col-check" />
-        <col class="col-title" />
-        <col class="col-chan" />
-        <col class="col-dur" />
-        <col class="col-up" />
-        <col class="col-added" />
-        <col class="col-tags" />
-        <col class="col-remove" />
-      </colgroup>
-      <thead>
-        <tr>
-          <th class="col-check check" scope="col">
-            <label class="check-hit">
-              <input id="allCheck" class="checkbox" type="checkbox" aria-label="Select all videos" />
-            </label>
-          </th>
-          <th scope="col"><button class="th-sort" type="button" data-key="title">VIDEO TITLE <svg class="icon" aria-hidden="true"><use href="#i-sort"/></svg></button></th>
-          <th scope="col"><button class="th-sort" type="button" data-key="channel">CHANNEL <svg class="icon" aria-hidden="true"><use href="#i-sort"/></svg></button></th>
-          <th scope="col" class="amount"><button class="th-sort" type="button" data-key="duration">DURATION <svg class="icon" aria-hidden="true"><use href="#i-sort"/></svg></button></th>
-          <th scope="col"><button class="th-sort" type="button" data-key="uploadedAt">UPLOADED <svg class="icon" aria-hidden="true"><use href="#i-sort"/></svg></button></th>
-          <th scope="col"><button class="th-sort" type="button" data-key="addedAt">ADDED <svg class="icon" aria-hidden="true"><use href="#i-sort"/></svg></button></th>
-          <th scope="col">METATAGS</th>
-          <th class="col-remove" scope="col"><span class="sr-only">Remove</span></th>
-        </tr>
-      </thead>
+      <!-- THE COLUMNS COME FROM ONE SPEC, because two lists share this table
+           and each states its own. Written by hand, the widths, the header
+           row, the cells and the sort menu are four places that must agree
+           about the same set, and the card view's data-label is a fifth. -->
+      <colgroup id="cols"></colgroup>
+      <thead id="head"></thead>
       <tbody id="rows"></tbody>
     </table>
     <div id="state" class="empty" hidden></div>

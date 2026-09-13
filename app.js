@@ -54,10 +54,98 @@ const seconds = (value) => String(value ?? '')
    State
    ========================================================================== */
 
+/* ==========================================================================
+   The two lists
+
+   ONE SPEC PER LIST, READ BY FIVE THINGS. The column widths, the header row,
+   each row's cells, the card view's own labels and the sort menu all come
+   from here. Written by hand they are five places that must agree about one
+   set, and the first column added to one of them would break the rest.
+
+   A LIST IS NOT A FILTER OVER ONE SHAPE. A bookmark has no channel, no
+   duration and no upload date, so the table it sits in has different columns
+   rather than four empty ones.
+   ========================================================================== */
+
+const LISTS = {
+  youtube: {
+    tab: 'YouTube',
+    noun: ['Video', 'Videos'],
+    head: 'Saved',
+    runtime: true,
+    placeholder: 'Paste a YouTube link…',
+    fieldName: 'Add a video by YouTube link',
+    search: 'Search titles, channels, or tags',
+    empty: {
+      title: 'Your Watchlist Is Clear',
+      body: 'Paste a YouTube link above to save a video for later.',
+      action: 'Add Your First Video',
+      none: 'No Videos Match',
+    },
+    columns: [
+      { key: 'check' },
+      { key: 'title', label: 'VIDEO TITLE', sort: 'title' },
+      { key: 'chan', label: 'CHANNEL', sort: 'channel' },
+      { key: 'dur', label: 'DURATION', sort: 'duration', amount: true },
+      { key: 'up', label: 'UPLOADED', sort: 'uploadedAt' },
+      { key: 'added', label: 'ADDED', sort: 'addedAt' },
+      { key: 'tags', label: 'METATAGS' },
+      { key: 'remove' },
+    ],
+  },
+  links: {
+    tab: 'Other Bookmarks',
+    noun: ['Bookmark', 'Bookmarks'],
+    head: '',
+    runtime: false,
+    placeholder: 'Paste any link…',
+    fieldName: 'Add a bookmark by link',
+    search: 'Search names, addresses, or tags',
+    empty: {
+      title: 'No Bookmarks Yet',
+      body: 'Paste any link above to keep it here beside your watchlist.',
+      action: 'Add Your First Bookmark',
+      none: 'No Bookmarks Match',
+    },
+    columns: [
+      { key: 'check' },
+      { key: 'title', label: 'SITE NAME', sort: 'title' },
+      /* An acronym is not title case. The menu takes the label's own words
+         where the header's caps would mangle them. */
+      { key: 'url', label: 'URL', menu: 'URL', sort: 'url' },
+      { key: 'added', label: 'ADDED', sort: 'addedAt' },
+      { key: 'tags', label: 'METATAGS' },
+      /* A SITE NAMES ITSELF AND OFTEN NAMES ITSELF BADLY. A video's title is
+         YouTube's to state, so only this list can be renamed. */
+      { key: 'edit' },
+      { key: 'remove' },
+    ],
+  },
+};
+
+/* ONE ROW AT A TIME, AND THE DRAFT LIVES OUT HERE. render() rebuilds every
+   row, so a value held only in the input is lost the moment anything else
+   repaints the list. A Drive pull arriving mid-edit would do it. */
+let editing = null;
+let draft = '';
+
+/* A record written before there were two lists has no kind, and every one of
+   those is a video. Reading it here rather than migrating means an old file
+   imports unchanged and an old export still opens. */
+const listOf = (v) => (v && v.kind === 'link' ? 'links' : 'youtube');
+
 let videos = [];
 let tombstones = [];
 let selected = new Set();
-let sort = { key: 'addedAt', dir: -1 };
+/* Each list keeps its own sort, because they share no columns beyond two.
+   One shared key would leave the bookmarks sorted by a duration they have
+   none of the moment a reader switched tabs. */
+let tab = 'youtube';
+const sorts = {
+  youtube: { key: 'addedAt', dir: -1 },
+  links: { key: 'addedAt', dir: -1 },
+};
+let sort = sorts.youtube;
 /* A set, because the filter is a multiselect. Several tags match ANY of
    them: adding a tag widens the result, which is what a reader expects from
    a tag filter. */
@@ -104,18 +192,24 @@ function save() {
   queueDrivePush();
 }
 
+/* Everything below reads the CURRENT list. A tag menu counting videos while
+   the bookmarks are on screen offers a filter that returns nothing, and the
+   count beside each option would be about rows nobody can see. */
+const inTab = () => videos.filter((v) => listOf(v) === tab);
+
 const allTags = () =>
-  [...new Set(videos.flatMap((v) => v.tags || []))].sort((a, b) => a.localeCompare(b));
+  [...new Set(inTab().flatMap((v) => v.tags || []))].sort((a, b) => a.localeCompare(b));
 
 /* UNTAGGED IS NOT A TAG, SO IT GETS ITS OWN FLAG. A tag is whatever the
    reader typed, so a sentinel string in activeTags would collide the day
    somebody names a tag "untagged". */
 const bare = (v) => (v.tags || []).length === 0;
-const bareCount = () => videos.filter(bare).length;
+const bareCount = () => inTab().filter(bare).length;
 
 /* It only earns a place in the menu where it can return something. With no
-   tags at all it selects the whole library, which is what no filter already
-   does. One writer for that condition: the menu and the prune both read it. */
+   tags at all it selects the whole list, which is what no filter already
+   does, and the count beside it would repeat the heading. One writer for
+   that condition: the menu and the prune both read it. */
 const bareOffered = () => bareCount() > 0 && allTags().length > 0;
 
 /* A tag is stored bare and shown with a hash. Keeping the hash out of storage
@@ -128,13 +222,16 @@ const bareOffered = () => bareCount() > 0 && allTags().length > 0;
 const hashed = (tag) => '#' + tag;
 
 function filteredVideos() {
-  return videos
+  return inTab()
     .filter((v) => {
-      const haystack = `${v.title} ${v.channel} ${(v.tags || []).map(hashed).join(' ')}`.toLowerCase();
+      /* A bookmark's address is searchable, because the name a site gives
+         itself is often not the word a reader remembers it by. */
+      const haystack = `${v.title} ${v.channel || ''} ${v.url || ''} `
+        + `${(v.tags || []).map(hashed).join(' ')}`.toLowerCase();
       const tagged = (activeTags.size === 0 && !untaggedOnly)
         || (v.tags || []).some((t) => activeTags.has(t))
         || (untaggedOnly && bare(v));
-      return tagged && haystack.includes(searchTerm);
+      return tagged && haystack.toLowerCase().includes(searchTerm);
     })
     .sort((a, b) => {
       let x = a[sort.key] ?? '';
@@ -154,21 +251,36 @@ function render() {
      screen to show it or clear it. The tags already retire this way. */
   if (untaggedOnly && !bareOffered()) untaggedOnly = false;
 
+  /* An edit cannot outlive its row. Deleting the record being renamed, or
+     switching to a list it is not in, would leave a field open over nothing
+     and a check button that saves into a gap. */
+  if (editing !== null && !inTab().some((v) => v.id === editing)) { editing = null; draft = ''; }
+
+  const spec = LISTS[tab];
+  const held = inTab();
   const filtered = filteredVideos();
   const filtering = activeTags.size > 0 || untaggedOnly || Boolean(searchTerm);
 
+  renderChrome(spec);
+
+  const noun = spec.noun[held.length === 1 ? 0 : 1];
+  const head = spec.head ? spec.head + ' ' : '';
   $('#listCount').textContent = filtering
-    ? `${filtered.length} of ${videos.length} Saved ${videos.length === 1 ? 'Video' : 'Videos'}`
-    : `${videos.length} Saved ${videos.length === 1 ? 'Video' : 'Videos'}`;
+    ? `${filtered.length} of ${held.length} ${head}${noun}`
+    : `${held.length} ${head}${noun}`;
 
   /* The runtime answers the question a count cannot: is there time for this.
      So it reads the FILTERED set, the same as the line above it. A total for
      the whole library beside a filtered count would be two answers to two
-     different questions, stacked. */
-  const runtimeWords = runtime(filtered.reduce((total, v) => total + seconds(v.duration), 0));
+     different questions, stacked.
+
+     A BOOKMARK HAS NO DURATION, so the line is not a zero there. It is a
+     question that does not apply, and the list says so by not asking it. */
   const runtimeLine = $('#listRuntime');
-  runtimeLine.textContent = runtimeWords;
-  runtimeLine.hidden = !filtered.length;
+  runtimeLine.textContent = spec.runtime
+    ? runtime(filtered.reduce((total, v) => total + seconds(v.duration), 0))
+    : '';
+  runtimeLine.hidden = !spec.runtime || !filtered.length;
 
   $('#rows').innerHTML = listState === 'loading' ? skeleton() : filtered.map(row).join('');
 
@@ -191,6 +303,13 @@ function render() {
     box.disabled = filtered.length === 0;
   });
 
+  /* The count on a tab is its WHOLE list, never the filtered one. A filter
+     belongs to the tab you are on, so a number shrinking on the tab you are
+     not looking at would be reporting your filter against somebody else's
+     list. */
+  $('#tabCountYoutube').textContent = videos.filter((v) => listOf(v) === 'youtube').length;
+  $('#tabCountLinks').textContent = videos.filter((v) => listOf(v) === 'links').length;
+
   /* The FIELD decides, never searchTerm. A run of spaces is a search nobody
      can see and still something to clear. */
   $('#searchClear').hidden = !$('#search').value;
@@ -205,35 +324,126 @@ function render() {
   else if (bulkOpen) renderBulk();
 }
 
+/* ONE PASS FOR EVERYTHING THE COLUMN SET DECIDES. The widths, the header
+   row, the sort menu, the two placeholders and the tab marks all read the
+   same spec, so a column added to a list reaches every one of them.
+
+   THE SORT KEY IS CHECKED AGAINST THE COLUMNS. Switching to a list that has
+   no such column would otherwise leave the menu on a key nothing sorts by,
+   and the table showing an order no header can explain. */
+function renderChrome(spec) {
+  const keys = spec.columns.filter((c) => c.sort);
+  if (!keys.some((c) => c.sort === sort.key)) sort.key = 'addedAt';
+
+  /* The table says which list it is holding, so a column can state a width
+     in one and stay auto in the other. */
+  $('#cols').closest('table').dataset.list = tab;
+  $('#cols').innerHTML = spec.columns.map((c) => `<col class="col-${c.key}" />`).join('');
+
+  $('#head').innerHTML = `<tr>${spec.columns.map((c) => {
+    if (c.key === 'check') {
+      return `<th class="col-check check" scope="col">
+        <label class="check-hit">
+          <input id="allCheck" class="checkbox" type="checkbox"
+                 aria-label="Select all ${escape(spec.noun[1].toLowerCase())}" />
+        </label>
+      </th>`;
+    }
+    if (c.key === 'remove') return `<th class="col-remove" scope="col"><span class="sr-only">Remove</span></th>`;
+    if (c.key === 'edit') return `<th class="col-edit" scope="col"><span class="sr-only">Rename</span></th>`;
+    if (!c.sort) return `<th scope="col">${escape(c.label)}</th>`;
+    return `<th scope="col"${c.amount ? ' class="amount"' : ''}>
+      <button class="th-sort" type="button" data-key="${escape(c.sort)}">${escape(c.label)} ${icon('sort')}</button>
+    </th>`;
+  }).join('')}</tr>`;
+
+  /* A DIRECTION OPTION IS AN ACTION, and the hr between the two groups is
+     real HTML rather than an optgroup claiming they are different kinds. */
+  $('#sortKey').innerHTML =
+    keys.map((c) => `<option value="${escape(c.sort)}">${escape(c.menu || title(c.label))}</option>`).join('')
+    + '<hr />'
+    + '<option value="dir:1">Ascending</option><option value="dir:-1">Descending</option>';
+
+  $('#videoUrl').placeholder = spec.placeholder;
+  $('#videoUrl').setAttribute('aria-label', spec.fieldName);
+  $('#search').placeholder = spec.search;
+  $('#search').setAttribute('aria-label', spec.search);
+
+  $$('.tab').forEach((button) => {
+    const on = button.dataset.tab === tab;
+    button.setAttribute('aria-selected', on ? 'true' : 'false');
+    button.tabIndex = on ? 0 : -1;
+  });
+}
+
+/* The header is set in caps by the stylesheet, so the menu needs the words
+   back in their own case rather than a second copy of each label. */
+const title = (label) => label.replace(/\S+/g, (w) => w[0] + w.slice(1).toLowerCase());
+
 /* One rendering for both shapes. At narrow widths CSS turns each row into a
    card, and data-label is what gives every fact its name once the header row
    is gone. Two renderings of the same data would drift. */
-const row = (v) => `<tr class="${[selected.has(v.id) ? 'row-selected' : '', v.dead ? 'row-dead' : ''].filter(Boolean).join(' ')}" data-id="${escape(v.id)}">
-  <td class="check cell-check">
+const CELLS = {
+  check: (v) => `<td class="check cell-check">
     <label class="check-hit">
       <input class="checkbox select" data-id="${escape(v.id)}" type="checkbox"
              ${selected.has(v.id) ? 'checked' : ''} aria-label="Select ${escape(v.title)}">
     </label>
-  </td>
-  <td class="cell-title">
-    <a class="video-link" href="https://www.youtube.com/watch?v=${encodeURIComponent(v.id)}"
-       target="_blank" rel="noopener"
-       title="${v.dead ? 'Unavailable on YouTube. ' : ''}${escape(v.title)}">${escape(v.title)}</a>
-  </td>
-  <td class="cell-chan">
+  </td>`,
+
+  /* ONE LINK, TWO ADDRESSES. A video is reached by its id and a bookmark IS
+     its address, so the href is the one thing the two lists disagree about
+     in this cell. */
+  /* THE TEXT TRUNCATES IN A SPAN, NOT ON THE ANCHOR. overflow: hidden clips
+     an element's own ::after, so the anchor cannot both ellipsise and carry
+     a target overhang. Moving the clipping one level in leaves the anchor
+     free to be the target. */
+  title: (v) => `<td class="cell-title">${editing === v.id
+    ? `<input class="input title-input" data-id="${escape(v.id)}" value="${escape(draft)}"
+              aria-label="Name for ${escape(v.url || v.title)}" autocomplete="off" />`
+    : `<a class="video-link" href="${escape(hrefOf(v))}" target="_blank" rel="noopener"
+       title="${v.dead ? 'Unavailable on YouTube. ' : ''}${escape(v.title)}"><span
+       class="truncate">${escape(v.title)}</span></a>`}
+  </td>`,
+
+  /* ONE BUTTON, TWO JOBS, AND THE MODE IS AN ATTRIBUTE RATHER THAN A CLASS.
+     The handler reads data-mode, so neither the colour nor the mark can drift
+     from what the press actually does. */
+  edit: (v) => {
+    const on = editing === v.id;
+    return `<td class="cell-edit">
+      <button class="row-edit" data-id="${escape(v.id)}" data-mode="${on ? 'save' : 'edit'}"
+              type="button" aria-label="${on ? 'Save the name' : 'Rename'} ${escape(v.title)}"
+              >${icon(on ? 'check' : 'pencil')}</button>
+    </td>`;
+  },
+
+  /* THE ADDRESS IS SHOWN WITHOUT ITS SCHEME, because https:// is on every
+     one of them and carries nothing a reader is choosing between. The title
+     holds the whole thing for anyone who needs it. */
+  url: (v) => `<td class="cell-url">
+    <span class="cell-name">URL</span>
+    <span class="truncate" title="${escape(v.url || '')}">${escape(plainUrl(v.url))}</span>
+  </td>`,
+
+  chan: (v) => `<td class="cell-chan">
     <span class="cell-name">Channel</span>
     <span class="truncate" title="${escape(v.channel)}">${escape(v.channel)}</span>
-  </td>
-  <td class="cell-dur amount"><span class="cell-name">Duration</span>${escape(v.duration || '—')}</td>
-  <td class="cell-up">
+  </td>`,
+
+  dur: (v) => `<td class="cell-dur amount"><span class="cell-name">Duration</span>${escape(v.duration || '—')}</td>`,
+
+  up: (v) => `<td class="cell-up">
     <span class="cell-name">Uploaded</span>
     <span class="date-full">${date(v.uploadedAt)}</span><span class="date-day">${dateOnly(v.uploadedAt)}</span>
-  </td>
-  <td class="cell-added">
+  </td>`,
+
+  added: (v) => `<td class="cell-added">
     <span class="cell-name">Added</span>
     <span class="date-full">${date(v.addedAt)}</span><span class="date-day">${dateOnly(v.addedAt)}</span>
-  </td>
-  <td class="cell-tags">
+  </td>`,
+
+  tags: (v) => `<td class="cell-tags">
     <div class="tags">
       ${v.dead ? `<span class="dead-chip">${icon('alert')}Unavailable</span>` : ''}
       ${(v.tags || []).map((t) => `<span class="tag-chip">
@@ -252,11 +462,31 @@ const row = (v) => `<tr class="${[selected.has(v.id) ? 'row-selected' : '', v.de
         </label>
       </span>
     </div>
-  </td>
-  <td class="cell-remove">
-    <button class="row-remove" data-id="${escape(v.id)}" type="button"
-            aria-label="Remove ${escape(v.title)}">${icon('x')}</button>
-  </td>
+  </td>`,
+
+  /* THE SAME MARK, A DIFFERENT JOB. While a name is being edited this button
+     reverts rather than deletes, so data-mode decides which, and the
+     accessible name says so out loud. A cross that deletes and a cross that
+     cancels must never be told apart by the reader's memory alone. */
+  remove: (v) => {
+    const on = editing === v.id;
+    return `<td class="cell-remove">
+      <button class="row-remove" data-id="${escape(v.id)}" data-mode="${on ? 'revert' : 'delete'}"
+              type="button"
+              aria-label="${on ? `Discard the change to ${escape(v.title)}` : `Remove ${escape(v.title)}`}"
+              >${icon('x')}</button>
+    </td>`;
+  },
+};
+
+const hrefOf = (v) => (listOf(v) === 'links'
+  ? (v.url || '#')
+  : `https://www.youtube.com/watch?v=${encodeURIComponent(v.id)}`);
+
+const plainUrl = (value = '') => String(value).replace(/^https?:\/\//, '').replace(/\/$/, '');
+
+const row = (v) => `<tr class="${[selected.has(v.id) ? 'row-selected' : '', v.dead ? 'row-dead' : ''].filter(Boolean).join(' ')}" data-id="${escape(v.id)}">
+  ${LISTS[tab].columns.map((c) => CELLS[c.key](v)).join('')}
 </tr>`;
 
 /* A loading state holds the SHAPE of what is coming, never a spinner. Each
@@ -293,20 +523,29 @@ function renderState(shown, filtering) {
 
   box.removeAttribute('role');
 
-  if (videos.length === 0) {
+  /* EMPTY AND NO RESULTS ARE DIFFERENT SCREENS, and both are about the list
+     ON SHOW. Read against the whole library, a first bookmark beside fifteen
+     videos rendered neither, so the bookmarks tab opened as a bare table with
+     nothing in it and nothing said. */
+  const held = inTab();
+  const empty = LISTS[tab].empty;
+
+  if (held.length === 0) {
     box.hidden = false;
     box.innerHTML = `${icon('inbox')}
-      <h3>Your Watchlist Is Clear</h3>
-      <p>Paste a YouTube link above to save a video for later.</p>
-      <button class="btn btn-sm btn-primary" type="button" data-action="focus-add">Add Your First Video</button>`;
+      <h3>${escape(empty.title)}</h3>
+      <p>${escape(empty.body)}</p>
+      <button class="btn btn-sm btn-primary" type="button" data-action="focus-add">${escape(empty.action)}</button>`;
     return;
   }
 
   if (shown === 0 && filtering) {
+    const one = held.length === 1;
+    const noun = LISTS[tab].noun[one ? 0 : 1].toLowerCase();
     box.hidden = false;
     box.innerHTML = `${icon('search-x')}
-      <h3>No Videos Match</h3>
-      <p>${videos.length} ${videos.length === 1 ? 'video is' : 'videos are'} saved, and the current filter hides ${videos.length === 1 ? 'it' : 'them all'}.</p>
+      <h3>${escape(empty.none)}</h3>
+      <p>${held.length} ${escape(noun)} ${one ? 'is' : 'are'} saved, and the current filter hides ${one ? 'it' : 'them all'}.</p>
       <button class="btn btn-sm" type="button" data-action="clear-filter">${icon('x')} Clear Filters</button>`;
     return;
   }
@@ -322,36 +561,43 @@ function renderTagFilter() {
   const chosen = activeTags.size + (untaggedOnly ? 1 : 0);
 
   /* The noun has to stay true. Two tags are Tags. A tag beside Untagged are
-     not both tags, so the pair is Filters. */
+     not both tags, so the pair is Filters. "All" alone, because the trigger
+     sits under a label that already says FILTER BY TAG, and the word after
+     it would change with the tab. */
   $('#tagFilterValue').textContent =
-    chosen === 0 ? 'All Videos'
+    chosen === 0 ? 'All'
       : chosen > 1 ? `${chosen} ${untaggedOnly ? 'Filters' : 'Tags'}`
-        : untaggedOnly ? 'Untagged Videos'
+        : untaggedOnly ? 'Untagged'
           : hashed([...activeTags][0]);
 
-  const counts = new Map(tags.map((tag) => [tag, videos.filter((v) => v.tags?.includes(tag)).length]));
+  const held = inTab();
+  const counts = new Map(tags.map((tag) => [tag, held.filter((v) => v.tags?.includes(tag)).length]));
 
   /* data-tag stays BARE. It is the key, and only the visible text is
      hashed. Hashing the key would break every lookup against `videos`. */
-  const items = tags.map((tag, i) => `<li class="multi-option" role="option" id="tagOpt-${i}"
+  const items = [];
+
+  /* UNTAGGED LEADS, ABOVE THE RULE. It is the one option that is not a tag,
+     and a reader reaching for it does not have to walk a list of fifty first.
+     THE SEPARATOR IS PRESENTATIONAL: a listbox takes option and group
+     children, so role="separator" among them is not a child the role allows.
+     The option's own words say what it is. */
+  if (bareOffered()) {
+    items.push(`<li class="multi-option" role="option" id="tagOptUntagged"
+        data-untagged="true" aria-selected="${untaggedOnly ? 'true' : 'false'}">
+        <span class="multi-box">${icon('check')}</span>
+        <span>Untagged</span>
+        <span class="multi-count">${bareCount()}</span>
+      </li>`);
+    items.push(`<li class="multi-sep" role="presentation"></li>`);
+  }
+
+  items.push(...tags.map((tag, i) => `<li class="multi-option" role="option" id="tagOpt-${i}"
         data-tag="${escape(tag)}" aria-selected="${activeTags.has(tag) ? 'true' : 'false'}">
         <span class="multi-box">${icon('check')}</span>
         <span>${escape(hashed(tag))}</span>
         <span class="multi-count">${counts.get(tag)}</span>
-      </li>`);
-
-  /* THE SEPARATOR IS PRESENTATIONAL. A listbox takes option and group
-     children, so a role="separator" among them is not a child the role
-     allows. The option's own words say what it is. */
-  if (bareOffered()) {
-    items.push(`<li class="multi-sep" role="presentation"></li>`);
-    items.push(`<li class="multi-option" role="option" id="tagOptUntagged"
-        data-untagged="true" aria-selected="${untaggedOnly ? 'true' : 'false'}">
-        <span class="multi-box">${icon('check')}</span>
-        <span>Untagged Videos</span>
-        <span class="multi-count">${bareCount()}</span>
-      </li>`);
-  }
+      </li>`));
 
   $('#tagFilterList').innerHTML = items.length
     ? items.join('')
@@ -710,7 +956,11 @@ function addTags(id, raw) {
    of up to 50 ids, so checking 500 videos costs 10 units against a daily
    10,000. The old path spent one request per video and learned less. */
 async function refreshMetadata() {
-  const pending = videos.filter((v) => !metadataRequested.has(v.id));
+  /* ONLY THE VIDEOS. YouTube knows nothing about a bookmark's address, so
+     asking about one returns nothing, and nothing is what this reads as
+     deleted. Measured: the first bookmark added came back struck through and
+     marked Unavailable within a second of being saved. */
+  const pending = videos.filter((v) => listOf(v) === 'youtube' && !metadataRequested.has(v.id));
   if (!pending.length) return;
 
   pending.forEach((v) => metadataRequested.add(v.id));
@@ -783,34 +1033,92 @@ function say(text, markup = false) {
   statusTimer = text ? setTimeout(() => say(''), STATUS_LIFE) : 0;
 }
 
+/* THE TAB DECIDES WHERE A LINK GOES, never the link itself. Routing on the
+   address would drop a video into a list the reader is not looking at, and
+   the only sign would be a count moving on the other tab. Each list says
+   what it takes and refuses the rest by name. */
+const isYouTube = (value) => {
+  try {
+    const url = new URL(value);
+    return url.hostname === 'youtu.be' || url.hostname.endsWith('youtube.com');
+  } catch { return false; }
+};
+
 async function addVideo() {
   const url = $('#videoUrl').value.trim();
   if (!url) return;
 
   $('#addBtn').disabled = true;
-  say('Reading video details…');
 
   try {
-    const response = await fetch(`/api/video?url=${encodeURIComponent(url)}`);
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error);
-    if (videos.some((v) => v.id === data.id)) throw new Error('That video is already in your watchlist.');
-
-    videos.push({ ...data, addedAt: new Date().toISOString(), tags: [] });
-    tombstones = tombstones.filter((t) => t.id !== data.id);
-    save();
+    if (tab === 'links' && isYouTube(url)) {
+      throw new Error('That is a YouTube link. Add it from the YouTube tab.');
+    }
+    if (tab === 'youtube' && !isYouTube(url)) {
+      throw new Error('That is not a YouTube link. Add it from the Other Bookmarks tab.');
+    }
+    await (tab === 'links' ? addLink(url) : addYouTube(url));
     $('#videoUrl').value = '';
-    /* The only message that is not plain text: it names an environment
-       variable, so the name is set in the code face. */
-    say(data.limited
-      ? 'Added. Set <code>YOUTUBE_API_KEY</code> in Vercel to fetch duration and upload date.'
-      : 'Added to your watchlist.', data.limited);
     render();
   } catch (error) {
-    say(error.message || 'Could not add that video.');
+    say(error.message || 'Could not add that link.');
   } finally {
     $('#addBtn').disabled = false;
   }
+}
+
+async function addYouTube(url) {
+  say('Reading video details…');
+  const response = await fetch(`/api/video?url=${encodeURIComponent(url)}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error);
+  if (videos.some((v) => v.id === data.id)) throw new Error('That video is already in your watchlist.');
+
+  videos.push({ ...data, kind: 'youtube', addedAt: new Date().toISOString(), tags: [] });
+  tombstones = tombstones.filter((t) => t.id !== data.id);
+  save();
+  /* The only message that is not plain text: it names an environment
+     variable, so the name is set in the code face. */
+  say(data.limited
+    ? 'Added. Set <code>YOUTUBE_API_KEY</code> in Vercel to fetch duration and upload date.'
+    : 'Added to your watchlist.', data.limited);
+}
+
+/* A BOOKMARK'S ID IS ITS ADDRESS. Videos are keyed by the YouTube id, and
+   merge(), the tombstones and the selection all key off `id`, so a bookmark
+   needs one of its own that two devices agree on. The address is that,
+   normalised so a trailing slash cannot make one link into two. */
+const linkId = (value) => {
+  const url = new URL(value);
+  url.hash = '';
+  return url.toString().replace(/\/$/, '');
+};
+
+async function addLink(raw) {
+  /* A reader pastes what they copied, and a bare host is a thing people
+     copy. Naming the scheme is the app's job rather than theirs. */
+  const url = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
+  let id;
+  try { id = linkId(url); } catch { throw new Error('That is not a link this can read.'); }
+  if (videos.some((v) => v.id === id)) throw new Error('That link is already bookmarked.');
+
+  say('Reading the page…');
+  let name = '';
+  try {
+    const response = await fetch(`/api/link?url=${encodeURIComponent(url)}`);
+    const data = await response.json();
+    if (response.ok) name = data.title || '';
+  } catch { /* the host is the fallback, below */ }
+
+  /* THE HOST IS THE FALLBACK, NOT AN ERROR. Plenty of pages refuse a server
+     that is not a browser, and a bookmark with no name is worse than one
+     named after its own site. */
+  if (!name) name = new URL(url).hostname.replace(/^www\./, '');
+
+  videos.push({ id, kind: 'link', title: name, url, addedAt: new Date().toISOString(), tags: [] });
+  tombstones = tombstones.filter((t) => t.id !== id);
+  save();
+  say(`Bookmarked ${name}.`);
 }
 
 function openDelete(ids) {
@@ -852,20 +1160,32 @@ function commitDelete() {
    The portable file
    ========================================================================== */
 
+/* TWO TABLES, BECAUSE THE TWO LISTS SHARE NO COLUMNS WORTH SHARING. A single
+   table with a Kind column would leave three cells empty on every bookmark
+   row, and the file's whole job above the fence is to be read. */
 function fileText() {
-  const rows = videos.map((v) => `| ${cell(v.title)} | ${cell(v.channel)} | ${cell(v.duration || '—')} `
+  const clips = videos.filter((v) => listOf(v) === 'youtube');
+  const links = videos.filter((v) => listOf(v) === 'links');
+  const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+  const clipRows = clips.map((v) => `| ${cell(v.title)} | ${cell(v.channel)} | ${cell(v.duration || '—')} `
     + `| ${cell(v.uploadedAt ? v.uploadedAt.slice(0, 10) : '—')} | ${cell((v.tags || []).join(' '))} |`);
+
+  const linkRows = links.map((v) => `| ${cell(v.title)} | ${cell(v.url)} | ${cell((v.tags || []).join(' '))} |`);
+
+  const section = (heading, header, divider, rows) =>
+    (rows.length ? ['', `## ${heading}`, '', header, divider, ...rows] : []);
 
   return [
     '# YeeTlist watchlist',
     '',
-    `> ${videos.length} ${videos.length === 1 ? 'video' : 'videos'}. Written ${new Date().toISOString()} by YeeTlist.`,
+    `> ${count(clips.length, 'video', 'videos')}, ${count(links.length, 'bookmark', 'bookmarks')}. `
+      + `Written ${new Date().toISOString()} by YeeTlist.`,
+    ...section('Videos', '| Video | Channel | Duration | Uploaded | Tags |',
+      '| --- | --- | --- | --- | --- |', clipRows),
+    ...section('Other bookmarks', '| Site | URL | Tags |', '| --- | --- | --- |', linkRows),
     '',
-    '| Video | Channel | Duration | Uploaded | Tags |',
-    '| --- | --- | --- | --- | --- |',
-    ...rows,
-    '',
-    '<!-- YeeTlist data below. The table above is for reading; this block is what imports. -->',
+    '<!-- YeeTlist data below. The tables above are for reading; this block is what imports. -->',
     '',
     '```json',
     JSON.stringify(payload(), null, 2),
@@ -1419,6 +1739,45 @@ function clearSearch() {
 
 $('#searchClear').addEventListener('click', clearSearch);
 
+/* ---- the two lists ------------------------------------------------------ */
+
+const TAB_STORE = 'yeetlist-tab';
+
+/* A FILTER BELONGS TO THE LIST IT WAS SET ON. Carried across, a tag the other
+   list has none of would show an empty table and a menu with no such option
+   to turn off. The selection goes for the same reason: Delete Selected must
+   never act on rows the reader cannot see. */
+function showTab(next) {
+  if (next === tab || !LISTS[next]) return;
+  tab = next;
+  sort = sorts[tab];
+  activeTags.clear();
+  untaggedOnly = false;
+  selected.clear();
+  closeBulk();
+  searchTerm = '';
+  $('#search').value = '';
+  try { localStorage.setItem(TAB_STORE, tab); } catch { /* a private window */ }
+  render();
+  $('#tab-' + (tab === 'links' ? 'links' : 'youtube')).focus();
+}
+
+$('.tabs').addEventListener('click', (event) => {
+  const button = event.target.closest('.tab');
+  if (button) showTab(button.dataset.tab);
+});
+
+/* ONE TAB STOP, AND THE ARROWS MOVE WITHIN IT. Home and End are part of the
+   same pattern, and a two-tab strip still answers them. */
+$('.tabs').addEventListener('keydown', (event) => {
+  const order = $$('.tab');
+  const at = order.findIndex((b) => b.dataset.tab === tab);
+  const go = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: order.length - 1 }[event.key];
+  if (go === undefined) return;
+  event.preventDefault();
+  showTab(order[(go + order.length) % order.length].dataset.tab);
+});
+
 /* Escape only acts where there is something to clear. Swallowed on an empty
    field it would stop every outer Escape from ever reaching its handler. */
 $('#search').addEventListener('keydown', (event) => {
@@ -1602,10 +1961,34 @@ if (typeof ResizeObserver === 'function') {
 addEventListener('resize', stackSticky);
 stackSticky();
 
-$('#allCheckBar').addEventListener('change', (event) => {
+/* ONE HANDLER FOR BOTH BOXES, and the header's is DELEGATED. The header row
+   is rebuilt whenever the column set changes, so a listener bound to
+   #allCheck itself dies with the element the first time a reader switches
+   lists. #head outlives it. */
+function selectAll(event) {
   const filtered = filteredVideos();
   filtered.forEach((v) => { if (event.target.checked) selected.add(v.id); else selected.delete(v.id); });
   render();
+}
+
+$('#allCheckBar').addEventListener('change', selectAll);
+$('#head').addEventListener('change', (event) => {
+  if (event.target.id === 'allCheck') selectAll(event);
+});
+
+/* THE DRAFT IS READ ON EVERY KEYSTROKE, never off the field at save time.
+   Anything that repaints the list replaces the input, and a value living only
+   in the DOM goes with it. */
+$('#rows').addEventListener('input', (event) => {
+  if (event.target.classList.contains('title-input')) draft = event.target.value;
+});
+
+/* The two keys the two buttons are. Enter is the check, Escape is the cross,
+   so a reader who never reaches for the mouse gets the same pair. */
+$('#rows').addEventListener('keydown', (event) => {
+  if (!event.target.classList.contains('title-input')) return;
+  if (event.key === 'Enter') { event.preventDefault(); saveName(); }
+  if (event.key === 'Escape') { event.preventDefault(); cancelEdit(); }
 });
 
 $('#rows').addEventListener('change', (event) => {
@@ -1615,11 +1998,6 @@ $('#rows').addEventListener('change', (event) => {
   render();
 });
 
-$('#allCheck').addEventListener('change', (event) => {
-  const filtered = filteredVideos();
-  filtered.forEach((v) => { if (event.target.checked) selected.add(v.id); else selected.delete(v.id); });
-  render();
-});
 
 /* BOUND TO BOTH ROOTS, NEVER WRITTEN TWICE. The bulk panel holds the same
    editor, so it needs the same five listeners. A second copy of them would
@@ -1634,9 +2012,62 @@ function onTagClick(event) {
       : removeTag(tag.dataset.id, tag.dataset.tag);
   }
 
+  const pencil = event.target.closest('.row-edit');
+  if (pencil) return pencil.dataset.mode === 'save' ? saveName() : startEdit(pencil.dataset.id);
+
   /* A bulk panel holds no rows, so this matches nothing there. */
   const button = event.target.closest('.row-remove');
-  if (button) openDelete([button.dataset.id]);
+  if (!button) return;
+  if (button.dataset.mode === 'revert') return cancelEdit();
+  openDelete([button.dataset.id]);
+}
+
+/* ==========================================================================
+   Renaming a bookmark
+
+   A SITE NAMES ITSELF, AND OFTEN BADLY. The name is the one field here the
+   reader owns, so it is the one field this edits. The address is the record's
+   identity and the tags have their own editor.
+   ========================================================================== */
+
+function startEdit(id) {
+  const item = videos.find((v) => v.id === id);
+  if (!item) return;
+  editing = id;
+  draft = item.title || '';
+  render();
+
+  /* SELECTED, NOT JUST FOCUSED. A fetched site name is usually the thing
+     being replaced rather than corrected, so typing should overwrite it. */
+  const field = $('#rows .title-input');
+  if (field) { field.focus(); field.select(); }
+}
+
+function cancelEdit() {
+  if (editing === null) return;
+  editing = null;
+  draft = '';
+  render();
+}
+
+function saveName() {
+  if (editing === null) return;
+  const id = editing;
+  const name = draft.trim();
+  const item = videos.find((v) => v.id === id);
+
+  /* AN EMPTY NAME IS NOT A NAME. Saved, the row would be a blank line with an
+     address under it and nothing to click. The host is what the bookmark was
+     called before anyone typed, so it is what an emptied field falls back to. */
+  if (item) {
+    let next = name;
+    if (!next) { try { next = new URL(item.url).hostname.replace(/^www\./, ''); } catch { next = item.title } }
+    if (next !== item.title) { item.title = next; save(); }
+  }
+
+  editing = null;
+  draft = '';
+  render();
 }
 
 /* One open field at a time. Two of them would leave a row looking ready for
@@ -1830,6 +2261,13 @@ $('#driveDisconnect').addEventListener('click', async () => {
    ========================================================================== */
 
 load();
+
+/* The tab a reader left on is where they meant to be. It is a view rather
+   than data, so it stays local and never reaches Drive. */
+try {
+  const held = localStorage.getItem(TAB_STORE);
+  if (LISTS[held]) { tab = held; sort = sorts[tab]; }
+} catch { /* a private window */ }
 
 /* THE SERVER FLOW COMES BACK BY REDIRECT, SO THE ANSWER ARRIVES IN THE URL.
    /api/oauth/callback cannot speak to a page that does not exist yet, so it

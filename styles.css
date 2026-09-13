@@ -105,6 +105,12 @@
   --danger: #ff3030;
   --danger-quiet: #ff7474;
 
+  /* SAVE IS ITS OWN COLOUR, not the accent. It sits where the delete mark
+     sits and must not read as either that or the brand. A MARK answers the
+     3:1 graphic bar rather than the 4.5 for words. Measured on the row's own
+     surface: 6.05, and 4.89 on the selected plane. */
+  --save: #ff6600;
+
   /* The same split, for the same reason, kept separate so a change to the
      accent cannot silently repaint a delete button. */
   --danger-fill: #e02a2a;
@@ -874,11 +880,82 @@ header {
 /* A COLUMN NOW, BECAUSE THE ACTION LEFT. Delete Selected sat here as the
    second item of a spread row. It moved into the filter row, so what remains
    is a title and its own readout. Two lines, one group. */
+/* ==========================================================================
+   The two lists
+
+   A TAB STRIP NEVER WRAPS AND NEVER SCROLLS. Folded to two rows it reads as
+   two controls rather than one line of destinations. Two tabs fit the
+   narrowest width this ships, so the dropdown the rule prescribes for a
+   strip that does not fit has no case here yet.
+
+   THE RULE UNDER IT SPANS THE WHOLE ROW, and the chosen tab sits on top of
+   it. That is what says the strip and the list below are one thing.
+   ========================================================================== */
+
+.tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-2xs);
+  margin-top: var(--space-2xl);
+  box-shadow: inset 0 -1px 0 var(--line);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--icon-gap);
+  min-width: 0;
+  height: max(var(--control-md), var(--control-floor));
+  padding-inline: var(--space-md);
+  border: 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    color var(--duration-hover) var(--ease),
+    background-color var(--duration-hover) var(--ease);
+}
+
+/* A fixed-height box carrying words packs its single flex line to the top
+   under baseline alignment, so the line is placed and the items within it
+   are aligned. The two compose; one alone leaves the label high. */
+.tabs { align-items: stretch }
+.tab { flex-wrap: wrap; align-content: center }
+
+.tab .icon { align-self: baseline; transform: translateY(calc((100% - 0.75em) / 2)) }
+
+.tab:hover { color: var(--text); background: var(--row-hover) }
+
+/* PAINT IS NOT A STATE, so the mark is aria-selected and the rule reads it.
+   An inset shadow adds no height and joins no box, which is what keeps the
+   two tabs the same size whichever one is chosen. */
+.tab[aria-selected="true"] {
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.tab-count {
+  color: var(--text-quiet);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  font-size: var(--text-xs);
+}
+
+@media (forced-colors: active) {
+  .tabs { box-shadow: none; border-bottom: 1px solid CanvasText }
+  .tab[aria-selected="true"] { outline: 2px solid Highlight; outline-offset: -2px }
+}
+
 .list-head {
   display: flex;
   flex-direction: column;
   gap: var(--space-2xs);
-  margin: var(--space-2xl) 0 var(--space-lg);
+  margin: var(--space-lg) 0 var(--space-lg);
 }
 
 /* THE MONO FACE, WHICH IS THE ONLY OTHER FAMILY THE SYSTEM SHIPS. A figure
@@ -961,10 +1038,16 @@ header {
 
 /* The tag control takes its own width. The search field is what expands, so
    this must not compete for the slack. */
+/* SIZED TO ITS OWN WIDEST LABEL, not to a round number. The trigger's chrome
+   is 70px: two 12px insets, two 14px marks, two 8px gaps and its borders. The
+   longest thing it shows is a tag name, and a long one truncates, so the bar
+   is the longest it should show WHOLE. Measured: "All" 13.8, "Untagged" 56.1,
+   "2 Filters" 45.4, "#documentary" 82.8. 70 + 83 is 153, and 160 is the step
+   above it. That returns 60px to the row. */
 .multi {
   position: relative;
   flex: 0 0 auto;
-  width: 220px;
+  width: 160px;
   min-width: 0;
 }
 
@@ -1005,10 +1088,19 @@ header {
 
 .multi-trigger[aria-expanded="true"] .multi-chevron { transform: rotate(180deg) }
 
+/* THE PANEL MAY OUTGROW ITS TRIGGER. The trigger is sized for the label it
+   SHOWS, which truncates; the panel holds whole tag names and a long one
+   wrapped to two lines once the trigger came down to 160. It starts at the
+   trigger's own edge, never narrower than it, and stops before it can leave
+   a narrow window. */
 .multi-panel {
   position: absolute;
   z-index: var(--layer-dropdown);
-  inset-inline: 0;
+  inset-inline-start: 0;
+  inset-inline-end: auto;
+  min-width: 100%;
+  width: max-content;
+  max-width: min(320px, calc(100vw - var(--space-2xl) * 2));
   top: calc(100% + var(--space-xs));
   max-height: 280px;
   margin: 0;
@@ -1092,17 +1184,17 @@ header {
    the label, so a press on the field's own inset stopped focusing the input.
    On the label it is inside the focus target, and with the control hidden the
    label spans the whole field again. */
-/* THE ROW WRAPS RATHER THAN CRUSHING THE FIELD. At min-width: 0 a text input
-   shrinks for ever, and this row holds 822px of controls that will not give.
-   Measured across the band, text area first: 22px at a 967 viewport, 65 at
-   1010, 155 at 1100, 305 at 1250. The clear control took 42 of that, so a
-   fault that was already there got materially worse.
+/* ONE ROW, AND THE FIELD IS WHAT GIVES. Every other control in it states its
+   own width, so the search absorbs the whole shrink down to its floor. Below
+   that the card view takes over, which is a rearrangement rather than another
+   squeeze. The row never wraps on the way: a wrapped line put Clear Filters
+   on its own row while 1100px of window was still there.
 
    THE FLOOR IS THE FIELD'S OWN PLACEHOLDER, which is 203.6px of ink in the
    shipped face. Everything else in the sum is a published token: the label's
    start inset, the mark and its gap, then the control with its two margins.
    The label gives up its end inset while the control is there. */
-.filters { flex-wrap: wrap }
+.filters { flex-wrap: nowrap }
 
 .search {
   display: flex;
@@ -1377,7 +1469,26 @@ table {
 .col-dur { width: var(--col-dur) }
 .col-up, .col-added { width: var(--col-date) }
 .col-tags { width: var(--col-tags) }
-.col-remove { width: var(--col-remove) }
+.col-remove, .col-edit { width: var(--col-remove) }
+
+/* METATAGS IS THE SINGLE AUTO COLUMN IN THE BOOKMARKS TABLE, so it takes the
+   whole remainder. That list has three fewer columns than the videos one,
+   and the slack has to land where a reader wants it. Tags are what the
+   reader adds and keeps adding; an address is fixed the day it is saved and
+   truncates from the end, which is the half nobody reads.
+
+   So the name and the address both state a width HERE and nowhere else. In
+   the videos table the title is the auto column and must keep being it. */
+table {
+  --col-name: 320px;
+  --col-url: 240px;
+}
+
+table[data-list="links"] .col-title { width: var(--col-name) }
+table[data-list="links"] .col-url { width: var(--col-url) }
+table[data-list="links"] .col-tags { width: auto }
+
+.cell-url .truncate { display: block }
 
 /* A HEADING THAT WRAPS COSTS ONE LINE. A HEADING THAT SPILLS COVERS THE
    COLUMN BESIDE IT. Under fixed layout the title column can end up narrower
@@ -1555,15 +1666,17 @@ tbody tr.row-selected:hover > td:first-child::before { width: var(--select-bar-h
 /* NO CAP. A stated one is what made the table demand a constant width, and
    any window narrower than that constant overflowed. The COLUMN is the cap
    now, and a block with ellipsis fills whatever column it is given. */
+/* THE CLIPPING IS ON THE SPAN INSIDE, NEVER ON THE ANCHOR. overflow: hidden
+   clips an element's own ::after, and the anchor needs one to reach the touch
+   floor without its box becoming layout. Measured with the clipping here: the
+   link's target came out 22px against a 44 floor. */
 .video-link {
   display: block;
-  overflow: hidden;
+  min-width: 0;
   line-height: max(var(--target-mouse), var(--control-floor));
   color: var(--text);
   font-weight: 650;
   text-decoration: none;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   transition: color var(--duration-hover) var(--ease);
 }
 
@@ -1807,6 +1920,27 @@ th.amount { text-align: end }
   min-width: 0;
 }
 
+/* THE FIELD TAKES WHAT THE LINE HAS LEFT, rather than a width of its own. At
+   a fixed 207 it wrapped onto a second line whenever the chips had used any
+   of the row, and the card grew 44px on a press. Measured on a row of three
+   tags at 534: 150px still free and a field demanding 207.
+
+   ITS FLOOR IS ITS OWN PLACEHOLDER. "Tag name" is 64.7px of ink plus its 8px
+   of padding, so 76 is the step above that. Below it the field wraps, which
+   is the right answer: a legible second line beats a field too narrow to
+   read what you typed. */
+.tag-add[data-expanded="true"] {
+  /* THE BASIS IS THE FLOOR, NEVER auto. A wrapping flex box decides where a
+     line breaks from the BASIS, before any growing happens. At auto that is
+     the input's own 207px, so it wrapped first and then grew to fill the new
+     line: 440px wide on a row that had 150px free. */
+  --tag-field-floor: 76px;
+  flex: 1 1 var(--tag-field-floor);
+  min-width: var(--tag-field-floor);
+}
+
+.tag-add[data-expanded="true"] .tag-input-hit { min-width: 0; flex: 1 }
+
 /* NO MARGIN OF ITS OWN. The container's 4px gap is the whole distance, and
    the plus joins the chips' rhythm.
 
@@ -1822,13 +1956,17 @@ th.amount { text-align: end }
    field IS a separate thing, which is the panel, the panel states its own
    row gap instead. */
 
+/* THE SAME HEIGHT AS A CHIP AND AS THE FIELD IT BECOMES. It read the mouse
+   target, 24, while both of those read --control-sm at 28. So the row grew
+   4px the moment the field opened, and in a row that already had chips the
+   plus sat 4px short of the run it joins. One token, three states. */
 .tag-add-btn {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   aspect-ratio: 1;
-  height: var(--target-mouse);
+  height: var(--control-sm);
   padding: 0;
   border: 1px dashed #4a4a4a;
   border-radius: var(--radius-pill);
@@ -1902,7 +2040,8 @@ th.amount { text-align: end }
 .tag-input::placeholder { color: var(--text-quiet) }
 .tag-input:hover, .tag-input:focus { background: var(--surface-sunken) }
 
-.row-remove {
+.row-remove,
+.row-edit {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1920,6 +2059,45 @@ th.amount { text-align: end }
 }
 
 .row-remove:hover { color: var(--danger-quiet); background: #2a1414 }
+.row-edit:hover { color: var(--text); background: var(--row-hover) }
+
+/* THE MODE IS AN ATTRIBUTE, so the colour and the mark cannot disagree with
+   what the press does. Save is its own hue: beside a delete cross it must
+   read as neither that nor the brand. */
+.row-edit[data-mode="save"] { color: var(--save) }
+.row-edit[data-mode="save"]:hover { color: var(--save); background: #2a1c0c }
+
+/* THE FIELD COSTS NO LAYOUT, so the row holds still while a name is edited.
+   In flow it is a 44px control standing where the name is a 21px line, and
+   the row grew 23px the moment a pencil was pressed. Out of flow it overlays
+   the name it replaces and nothing below it moves.
+
+   IT READS THE RESERVATION RATHER THAN RESTATING IT. Absolute insets resolve
+   against the PADDING box, so inset-inline: 0 would run the field under the
+   two marks in the card view. No selector can ask an ancestor for its
+   padding, so the cell publishes the distance and the field reads it back.
+   The table view reserves nothing, and the fallback is that. */
+.title-input {
+  position: absolute;
+  inset-inline: 0 var(--title-reserve, 0px);
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  min-width: 0;
+  font-weight: 650;
+}
+
+/* THE CELL KEEPS ITS LINE WHILE THE FIELD FLOATS OVER IT. With the name out
+   of flow the cell measured 0 and the row SHRANK by 5px, which is the same
+   fault pointed the other way. The floor is the line the name occupies, so
+   the box is identical in both states. */
+.cell-title {
+  position: relative;
+  min-height: calc(var(--text-sm) * var(--leading-body));
+}
+
+@media (forced-colors: active) {
+  .row-edit[data-mode="save"] { outline: 1px solid Highlight; outline-offset: -3px }
+}
 
 /* ==========================================================================
    Tag autocomplete
@@ -2076,14 +2254,21 @@ dialog menu {
 /* ==========================================================================
    Narrow widths
 
-   953px, and the figure is the last rung of the table's ladder rather than a
-   width anybody chose. At 887px of container the eight columns are each at
-   their own floor and the title is down to its header. One pixel narrower
-   and a column has to give up something it cannot spare, so the card stack
-   takes over instead. The sum is beside the ladder, in the Table section.
+   1121px, AND THE FILTER ROW SETS IT NOW. It used to be 953, the last rung of
+   the table's ladder: at 887px of container the eight columns each sit at
+   their own floor. The row above the table gives out first, so that figure is
+   no longer the binding one. It is still the floor the table would hit, and
+   it is in the Table section.
+
+   DERIVED BY SHRINKING THE REAL ROW, never by adding its parts up. Every
+   control in it states its own width and the search absorbs the rest, so the
+   question is where the search reaches its floor. Measured: 354px of field at
+   a 1180 viewport, 314 at 1140, 284 at 1110 with nothing to spare, and at
+   1100 the row wants 6px more than it has. 1110 is the last width that holds
+   one line, and the card stack takes over at 1120.
    ========================================================================== */
 
-@media (max-width: 952px) {
+@media (max-width: 1120px) {
   .shell { --page-pad: var(--space-lg); padding: var(--page-pad) }
 
   .sync-words { display: none }
@@ -2139,8 +2324,9 @@ dialog menu {
      list it kept order 0 and sat on a line of its own ABOVE the search
      field, 144px wide at 937. Its panel hangs off its end edge, so the panel
      then started 159.7px outside the window. */
-  /* The wrap itself is now stated once, at every width, beside the field's
-     own floor. Only the order and the full-line basis belong to this width. */
+  /* THE CARD VIEW IS WHERE THE ROW STOPS BEING ONE ROW. Above it the field
+     absorbs every pixel down to its floor, and this width is that floor. */
+  .filters { flex-wrap: wrap }
   .search { order: 1; flex: 1 1 100%; min-width: 0 }
   .filters-group { order: 2; flex: 1 1 100% }
   .filters-group .multi { flex: 1 1 auto; width: auto }
@@ -2277,10 +2463,31 @@ dialog menu {
      at its start and the right run at its end, and the left run caps itself
      so the two never meet. The delete button is out of flow entirely, and
      sizes nothing. */
+  /* 12px, AND IT IS THE ONLY WRITER BETWEEN THE FACT LINES. It read 4, and
+     the title looked further off than that because its own box was 23px
+     taller than its line. Killing that dead box and stating the real gap are
+     one change: the reader was seeing 15.5px under the title and 4px under
+     everything else, from two mechanisms neither of which said 12. */
   tbody tr {
     position: relative;
     grid-template-columns: max-content minmax(0, 1fr);
-    row-gap: var(--space-xs);
+    row-gap: var(--space-md);
+  }
+
+  /* THE TITLE'S BOX IS ITS LINE. The floor is a REACH, not a size: written as
+     a line-height it became 44px of layout around a 21px line, and the 23px
+     of slack read as padding under the words. The ::after is out of flow, so
+     the target costs nothing, and 100% resolves against the element, so one
+     rule serves the link at any type size. */
+  .video-link {
+    position: relative;
+    line-height: var(--leading-body);
+  }
+
+  .video-link::after {
+    content: "";
+    position: absolute;
+    inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2)) 0;
   }
 
   /* CENTRED ON LINE 1, NOT PARKED AT ITS TOP. The row declares align-items:
@@ -2346,14 +2553,16 @@ dialog menu {
      both targets still 44.
      ========================================================================= */
   .check-hit,
-  .row-remove {
+  .row-remove,
+  .row-edit {
     position: relative;
     min-width: 0;
     min-height: 0;
   }
 
   .check-hit::after,
-  .row-remove::after {
+  .row-remove::after,
+  .row-edit::after {
     content: "";
     position: absolute;
     inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2));
@@ -2361,7 +2570,8 @@ dialog menu {
 
   /* The button becomes its mark. The height is the single writer, because a
      stated width would defeat the aspect ratio. */
-  .row-remove { height: var(--mark) }
+  .row-remove,
+  .row-edit { height: var(--mark) }
 
   /* The channel cell STRETCHES, and that is load-bearing. With
      justify-self:start it shrink-wrapped its own content, so the percentage
@@ -2373,6 +2583,19 @@ dialog menu {
   .cell-added { grid-column: 2; grid-row: 3; justify-self: end }
   .cell-tags  { grid-column: 2; grid-row: 4 }
 
+  /* A BOOKMARK CARD HAS ONE FACT ON ROW 2 AND ONE ON ROW 3, so the address
+     takes the whole of its line rather than the start half of a pair that
+     does not exist here. It also wraps, because an address is the one thing
+     in this card a reader may need every character of. */
+  .cell-url {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: stretch;
+    min-width: 0;
+  }
+  .cell-url .truncate { display: block }
+  tr:has(.cell-url) .cell-added { grid-row: 3; justify-self: start }
+
   /* Out of flow, so it sizes no track. The insets read the CARD'S padding
      token, so moving the padding moves the button with it.
 
@@ -2380,13 +2603,51 @@ dialog menu {
      cannot take align-self from the grid, and pinned at the content top the
      14px mark sat 12.5px above the title's cap band. The height reads the
      same token the title's line box does, so the two cannot drift. */
-  .cell-remove {
+  /* IT IS AS TALL AS LINE 1 AND CENTRES ITS OWN MARK. The comment here has
+     said that for months while the height read the touch FLOOR, 44, against
+     a 21px line. Measured: the marks sat 11.14px below the title's cap-band
+     centre, which is where the reader's eye puts them.
+
+     The line box is the right slot and it needs no correction on top. The
+     band's centre sits a little above the line box's, and for this face at
+     this size that is 0.36px: under the whole pixel a repair needs. */
+  .cell-remove,
+  .cell-edit {
     position: absolute;
     display: flex;
     align-items: center;
-    height: max(var(--target-mouse), var(--control-floor));
+    height: calc(var(--text-sm) * var(--leading-body));
     inset-block-start: var(--space-lg);
     inset-inline-end: var(--space-lg);
+  }
+
+  /* ONE DISTANCE DECIDES BOTH THINGS. The marks are 14px and each press area
+     is centred on its own, so the distance between the two centres is also
+     the widest each area can be without them overlapping. 20px of air gives
+     34, and one of these two deletes: a press at the boundary must never land
+     on whichever painted last.
+
+     The block axis keeps the full floor, because nothing is competing there. */
+  tr:has(.cell-edit) { --row-pair: calc(var(--mark) + 20px) }
+
+  .cell-edit {
+    inset-inline-end: calc(var(--space-lg) + var(--row-pair));
+  }
+
+  tr:has(.cell-edit) .row-edit::after,
+  tr:has(.cell-edit) .row-remove::after {
+    inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2))
+           min(0px, calc((100% - var(--row-pair)) / 2));
+  }
+
+  /* The title shares line 1 with BOTH marks, so it clears two of them. It
+     publishes the distance because the field that replaces it has to read it
+     back: an absolute inset resolves against the padding box. */
+  tr:has(.cell-edit) .cell-title {
+    --title-reserve: calc(
+      (var(--mark) + var(--row-pair)) / 2 + var(--row-pair) + var(--space-sm)
+    );
+    padding-inline-end: var(--title-reserve);
   }
 
   .cell-dur, .cell-added { text-align: end }

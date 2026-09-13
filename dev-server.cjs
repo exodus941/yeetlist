@@ -84,6 +84,22 @@ http.createServer(async (req, res) => {
     }
     catch { res.writeHead(422, {'Content-Type':'application/json'}); return res.end(JSON.stringify({error:'That video could not be read.'})); }
   }
+  // api/link.js is ESM and this file is CommonJS, so it arrives through a
+  // dynamic import rather than being restated here. One implementation, so
+  // the preview cannot answer differently from production.
+  if (requestUrl.pathname === '/api/link') {
+    try {
+      const { default: handler } = await import('./api/link.js');
+      return handler(
+        { query: { url: requestUrl.searchParams.get('url') || '' } },
+        { status(code) { this._code = code; return this },
+          json(body) { res.writeHead(this._code || 200, {'Content-Type':'application/json'}); res.end(JSON.stringify(body)); } },
+      );
+    } catch (error) {
+      res.writeHead(500, {'Content-Type':'application/json'});
+      return res.end(JSON.stringify({error:String(error && error.message || error)}));
+    }
+  }
   const relative = requestUrl.pathname === '/' ? 'index.html' : requestUrl.pathname.slice(1);
   const file = path.resolve(root, relative);
   if (!file.startsWith(root) || !fs.existsSync(file)) { res.writeHead(404); return res.end('Not found'); }
