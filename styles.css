@@ -900,10 +900,16 @@ header {
   box-shadow: inset 0 -1px 0 var(--line);
 }
 
+/* A TAB NEVER SHRINKS BELOW ITS OWN CONTENT. It wraps its children for the
+   baseline packing below, so a squeezed one puts its count on a second line
+   inside a box whose height is stated. Measured at 360 with the long label:
+   each tab 22.8px under its content, and the count on a line of its own.
+   Nothing clipped and nothing reported, because the strip itself still fit. */
 .tab {
   display: inline-flex;
   align-items: baseline;
   gap: var(--icon-gap);
+  flex: 0 0 auto;
   min-width: 0;
   height: max(var(--control-md), var(--control-floor));
   padding-inline: var(--space-md);
@@ -2324,6 +2330,13 @@ dialog menu {
      list it kept order 0 and sat on a line of its own ABOVE the search
      field, 144px wide at 937. Its panel hangs off its end edge, so the panel
      then started 159.7px outside the window. */
+  /* THE SECOND WORD DROPS WITH THE TABLE. Measured with it in: the strip
+     needs 372.5px against the 328 a 360px window gives, so at the narrowest
+     width this ships the tabs were 22.8px under their own content. The card
+     view is where that starts to matter, and it is one threshold rather than
+     a fifth one for a single word. */
+  .tab-long { display: none }
+
   /* THE CARD VIEW IS WHERE THE ROW STOPS BEING ONE ROW. Above it the field
      absorbs every pixel down to its floor, and this width is that floor. */
   .filters { flex-wrap: wrap }

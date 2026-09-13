@@ -69,7 +69,6 @@ const seconds = (value) => String(value ?? '')
 
 const LISTS = {
   youtube: {
-    tab: 'YouTube',
     noun: ['Video', 'Videos'],
     head: 'Saved',
     runtime: true,
@@ -94,7 +93,6 @@ const LISTS = {
     ],
   },
   links: {
-    tab: 'Other Bookmarks',
     noun: ['Bookmark', 'Bookmarks'],
     head: '',
     runtime: false,
@@ -1274,7 +1272,11 @@ function importFile(file) {
       tombstones = merged.deleted;
       save();
       render();
-      toast('ok', `Imported ${videos.length} ${videos.length === 1 ? 'video' : 'videos'}.`);
+      /* A YeeTlist file holds both lists, so the count names both. */
+      const clips = videos.filter((v) => listOf(v) === 'youtube').length;
+      const links = videos.length - clips;
+      toast('ok', `Imported ${clips} ${clips === 1 ? 'video' : 'videos'}`
+        + ` and ${links} ${links === 1 ? 'bookmark' : 'bookmarks'}.`);
     } catch {
       toast('error', 'That file is not a YeeTlist export.',
         'Export a .md from YeeTlist, or pick a bookmarks .html file instead.');
@@ -1309,27 +1311,47 @@ function videoIdFrom(href) {
 }
 
 /* DOMParser neither runs scripts nor fetches anything for text/html, and the
-   result is never put into the live document. Only hrefs are read from it. */
-function youtubeLinksIn(html) {
-  const found = new Map();
+   result is never put into the live document. Only hrefs are read from it.
 
-  const add = (href, title) => {
+   TWO LISTS OUT OF ONE FILE. A YouTube link is a video and everything else is
+   a bookmark, which is the same split the tabs make.
+
+   THE ANCHOR'S OWN TEXT IS THE BOOKMARK'S NAME. A bookmarks file exists to
+   carry a name beside an address, and that name is the one the reader chose.
+   It beats anything a fetch could return, needs no network, and a file of two
+   hundred links costs nothing rather than two hundred requests. */
+const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+
+function linksIn(html) {
+  const clips = new Map();
+  const pages = new Map();
+
+  const add = (href, title, fromAnchor) => {
     const id = videoIdFrom(href);
-    if (!id || found.has(id)) return;
-    found.set(id, String(title || '').replace(/\s+/g, ' ').trim().slice(0, 300));
+    if (id) { if (!clips.has(id)) clips.set(id, clean(title)); return; }
+
+    /* A PAGE COMES FROM AN ANCHOR, NEVER FROM THE TEXT SCAN. That scan reads
+       every http URL in the file, including an exporter's ICON attributes and
+       anything quoted inside one. Those are not links anybody saved. */
+    if (!fromAnchor) return;
+
+    let key;
+    try { key = linkId(href); } catch { return; }
+    if (!/^https?:/i.test(key)) return;
+    if (!pages.has(key)) pages.set(key, clean(title));
   };
 
   try {
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    doc.querySelectorAll('a[href]').forEach((a) => add(a.getAttribute('href'), a.textContent));
+    doc.querySelectorAll('a[href]').forEach((a) => add(a.getAttribute('href'), a.textContent, true));
   } catch { /* fall through to the text scan */ }
 
   /* Belt and braces: some exporters write bare URLs with no anchor at all.
      The anchor pass runs first, so a link with a real title keeps it. */
   const bare = html.match(/https?:\/\/[^\s"'<>)\]]+/g) || [];
-  bare.forEach((href) => add(href, ''));
+  bare.forEach((href) => add(href, '', false));
 
-  return found;
+  return { clips, pages };
 }
 
 const importRun = { active: false, cancelled: false };
@@ -1356,27 +1378,47 @@ function setImportProgress(done, total, counts) {
 async function importBookmarks(html) {
   if (importRun.active) return;
 
-  const found = youtubeLinksIn(html);
-  if (found.size === 0) {
-    return toast('warn', 'No YouTube links in that file.',
-      'It was read successfully and held no youtube.com or youtu.be video links.');
+  const { clips, pages } = linksIn(html);
+  const total = clips.size + pages.size;
+  if (total === 0) {
+    return toast('warn', 'No links in that file.',
+      'It was read successfully and held no addresses this could save.');
   }
 
   const known = new Set(videos.map((v) => v.id));
-  const fresh = [...found.keys()].filter((id) => !known.has(id));
-  const counts = { added: 0, duplicate: found.size - fresh.length, failed: 0 };
+  const fresh = [...clips.keys()].filter((id) => !known.has(id));
+  const freshPages = [...pages.keys()].filter((id) => !known.has(id));
+  const counts = { added: 0, duplicate: total - fresh.length - freshPages.length, failed: 0 };
 
-  if (fresh.length === 0) {
-    return toast('warn', 'Nothing new to import.', found.size === 1
-      ? 'That link was already in your watchlist.'
-      : `All ${found.size} links were already in your watchlist.`);
+  if (fresh.length + freshPages.length === 0) {
+    return toast('warn', 'Nothing new to import.', total === 1
+      ? 'That link was already saved.'
+      : `All ${total} links were already saved.`);
   }
 
   importRun.active = true;
   importRun.cancelled = false;
-  showImportPanel(fresh.length);
+  showImportPanel(fresh.length + freshPages.length);
 
-  let done = 0;
+  /* THE BOOKMARKS GO IN FIRST, because they need no network and so cannot
+     fail. The bar then starts from a real number rather than from zero while
+     the first chunk of videos is in flight. */
+  const now = new Date().toISOString();
+  freshPages.forEach((id) => {
+    let name = pages.get(id);
+    if (!name) { try { name = new URL(id).hostname.replace(/^www\./, ''); } catch { name = id; } }
+    videos.push({ id, kind: 'link', title: name, url: id, addedAt: now, tags: [] });
+    tombstones = tombstones.filter((t) => t.id !== id);
+    counts.added += 1;
+  });
+
+  if (freshPages.length) {
+    save();
+    setImportProgress(freshPages.length, fresh.length + freshPages.length, counts);
+    render();
+  }
+
+  let done = freshPages.length;
   const CHUNK = 10;
 
   try {
@@ -1402,7 +1444,7 @@ async function importBookmarks(html) {
       chunk.forEach((id) => {
         const data = byId.get(id);
         if (!data) { counts.failed += 1; return; }
-        videos.push({ ...data, addedAt, tags: [] });
+        videos.push({ ...data, kind: 'youtube', addedAt, tags: [] });
         tombstones = tombstones.filter((t) => t.id !== id);
         counts.added += 1;
       });
@@ -1410,7 +1452,7 @@ async function importBookmarks(html) {
       done += chunk.length;
       /* Saved per chunk, so closing the tab mid-import keeps what resolved. */
       save();
-      setImportProgress(done, fresh.length, counts);
+      setImportProgress(done, fresh.length + freshPages.length, counts);
       render();
     }
 
@@ -1427,28 +1469,34 @@ async function importBookmarks(html) {
   }
 
   render();
-  reportImport(counts, found.size, importRun.cancelled);
+  reportImport(counts, total, importRun.cancelled, freshPages.length);
   importRun.error = null;
 }
 
-function reportImport(counts, total, cancelled) {
+/* THE REPORT SAYS WHICH LIST GOT WHAT. One file now fills two, and "Imported
+   58 videos" would be wrong about the half that are not. */
+function reportImport(counts, total, cancelled, bookmarks) {
   const detail = [
     counts.duplicate ? `${counts.duplicate} already saved` : null,
     counts.failed ? `${counts.failed} could not be read` : null,
     importRun.error ? importRun.error : null,
   ].filter(Boolean).join(' · ');
 
-  const noun = counts.added === 1 ? 'video' : 'videos';
+  const clips = counts.added - bookmarks;
+  const parts = [
+    clips > 0 ? `${clips} ${clips === 1 ? 'video' : 'videos'}` : null,
+    bookmarks > 0 ? `${bookmarks} ${bookmarks === 1 ? 'bookmark' : 'bookmarks'}` : null,
+  ].filter(Boolean);
+  const what = parts.join(' and ') || 'nothing';
 
   if (cancelled) {
-    return toast('warn', `Import stopped. ${counts.added} ${noun} added.`,
+    return toast('warn', `Import stopped. ${what} added.`,
       detail || `${total - counts.added - counts.duplicate} were not checked.`);
   }
   if (counts.added === 0) {
     return toast('error', 'Nothing was imported.', detail || 'None of the links could be read.');
   }
-  toast(counts.failed || importRun.error ? 'warn' : 'ok',
-    `Imported ${counts.added} ${noun}.`, detail);
+  toast(counts.failed || importRun.error ? 'warn' : 'ok', `Imported ${what}.`, detail);
 }
 
 /* ==========================================================================

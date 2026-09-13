@@ -184,7 +184,10 @@
     <button class="tab" id="tab-youtube" type="button" role="tab" data-tab="youtube"
             aria-selected="true" aria-controls="listPanel">
       <svg class="icon" aria-hidden="true"><use href="#i-play"/></svg>
-      <span>YouTube</span>
+      <!-- CSS CANNOT SEE A TEXT LABEL, so the word that drops carries its own
+           element. Hidden, it leaves the accessible name too, and the tab
+           announces exactly what it shows. -->
+      <span>YouTube<span class="tab-long"> Watchlist</span></span>
       <span class="tab-count" id="tabCountYoutube"></span>
     </button>
     <button class="tab" id="tab-links" type="button" role="tab" data-tab="links"
@@ -349,7 +352,8 @@
 </main>
 
 <!-- One control for one decision. The file type picks the operation: a .md
-     or .json merges a watchlist, an .html parses bookmarks for YouTube links. -->
+     or .json merges a YeeTlist export, an .html is read as browser bookmarks
+     and its links are sorted into the two lists. -->
 <input id="importFile" type="file" accept=".md,.json,.html,.htm,text/html" hidden />
 
 <!-- Toasts persist until dismissed. A count is worth reading, and an

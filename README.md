@@ -44,8 +44,16 @@ Each list keeps its own tags, filter, search, selection and sort. Switching
 tabs never carries one list's filter onto the other.
 
 **Import a file.** Point it at a `.md` or `.json` YeeTlist export to merge one
-in, or at a browser bookmarks `.html` to pull every YouTube link out of it.
-Bookmark files are parsed with a progress bar and report how many were added.
+in, or at a browser bookmarks `.html`. A bookmarks file is sorted into the two
+lists: YouTube videos go to the watchlist, and every other link becomes a
+bookmark named by the text on its own anchor. A YouTube playlist or channel is
+a link rather than a video, so it lands in Other Bookmarks instead of being
+dropped.
+
+The anchor's text is the name you saved it under, so it beats anything a fetch
+could return. A file of two hundred links costs no requests at all for its
+bookmarks, and one request per fifty for its videos. Both are reported with a
+progress bar and a count.
 
 **Export a file.** `Export .md` writes `yeetlist.md`: a readable Markdown table
 with a JSON payload underneath, so a round trip loses nothing.
