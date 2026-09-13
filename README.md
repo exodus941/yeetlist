@@ -1,10 +1,14 @@
 # YeeTlist
 
-A personal YouTube watchlist that lives in your browser and syncs to your own
-Google Drive. Paste a link, tag it, find it later.
+A personal list of things to come back to, living in your browser and syncing
+to your own Google Drive. Paste a link, tag it, find it later.
+
+Two lists behind a tab each. **YouTube** fetches the title, channel, duration
+and upload date for every video. **Other Bookmarks** takes any other link and
+reads the site's own name off the page.
 
 No build step, no framework, no dependencies. Vanilla HTML, CSS and JavaScript
-plus three serverless functions. Deploys to Vercel as-is.
+plus four serverless functions. Deploys to Vercel as-is.
 
 **Live:** https://yeetlist.vercel.app
 
@@ -16,15 +20,28 @@ plus three serverless functions. Deploys to Vercel as-is.
 are fetched for you. `youtu.be`, `/shorts`, `/embed`, `/live` and a plain watch
 URL all work.
 
+**Add anything else from the Other Bookmarks tab.** The page's own
+`og:site_name` becomes the row's name, falling back to its `<title>` and then
+to the hostname, so a site that refuses the request is still bookmarked. The
+name is a snapshot taken once, and the pencil on any row edits it in place.
+
+Each tab takes the links it is named for and refuses the other's, so nothing
+lands in a list you are not looking at.
+
 **Tag it.** Press the `+` on any row and type. Tags you have used already are
 suggested as you go. Every tag carries an `×` to remove it.
 
-**Find it again.** Search titles, channels and tags at once, or filter by tag
-from the dropdown. A tag is matched with a `#` prefix, so searching `#vfx`
-finds videos tagged `vfx` and ignores any whose title merely contains the word.
+**Find it again.** Search titles, channels, addresses and tags at once, or
+filter by tag from the dropdown. A tag is matched with a `#` prefix, so
+searching `#vfx` finds things tagged `vfx`. It ignores any whose title merely
+contains the word. `Untagged` leads the menu, for whatever is still unsorted.
 
-**Sort** by video title, channel, duration, upload date or date added, in
-either direction.
+**Sort** by any column the list has, in either direction. Videos sort by title,
+channel, duration, upload date or date added. Bookmarks sort by site name,
+address or date added.
+
+Each list keeps its own tags, filter, search, selection and sort. Switching
+tabs never carries one list's filter onto the other.
 
 **Import a file.** Point it at a `.md` or `.json` YeeTlist export to merge one
 in, or at a browser bookmarks `.html` to pull every YouTube link out of it.
@@ -147,6 +164,7 @@ https://YOUR-DEPLOYMENT/api/oauth/callback
 | `api/config.js` | Serves the client ID, and which of the two Drive flows this deployment can run. |
 | `api/video.js` | Metadata for one video. |
 | `api/videos.js` | Metadata for up to 50 videos in one call, at one quota unit. |
+| `api/link.js` | A page's own name, for a bookmark. Streams the head and stops at `</head>`, gives up after 6 seconds, and answers an empty name rather than an error so the hostname can stand in. |
 | `api/oauth/*.js` | Start, callback, token and disconnect for the server-side flow. |
 | `lib/session.mjs` | Cookie sealing and the Google token exchange. One implementation, imported by both servers. |
 | `dev-server.cjs` | The local server. Imports the same OAuth handlers, so the preview cannot disagree with production. |
