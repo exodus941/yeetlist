@@ -6,6 +6,12 @@ node_modules
 .claude/skills
 skills-lock.json
 
+# The export the app writes. It is one person's library, so it never belongs
+# in the repo. Export names the file yeetlist.md, and a browser adds a counter
+# when one is already there.
+yeetlist.md
+yeetlist*.md
+
 .env.local
 .env*.local
 .vercel
