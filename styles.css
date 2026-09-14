@@ -1600,11 +1600,14 @@ table[data-list="links"] .col-tags { width: auto }
 .cell-url .truncate { display: block }
 
 /* A HEADING THAT WRAPS COSTS ONE LINE. A HEADING THAT SPILLS COVERS THE
-   COLUMN BESIDE IT. Under fixed layout the title column can end up narrower
-   than its own heading, and on a touch laptop the two ornament columns grow
-   36px and take that width from it. Allowed to wrap, VIDEO TITLE takes a
-   second line instead of painting over CHANNEL. It is the only heading with
-   a space in it, so nothing else can move. */
+   COLUMN BESIDE IT. Under fixed layout a column can end up narrower than its
+   own heading, and on a touch laptop the two ornament columns grow 36px and
+   take that width from it. So no heading states `nowrap`.
+
+   VIDEO TITLE was the case this was written for, and it is NAME now. No
+   heading in either list holds a space any more, so none of them CAN wrap:
+   a single word ignores the permission. The rule stays because the next
+   two-word heading needs it. */
 th {
   padding: var(--space-md);
   border-bottom: 1px solid var(--line);

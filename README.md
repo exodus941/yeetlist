@@ -36,9 +36,9 @@ filter by tag from the dropdown. A tag is matched with a `#` prefix, so
 searching `#vfx` finds things tagged `vfx`. It ignores any whose title merely
 contains the word. `Untagged` leads the menu, for whatever is still unsorted.
 
-**Sort** by any column the list has, in either direction. Videos sort by title,
-channel, duration, upload date or date added. Bookmarks sort by site name,
-address or date added.
+**Sort** by any column the list has, in either direction. Videos sort by name,
+channel, duration, upload date or date added. Bookmarks sort by name, address
+or date added.
 
 Each list keeps its own tags, filter, search, selection and sort. Switching
 tabs never carries one list's filter onto the other.

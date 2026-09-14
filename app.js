@@ -6,14 +6,14 @@ const STORE = 'yeetlist-v1';
 const PAYLOAD_VERSION = 2;
 
 /* THE BUILD SHOWN BESIDE THE WORDMARK, in MDexed's format: the date as
-   YYMMDD, then the number of the push that day. 260914-2 is the second push
-   of 14 September 2026.
+   YYMMDD, then the number of the push that day. 260915-1 is the first push
+   of 15 September 2026.
 
    There is no bundler here, so nothing can inject this at compile time and
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260914-2';
+const VERSION = '260915-1';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -94,7 +94,7 @@ const LISTS = {
     },
     columns: [
       { key: 'check' },
-      { key: 'title', label: 'VIDEO TITLE', sort: 'title' },
+      { key: 'title', label: 'NAME', sort: 'title' },
       { key: 'chan', label: 'CHANNEL', sort: 'channel' },
       { key: 'dur', label: 'DURATION', sort: 'duration', amount: true },
       { key: 'up', label: 'UPLOADED', sort: 'uploadedAt' },
@@ -119,7 +119,7 @@ const LISTS = {
     },
     columns: [
       { key: 'check' },
-      { key: 'title', label: 'SITE NAME', sort: 'title' },
+      { key: 'title', label: 'NAME', sort: 'title' },
       /* An acronym is not title case. The menu takes the label's own words
          where the header's caps would mangle them. */
       { key: 'url', label: 'URL', menu: 'URL', sort: 'url' },
