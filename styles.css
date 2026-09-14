@@ -1489,15 +1489,31 @@ header {
    strip would then paint over the card's own top 8px. So it sits one layer
    BELOW the card instead and fills the arcs from behind, in the page colour,
    which is what the corner should show. */
+/* AND THE RADIUS ONLY WHILE THE CARD IS STUCK, because at rest that extra
+   8px is not the page's margin. It is the header.
+
+   The comment above says the strip covers the shell's own top padding at
+   rest, where nothing paints. That stopped being true the moment the height
+   gained the radius: the padding is 24 and the strip became 32, so it sat
+   8px inside the content. Measured at rest: the header's five buttons start
+   at y27, so 5px of every one was painted over, and elementFromPoint at
+   y28 answered `shell` rather than the button. It took the top 5px of each
+   press area as well.
+
+   The arcs it fills belong to a STUCK card, so the radius belongs to the
+   stuck state. Unstuck, nothing scrolls under the strip and 24px is the
+   whole job. */
 .shell::before {
   content: "";
   position: fixed;
   inset-block-start: 0;
   inset-inline: 0;
-  height: calc(var(--page-pad) + var(--radius-lg));
+  height: var(--page-pad);
   z-index: calc(var(--layer-sticky) + 2);
   background: var(--bg);
 }
+
+.shell[data-stuck]::before { height: calc(var(--page-pad) + var(--radius-lg)) }
 
 .filters { top: var(--stick-1, 0px) }
 .sort-bar { top: var(--stick-2, 0px) }

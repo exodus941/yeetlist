@@ -6,14 +6,19 @@ const STORE = 'yeetlist-v1';
 const PAYLOAD_VERSION = 2;
 
 /* THE BUILD SHOWN BESIDE THE WORDMARK, in MDexed's format: the date as
-   YYMMDD, then the number of the push that day. 260915-1 is the first push
+   YYMMDD, then the number of the push that day. 260915-4 is the fourth push
    of 15 September 2026.
+
+   IT IS BUMPED ON EVERY PUSH, AND TWO WENT UP WITHOUT IT. The build read
+   260915-1 while origin held three commits from that date, so the number
+   beside the wordmark named the wrong build. Count `git log origin/main`
+   for today before writing it.
 
    There is no bundler here, so nothing can inject this at compile time and
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260915-1';
+const VERSION = '260915-4';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -2511,6 +2516,27 @@ function onTagKeydown(event) {
 
 addEventListener('scroll', positionSuggest, { passive: true, capture: true });
 addEventListener('resize', positionSuggest);
+
+/* THE STRIP ABOVE THE CARD GROWS BY ONE RADIUS WHILE THE CARD IS STUCK, and
+   the stylesheet cannot ask whether it is. The strip's extra 8px fills the
+   card's rounded corners from behind, so it is only wanted once something
+   scrolls under them. At rest it reached into the header instead.
+
+   READ THE GEOMETRY, NEVER A SCROLL DISTANCE. The card sticks when its own
+   top meets its `top`, and both come off the element. A number typed here
+   would be the header's height, which is a different thing that changes with
+   the type and the pointer. */
+function markStuck() {
+  const card = $('.add-card');
+  const shell = $('.shell');
+  if (!card || !shell) return;
+  const offset = parseFloat(getComputedStyle(card).top) || 0;
+  shell.toggleAttribute('data-stuck', card.getBoundingClientRect().top <= offset + 0.5);
+}
+
+addEventListener('scroll', markStuck, { passive: true });
+addEventListener('resize', markStuck, { passive: true });
+markStuck();
 
 /* ---- the portable file --------------------------------------------------- */
 
