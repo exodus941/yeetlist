@@ -143,8 +143,10 @@
   --space-3xl: 48px;
 
   /* ---- type ------------------------------------------------------------ */
-  --font-body: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  /* Onest covers Latin and Cyrillic only. Every other script falls through to
+     the system stack behind it, so a Bengali or Japanese title still paints. */
+  --font-body: Onest, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --text-2xs: 10px;
   --text-xs: 12px;
   --text-sm: 14px;
@@ -153,6 +155,11 @@
   --text-xl: 24px;
   --leading-tight: 1.2;
   --leading-body: 1.5;
+
+  /* The body face's cap height, as a share of its size. Measured from painted
+     ink at 400px, where whole-pixel rounding cannot swamp it. Onest is
+     0.71875 and Inter was 0.73438, so this moves when the face does. */
+  --cap-ratio: 0.71875;
   --track-tight: -0.4px;
   --track-label: 1px;
 
@@ -290,11 +297,13 @@
 
 /* An icon beside a label lives between the cap height and the baseline.
    The percentage resolves against the icon's own height, so one rule holds
-   at every mark size. 0.75em is the cap height of the body face. */
+   at every mark size. The cap height comes from a token, because it is a
+   measurement OF THE FACE: a typed 0.75 left the brand mark 1.5px off its
+   wordmark the moment the body face changed. */
 .icon-inline {
   vertical-align: baseline;
   align-self: baseline;
-  transform: translateY(calc((100% - 0.75em) / 2));
+  transform: translateY(calc((100% - var(--cap-ratio) * 1em) / 2));
 }
 
 /* ==========================================================================
@@ -329,9 +338,12 @@
    the stuck card holds above itself, and at rest it sat over this rule and
    erased it. Measured: elementFromPoint at the rule's own y returned the
    card. It now stands 8px clear of the band's top edge. */
+/* BASELINE, NOT CENTRE. The row holds a 20px wordmark and a 12px control
+   cluster. Centred, two type sizes give two baselines: measured 2.00px apart,
+   with the wordmark low. On the line they share one. */
 header {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: var(--space-lg);
   border-bottom: 1px solid var(--line);
@@ -341,24 +353,46 @@ header {
 
 .brand {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-sm);
   font-size: var(--text-lg);
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: var(--track-tight);
 }
 
-/* Box centring, and it needs no correction: the square's centre measures
-   0.5px from the wordmark's cap-band centre, which is under the whole pixel
-   a repair could move it.
+/* The build string. It rides the wordmark's baseline like every other run on
+   this row, so it takes no alignment of its own. */
+.brand-build {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--text-quiet);
+  white-space: nowrap;
+  cursor: default;
+}
 
-   Two other mechanisms were measured and rejected. The line-box technique
-   needs the font's DESCENT to land, and CSS cannot name that, so its residual
-   was 3.5px here and would move with the face. A 0.125em lift on top of box
-   centring overshot to -2.0px, because that value was measured against an
-   inline-block and this is an inline-flex. */
+/* THE SQUARE SITS BETWEEN THE WORDMARK'S CAP LINE AND ITS BASELINE, and it
+   needs no transform to get there. Measured: 0.19px off the band's centre,
+   which is under the whole pixel a repair could move.
+
+   It used to take the row's box CENTRE, correct while the body face was Inter
+   at a 0.5px residual. Onest has a shorter cap, so the same centring drifted
+   to 1.19px and the square read low.
+
+   The mechanism is the icon inside it. A flex container takes its baseline
+   from its first item, so this square donates the 14px mark's bottom edge
+   rather than its own. Put that on the text baseline and the 28px box lands
+   on the cap band, because the mark is centred in it.
+
+   THE CAP-BAND TRANSFORM IS WRONG HERE, and it was measured: it assumes the
+   box's own bottom edge is the baseline, so it pushed the square a further
+   7.00px down. `overflow: hidden` does not rescue it either, because that
+   rule governs an inline-block's synthesised baseline and not a flex
+   container's. */
 .brand-mark {
   display: inline-flex;
+  align-self: baseline;
   align-items: center;
   justify-content: center;
   width: var(--control-sm);
@@ -660,7 +694,7 @@ header {
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  transform: translateY(calc((100% - 0.75em) / 2));
+  transform: translateY(calc((100% - var(--cap-ratio) * 1em) / 2));
   transition: color var(--duration-hover) var(--ease);
 }
 
@@ -932,7 +966,7 @@ header {
 .tabs { align-items: stretch }
 .tab { flex-wrap: wrap; align-content: center }
 
-.tab .icon { align-self: baseline; transform: translateY(calc((100% - 0.75em) / 2)) }
+.tab .icon { align-self: baseline; transform: translateY(calc((100% - var(--cap-ratio) * 1em) / 2)) }
 
 .tab:hover { color: var(--text); background: var(--row-hover) }
 
@@ -961,7 +995,7 @@ header {
   display: flex;
   flex-direction: column;
   gap: var(--space-2xs);
-  margin: var(--space-lg) 0 var(--space-lg);
+  margin: var(--space-lg) 0 var(--space-sm);
 }
 
 /* THE MONO FACE, WHICH IS THE ONLY OTHER FAMILY THE SYSTEM SHIPS. A figure

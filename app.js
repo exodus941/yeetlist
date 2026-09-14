@@ -5,6 +5,11 @@
 const STORE = 'yeetlist-v1';
 const PAYLOAD_VERSION = 2;
 
+/* THE BUILD SHOWN BESIDE THE WORDMARK. There is no bundler here, so nothing
+   can inject this at compile time and this file is the one writer. Keep
+   package.json's "version" equal to it. */
+const VERSION = '0.1.0';
+
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
@@ -74,6 +79,7 @@ const LISTS = {
     runtime: true,
     placeholder: 'Paste a YouTube link…',
     fieldName: 'Add a video by YouTube link',
+    add: 'Add to Watchlist',
     search: 'Search titles, channels, or tags',
     empty: {
       title: 'Your Watchlist Is Clear',
@@ -98,6 +104,7 @@ const LISTS = {
     runtime: false,
     placeholder: 'Paste any link…',
     fieldName: 'Add a bookmark by link',
+    add: 'Add to Bookmarks',
     search: 'Search names, addresses, or tags',
     empty: {
       title: 'No Bookmarks Yet',
@@ -364,6 +371,7 @@ function renderChrome(spec) {
 
   $('#videoUrl').placeholder = spec.placeholder;
   $('#videoUrl').setAttribute('aria-label', spec.fieldName);
+  $('#addBtn .btn-label').textContent = spec.add;
   $('#search').placeholder = spec.search;
   $('#search').setAttribute('aria-label', spec.search);
 
@@ -2439,6 +2447,9 @@ $('#driveDisconnect').addEventListener('click', async () => {
    ========================================================================== */
 
 load();
+
+$('#brandBuild').textContent = VERSION;
+$('#brandBuild').title = `YeeTlist ${VERSION}`;
 
 /* The tab a reader left on is where they meant to be. It is a view rather
    than data, so it stays local and never reaches Drive. */
