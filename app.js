@@ -99,7 +99,7 @@ const LISTS = {
       { key: 'dur', label: 'DURATION', sort: 'duration', amount: true },
       { key: 'up', label: 'UPLOADED', sort: 'uploadedAt' },
       { key: 'added', label: 'ADDED', sort: 'addedAt' },
-      { key: 'tags', label: 'METATAGS' },
+      { key: 'tags', label: 'TAGS' },
       { key: 'remove' },
     ],
   },
@@ -124,7 +124,7 @@ const LISTS = {
          where the header's caps would mangle them. */
       { key: 'url', label: 'URL', menu: 'URL', sort: 'url' },
       { key: 'added', label: 'ADDED', sort: 'addedAt' },
-      { key: 'tags', label: 'METATAGS' },
+      { key: 'tags', label: 'TAGS' },
       /* A SITE NAMES ITSELF AND OFTEN NAMES ITSELF BADLY. A video's title is
          YouTube's to state, so only this list can be renamed. */
       { key: 'edit' },
@@ -177,13 +177,19 @@ function load() {
   tombstones = parsed.deleted;
 }
 
+/* BOTH SHAPES GET THE SAME ORDER. The bare array is the first version's, and
+   its tags are in whatever order they were typed. Sorting here is what puts
+   every stored record in order on the first load after this ships, without
+   a migration step anybody has to remember to run. */
+const ordered = (v) => (v.tags?.length ? { ...v, tags: sortTags(v.tags) } : v);
+
 /* Accepts the bare array the first version wrote, and the object this one
    writes. A stored shape that stops being read is a watchlist that vanishes. */
 function normalise(raw) {
-  if (Array.isArray(raw)) return { videos: raw.filter(Boolean), deleted: [] };
+  if (Array.isArray(raw)) return { videos: raw.filter(Boolean).map(ordered), deleted: [] };
   if (raw && Array.isArray(raw.videos)) {
     return {
-      videos: raw.videos.filter(Boolean),
+      videos: raw.videos.filter(Boolean).map(ordered),
       deleted: Array.isArray(raw.deleted) ? raw.deleted.filter((t) => t && t.id) : [],
     };
   }
@@ -207,8 +213,17 @@ function save() {
    count beside each option would be about rows nobody can see. */
 const inTab = () => videos.filter((v) => listOf(v) === tab);
 
-const allTags = () =>
-  [...new Set(inTab().flatMap((v) => v.tags || []))].sort((a, b) => a.localeCompare(b));
+/* A TAGS ARRAY IS ALPHABETICAL WHEREVER IT IS WRITTEN. Insertion order put
+   the newest tag last, so one video read #music #3d and the next #3d #music,
+   and a reader scanning the column had to read every chip.
+
+   ONE COMPARATOR, EVERY CALLER. The filter menu already sorted this way, so
+   the menu and the chips cannot drift into two orders. Every door that
+   writes a tags array calls it: the two adders, the merge, and normalise(),
+   which is what puts stored data in order the day this ships. */
+const sortTags = (list) => [...list].sort((a, b) => a.localeCompare(b));
+
+const allTags = () => sortTags([...new Set(inTab().flatMap((v) => v.tags || []))]);
 
 /* UNTAGGED IS NOT A TAG, SO IT GETS ITS OWN FLAG. A tag is whatever the
    reader typed, so a sentinel string in activeTags would collide the day
@@ -332,6 +347,85 @@ function render() {
      with the panel open would leave two buttons acting on nothing. */
   if (bulkOpen && !selected.size) closeBulk();
   else if (bulkOpen) renderBulk();
+
+  fitTags();
+}
+
+/* THE TAGS COLUMN HUGS ITS OWN CONTENT, BETWEEN TWO BOUNDS. Its floor is its
+   own heading, because a column narrower than the word TAGS paints that word
+   over the column beside it. Its ceiling is TWO CHIPS SIDE BY SIDE, whatever
+   the widest two are, so a row with six tags takes three lines rather than a
+   third of the table.
+
+   AND THE ADD CONTROL SITS ON THAT LINE, which is their decision, taken from
+   the two states rendered side by side. It is 28px and it is not a tag, so a
+   cap of two chips alone dropped it to a second line: 2 of 34 watchlist rows
+   and 3 of 4 bookmark rows grew, at 64px and 96px of table height. It costs
+   32px of the name column in both lists and no row gains a line.
+
+   THE PAIRS ARE DISJOINT AND IN ORDER: (1,2), (3,4), (5,6). A sliding window
+   would ask about (2,3) as well, and the column would then have to hold two
+   chips that no line ever puts together. The tags are alphabetical, so the
+   pairing is the same on every render rather than a property of the order
+   somebody typed them in.
+
+   A LONE LAST CHIP IS ITS OWN CHUNK. It sits on a line by itself, so the
+   column has to hold it, and it is the case that widens a one-tag row.
+
+   THE DEAD CHIP IS NOT A TAG AND STILL HAS TO FIT. It states `nowrap`, so it
+   cannot give a line back the way a tag run can.
+
+   MEASURED, NEVER COMPUTED. The chip's width is its padding, its label, its
+   mark and its own gap, which is four numbers this would otherwise restate.
+   The rectangle is the answer, and `.cell-tags .tag-chip` refuses to shrink
+   so the rectangle is the chip's natural width rather than whatever the
+   current column left it. */
+function fitTags() {
+  const th = $('#head').querySelector('[data-col="tags"]');
+  if (!th) return;
+
+  const cs = getComputedStyle(th);
+  const pad = (parseFloat(cs.paddingInlineStart) || 0) + (parseFloat(cs.paddingInlineEnd) || 0);
+
+  /* The label is one word, so it never wraps and a Range over it is the
+     painted ink rather than the box the column happens to give it. */
+  const range = document.createRange();
+  range.selectNodeContents(th);
+  const heading = range.getBoundingClientRect().width;
+
+  let gap = 0;
+  let content = 0;
+  $$('#rows .cell-tags .tags').forEach((box) => {
+    gap = parseFloat(getComputedStyle(box).columnGap) || gap;
+    box.querySelectorAll('.dead-chip').forEach((chip) => {
+      content = Math.max(content, chip.getBoundingClientRect().width);
+    });
+
+    const chips = [...box.querySelectorAll('.tag-chip')].map((c) => c.getBoundingClientRect().width);
+    for (let i = 0; i < chips.length; i += 2) {
+      const pair = chips[i] + (chips[i + 1] === undefined ? 0 : gap + chips[i + 1]);
+      content = Math.max(content, pair);
+    }
+  });
+
+  /* THE BUTTON, NEVER ITS WRAPPER. `.tag-add` grows into a field while
+     somebody is typing, and a render during that would state a column wide
+     enough to hold the field for ever. The button under it is 28px at both
+     pointers, because its own target is an overhang rather than a size.
+
+     AND AN OPEN FIELD HIDES ITS OWN BUTTON, so the first one in the table
+     can measure 0. Taking the first read 0 the moment row one was typing,
+     and the column lost the 32px this cap exists to hold. Take the widest
+     button that is painted, and fall back to the step it is drawn at when a
+     one-row table has its only field open. */
+  const add = $$('#rows .tag-add-btn')
+    .reduce((w, b) => Math.max(w, b.getBoundingClientRect().width), 0)
+    || parseFloat(getComputedStyle(th).getPropertyValue('--control-sm')) || 0;
+  const widest = Math.max(heading, content ? content + gap + add : add);
+
+  /* Round the ANSWER, once, so the column lands on a whole pixel however
+     many fractions the chips came to. */
+  th.closest('table').style.setProperty('--col-tags', `${Math.ceil(widest + pad)}px`);
 }
 
 /* ONE PASS FOR EVERYTHING THE COLUMN SET DECIDES. The widths, the header
@@ -361,8 +455,11 @@ function renderChrome(spec) {
     }
     if (c.key === 'remove') return `<th class="col-remove" scope="col"><span class="sr-only">Remove</span></th>`;
     if (c.key === 'edit') return `<th class="col-edit" scope="col"><span class="sr-only">Rename</span></th>`;
-    if (!c.sort) return `<th scope="col">${escape(c.label)}</th>`;
-    return `<th scope="col"${c.amount ? ' class="amount"' : ''}>
+    /* THE KEY IS AN ATTRIBUTE, NOT A CLASS. fitTags() has to find this cell
+       to read its own label's ink, and a `col-tags` class here would be a
+       second writer on the width the colgroup already states. */
+    if (!c.sort) return `<th scope="col" data-col="${escape(c.key)}">${escape(c.label)}</th>`;
+    return `<th scope="col" data-col="${escape(c.key)}"${c.amount ? ' class="amount"' : ''}>
       <button class="th-sort" type="button" data-key="${escape(c.sort)}">${escape(c.label)} ${icon('sort')}</button>
     </th>`;
   }).join('')}</tr>`;
@@ -835,7 +932,7 @@ const parseTags = (raw) =>
 function mergeTags(existing, incoming) {
   const seen = new Map(existing.map((t) => [t.toLowerCase(), t]));
   incoming.forEach((t) => { if (!seen.has(t.toLowerCase())) seen.set(t.toLowerCase(), t); });
-  return [...seen.values()];
+  return sortTags([...seen.values()]);
 }
 
 function addPendingTags(raw) {
@@ -948,14 +1045,19 @@ function addTags(id, raw) {
 
   const seen = new Map((video.tags || []).map((t) => [t.toLowerCase(), t]));
   tags.forEach((tag) => { if (!seen.has(tag.toLowerCase())) seen.set(tag.toLowerCase(), tag); });
-  video.tags = [...seen.values()];
+  video.tags = sortTags([...seen.values()]);
 
   save();
   render();
-  /* The row was rebuilt, and render() draws the collapsed state, which is
-     what a landed tag should leave behind. Focus goes to the plus so a
-     keyboard reader stays where they were and can add another. */
-  $(`tr[data-id="${CSS.escape(id)}"] .tag-add-btn`)?.focus();
+  /* THE FIELD STAYS OPEN FOR THE NEXT TAG. Tags arrive in runs, so a landed
+     one used to leave the reader on the plus with a second press to make
+     before they could type again.
+
+     The row was rebuilt, so the field is a NEW element and the old one's
+     focus went with it. Re-find it and open it. Escape and a click outside
+     both put it back to the plus, which is what those two already did to an
+     empty field. */
+  expandTagField($(`tr[data-id="${CSS.escape(id)}"] .tag-add`));
 }
 
 /* ONE PASS FILLS THE GAPS AND FINDS THE DEAD, because both questions are
@@ -1223,7 +1325,7 @@ function merge(local, incoming) {
 
   const put = (video) => {
     const existing = byId.get(video.id);
-    if (!existing) return byId.set(video.id, { ...video, tags: [...(video.tags || [])] });
+    if (!existing) return byId.set(video.id, { ...video, tags: sortTags(video.tags || []) });
 
     const richer = (a, b) =>
       (a.duration && a.duration !== '—' ? 1 : 0) + (a.uploadedAt ? 1 : 0)
@@ -1236,7 +1338,7 @@ function merge(local, incoming) {
 
     byId.set(video.id, {
       ...base,
-      tags: [...seen.values()],
+      tags: sortTags([...seen.values()]),
       addedAt: [existing.addedAt, video.addedAt].filter(Boolean).sort()[0] || base.addedAt,
     });
   };

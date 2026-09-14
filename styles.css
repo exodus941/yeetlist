@@ -1565,7 +1565,13 @@ table {
   --col-dur: 100px;
   --col-date: 188px;
   --col-chan: 184px;
-  --col-tags: 232px;
+
+  /* THE SCRIPT IS THE WRITER HERE, AND THIS IS ONLY THE VALUE BEFORE THE
+     FIRST ROW EXISTS. fitTags() measures the painted chips after every
+     render and states the width in pixels, between the heading's own ink
+     and two chips with the add control beside them. 58 is that heading plus
+     its two paddings, which is the floor the measurement never goes under. */
+  --col-tags: 58px;
 
   width: 100%;
   table-layout: fixed;
@@ -1580,22 +1586,17 @@ table {
 .col-tags { width: var(--col-tags) }
 .col-remove, .col-edit { width: var(--col-remove) }
 
-/* METATAGS IS THE SINGLE AUTO COLUMN IN THE BOOKMARKS TABLE, so it takes the
-   whole remainder. That list has three fewer columns than the videos one,
-   and the slack has to land where a reader wants it. Tags are what the
-   reader adds and keeps adding; an address is fixed the day it is saved and
-   truncates from the end, which is the half nobody reads.
+/* NAME IS THE SINGLE AUTO COLUMN IN BOTH TABLES, so it takes the whole
+   remainder. TAGS held that job in the bookmarks list and gave the reader a
+   314px column for two chips. Now that it states a measured width, the
+   slack it stops taking lands on the name, which is the column a reader
+   reads first and the one that truncates.
 
-   So the name and the address both state a width HERE and nowhere else. In
-   the videos table the title is the auto column and must keep being it. */
-table {
-  --col-name: 320px;
-  --col-url: 240px;
-}
+   The address is the one width this list still states. It is fixed the day
+   it is saved and truncates from the end, which is the half nobody reads. */
+table { --col-url: 240px }
 
-table[data-list="links"] .col-title { width: var(--col-name) }
 table[data-list="links"] .col-url { width: var(--col-url) }
-table[data-list="links"] .col-tags { width: auto }
 
 .cell-url .truncate { display: block }
 
@@ -1832,6 +1833,12 @@ th.amount { text-align: end }
   gap: var(--space-xs);
   min-width: 0;
 }
+
+/* A CHIP IN THE TABLE NEVER SHRINKS, because the column is sized from these
+   rectangles. A shrunk chip would report the width the column already gave
+   it, and the measurement would then chase itself down. The column is never
+   narrower than the widest chip, so nothing here can overflow. */
+.cell-tags .tag-chip { flex: 0 0 auto }
 
 /* ==========================================================================
    Tagging a selection
