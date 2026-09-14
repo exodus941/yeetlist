@@ -192,27 +192,35 @@
   <!-- ONE TAB STOP FOR THE WHOLE STRIP. A composite widget takes Tab once and
        the arrows move within it. Built with a tabindex on every tab, walking
        past two costs two presses and a strip of six costs six. -->
-  <div class="tabs" role="tablist" aria-label="Which list">
-    <button class="tab" id="tab-youtube" type="button" role="tab" data-tab="youtube"
-            aria-selected="true" aria-controls="listPanel">
-      <svg class="icon" aria-hidden="true"><use href="#i-play"/></svg>
-      <!-- CSS CANNOT SEE A TEXT LABEL, so the word that drops carries its own
-           element. Hidden, it leaves the accessible name too, and the tab
-           announces exactly what it shows. -->
-      <span>YouTube<span class="tab-long"> Watchlist</span></span>
-      <span class="tab-count" id="tabCountYoutube"></span>
-    </button>
-    <button class="tab" id="tab-links" type="button" role="tab" data-tab="links"
-            aria-selected="false" aria-controls="listPanel" tabindex="-1">
-      <svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>
-      <span>Other Bookmarks</span>
-      <span class="tab-count" id="tabCountLinks"></span>
-    </button>
-  </div>
+  <!-- ONE ROW: the count on the left, the list picker on the right. The
+       picker used to be a strip on its own line above this, which cost a
+       whole row of height and put the tabs further from the thing they
+       change. -->
+  <section class="list-head">
+    <!-- THE LIVE REGION IS THE WORDS, NEVER THE ROW. A tablist inside one
+         would announce both tabs on every switch. -->
+    <div class="list-words" role="status">
+      <h2 id="listCount">0 Saved Videos</h2>
+      <p id="listRuntime" class="list-runtime" hidden></p>
+    </div>
 
-  <section class="list-head" role="status">
-    <h2 id="listCount">0 Saved Videos</h2>
-    <p id="listRuntime" class="list-runtime" hidden></p>
+    <div class="tabs" role="tablist" aria-label="Which list">
+      <button class="tab" id="tab-youtube" type="button" role="tab" data-tab="youtube"
+              aria-selected="true" aria-controls="listPanel">
+        <svg class="icon" aria-hidden="true"><use href="#i-play"/></svg>
+        <!-- CSS CANNOT SEE A TEXT LABEL, so the word that drops carries its own
+             element. Hidden, it leaves the accessible name too, and the tab
+             announces exactly what it shows. -->
+        <span>YouTube<span class="tab-long"> Watchlist</span></span>
+        <span class="tab-count" id="tabCountYoutube"></span>
+      </button>
+      <button class="tab" id="tab-links" type="button" role="tab" data-tab="links"
+              aria-selected="false" aria-controls="listPanel" tabindex="-1">
+        <svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>
+        <span>Other Bookmarks</span>
+        <span class="tab-count" id="tabCountLinks"></span>
+      </button>
+    </div>
   </section>
 
   <section class="filters">

@@ -1759,13 +1759,33 @@ function sweep (within = null, exclude = null) {
          * `margin-right: calc(16px - 8px)` and the check could not see it.
          * The same lesson as an auto margin: the declaration is not the whole
          * distance, so take it off the rectangles. */
+        const parentCs = getComputedStyle(el)
+        const spreads = /^space-(between|around|evenly)$/.test(parentCs.justifyContent)
+        const declaredGap = parseFloat(parentCs.columnGap) || 0
         const outers = []
         for (let i = 1; i < groups.length; i++) {
           const a = groups[i - 1], b = groups[i]
           /* Slack is not a gap. An auto margin's leftover space is whatever is
              left over, and it changes with the window. */
           if (declaresAuto(b, 'margin-left') || declaresAuto(a, 'margin-right')) continue
+          /* ── AND `space-between` IS THE SAME SLACK UNDER THE PARENT'S NAME ──
+           *
+           * An auto margin and a distributing `justify-content` do one thing:
+           * they hand the leftover width to the space between the groups. So
+           * the painted distance is the window, never a decision, and it moves
+           * with every resize.
+           *
+           * Measured on one header at 375: 164px brand, 166px actions, 13px
+           * left over, reported at 1.6:1 against an 8px inside gap. The same
+           * header at a wider window reported nothing. Three characters more
+           * in a version string was the whole difference.
+           *
+           * THE DISTRIBUTOR ONLY DECIDES IT WHEN THERE IS SLACK TO GIVE. A
+           * full row paints exactly the declared gap, and that number IS the
+           * author's, so it stays in the check. Compare the two rather than
+           * exempting the container outright. */
           const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect()
+          if (spreads && rb.left - ra.right > declaredGap + 0.5) continue
           if (rb.top - ra.top > 2) continue          // a wrapped line, not a gap
           const d = rb.left - ra.right
           if (d > -1) outers.push(d)

@@ -1,4 +1,11 @@
 node_modules
+
+# Installed by `npx skills add`. Third-party skill sources and their lock file
+# belong to the machine, not to this app.
+.agents
+.claude/skills
+skills-lock.json
+
 .env.local
 .env*.local
 .vercel

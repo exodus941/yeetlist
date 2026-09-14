@@ -926,12 +926,18 @@ header {
    it. That is what says the strip and the list below are one thing.
    ========================================================================== */
 
+/* A SEGMENTED PICKER, NOT A RULED STRIP. It sits beside the count now, so an
+   underline has no rule of its own to sit on and would draw a 2px mark against
+   nothing. The group carries the edge and the chosen pill carries the fill. */
 .tabs {
   display: flex;
   flex-wrap: nowrap;
+  flex: 0 0 auto;
   gap: var(--space-2xs);
-  margin-top: var(--space-2xl);
-  box-shadow: inset 0 -1px 0 var(--line);
+  padding: var(--space-2xs);
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
 }
 
 /* A TAB NEVER SHRINKS BELOW ITS OWN CONTENT. It wraps its children for the
@@ -939,16 +945,22 @@ header {
    inside a box whose height is stated. Measured at 360 with the long label:
    each tab 22.8px under its content, and the count on a line of its own.
    Nothing clipped and nothing reported, because the strip itself still fit. */
+/* THE FLOOR IS A REACH, NOT A HEIGHT. Written as max(step, floor) the pill
+   grew to 44 on a finger, the group to 50, and the group then sat 8px below
+   the title it is supposed to line up with. The box keeps its own step and
+   an ::after carries the target, which costs no layout, so the group is 34
+   at both pointers. */
 .tab {
+  position: relative;
   display: inline-flex;
   align-items: baseline;
   gap: var(--icon-gap);
   flex: 0 0 auto;
   min-width: 0;
-  height: max(var(--control-md), var(--control-floor));
+  height: var(--control-sm);
   padding-inline: var(--space-md);
   border: 0;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text-muted);
   font: inherit;
@@ -966,17 +978,29 @@ header {
 .tabs { align-items: stretch }
 .tab { flex-wrap: wrap; align-content: center }
 
+/* 100% is the pill's own box, so one rule serves both labels. The inline
+   inset resolves to 0 on a pill already wider than the floor, and only the
+   block axis reaches: 8px above and below at a coarse pointer, inside the
+   24px the group stands clear of the card above it. */
+.tab::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2));
+}
+
 .tab .icon { align-self: baseline; transform: translateY(calc((100% - var(--cap-ratio) * 1em) / 2)) }
 
 .tab:hover { color: var(--text); background: var(--row-hover) }
 
 /* PAINT IS NOT A STATE, so the mark is aria-selected and the rule reads it.
-   An inset shadow adds no height and joins no box, which is what keeps the
-   two tabs the same size whichever one is chosen. */
+   A FILL rather than a border, which adds no height and joins no box, so the
+   two pills stay the same size whichever one is chosen. */
 .tab[aria-selected="true"] {
   color: var(--text);
-  box-shadow: inset 0 -2px 0 var(--accent);
+  background: var(--row-selected);
 }
+
+.tab[aria-selected="true"]:hover { background: var(--row-selected-hover) }
 
 .tab-count {
   color: var(--text-quiet);
@@ -986,16 +1010,46 @@ header {
   font-size: var(--text-xs);
 }
 
+/* A FILL IS DISREGARDED IN FORCED COLORS, so the chosen pill loses its only
+   marker there. An outline survives that mode and costs no layout. */
 @media (forced-colors: active) {
-  .tabs { box-shadow: none; border-bottom: 1px solid CanvasText }
+  .tabs { border: 1px solid CanvasText }
   .tab[aria-selected="true"] { outline: 2px solid Highlight; outline-offset: -2px }
 }
 
+/* THE COUNT AND THE PICKER SHARE A ROW. The picker sat on its own line above
+   this, which spent a whole row on two words.
+
+   THE PICKER SITS ON THE TITLE'S LINE, NOT ON THE BLOCK'S CENTRE. The words
+   are two lines on the watchlist, a title over a runtime readout, so centring
+   put the pill group 10px below the title and it read as attached to the
+   readout. Started, the 34px group centres at 231.00 against the title's own
+   cap band centre of 231.00, and it needs no transform: the group is 2px
+   shorter than the 36px line box it stands in.
+
+   That only holds while the group IS 34. Promoted to the touch step it stood
+   at 50 and sat 8px low at 693 and 534, which is why the tab's reach is an
+   overhang rather than a height.
+
+   It wraps rather than squeezing: below the width where both fit, the picker
+   takes its own line at the start of the row. */
 .list-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm) var(--space-lg);
+  /* 24 above, which is 150% of the 16 the tab strip used to stand at, and one
+     step up the scale. 8 below, so the runtime line sits nearer the filter row
+     than the strip above it. */
+  margin: var(--space-xl) 0 var(--space-sm);
+}
+
+.list-words {
   display: flex;
   flex-direction: column;
   gap: var(--space-2xs);
-  margin: var(--space-lg) 0 var(--space-sm);
+  min-width: 0;
 }
 
 /* THE MONO FACE, WHICH IS THE ONLY OTHER FAMILY THE SYSTEM SHIPS. A figure
@@ -1393,8 +1447,12 @@ header {
    could see the option and not press it.
 
    These are offsets inside the sticky band, not new layers. Nothing here can
-   reach 300, which is where a dropdown starts. */
-.add-card { z-index: calc(var(--layer-sticky) + 2) }
+   reach 300, which is where a dropdown starts.
+
+   THE CARD TOPS THE BAND, ABOVE THE STRIP, so the strip can fill the card's
+   rounded corners from behind. The strip never overlaps the card's box, so
+   nothing else moved when they swapped. */
+.add-card { z-index: calc(var(--layer-sticky) + 3) }
 .filters { z-index: calc(var(--layer-sticky) + 1) }
 
 /* IT STOPS SHORT OF THE VIEWPORT EDGE, by the same distance the page holds
@@ -1420,13 +1478,24 @@ header {
    the row hidden behind it, so a delete button nobody can see was pressable.
    The sticky band above it absorbs a press for the same reason, and nothing
    interactive ever sits in the page's own top margin. */
+/* IT REACHES ONE RADIUS PAST THE CARD'S TOP EDGE, AND PAINTS BEHIND IT.
+
+   The strip used to stop exactly where the stuck card starts. The card's top
+   corners are rounded, so each 8px arc showed whatever scrolled behind it.
+   Measured while stuck: 3 leaking pixels at the top-left corner and 7 at the
+   top-right, and elementFromPoint named a table cell.
+
+   Adding the radius to the height cannot work above the card, because the
+   strip would then paint over the card's own top 8px. So it sits one layer
+   BELOW the card instead and fills the arcs from behind, in the page colour,
+   which is what the corner should show. */
 .shell::before {
   content: "";
   position: fixed;
   inset-block-start: 0;
   inset-inline: 0;
-  height: var(--page-pad);
-  z-index: calc(var(--layer-sticky) + 3);
+  height: calc(var(--page-pad) + var(--radius-lg));
+  z-index: calc(var(--layer-sticky) + 2);
   background: var(--bg);
 }
 
@@ -2670,12 +2739,23 @@ dialog menu {
 
   /* ONE DISTANCE DECIDES BOTH THINGS. The marks are 14px and each press area
      is centred on its own, so the distance between the two centres is also
-     the widest each area can be without them overlapping. 20px of air gives
-     34, and one of these two deletes: a press at the boundary must never land
-     on whichever painted last.
+     the widest each area can be without them overlapping. One of these two
+     deletes: a press at the boundary must never land on whichever painted
+     last.
+
+     SO THE DISTANCE READS THE FLOOR, NEVER A NUMBER. At 14 plus 20px of air
+     it gave 34, and the sweep reported both marks 10px under the touch floor
+     on every bookmark row, 8 findings at 375. Taking the larger of the two
+     spreads the pair to 44 on a finger and leaves the mouse layout at 34,
+     which is already past its own 24px floor.
 
      The block axis keeps the full floor, because nothing is competing there. */
-  tr:has(.cell-edit) { --row-pair: calc(var(--mark) + 20px) }
+  tr:has(.cell-edit) {
+    --row-pair: max(
+      calc(var(--mark) + 20px),
+      max(var(--target-mouse), var(--control-floor))
+    );
+  }
 
   .cell-edit {
     inset-inline-end: calc(var(--space-lg) + var(--row-pair));
