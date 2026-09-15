@@ -214,14 +214,15 @@
   --layer-toast: 800;
 
   /* ---- motion ---------------------------------------------------------- */
-  /* ONE DURATION, WHICH IS THEIRS. 125ms for every fade in the interface.
+  /* ONE DURATION, WHICH IS THEIRS. 250ms for every fade in the interface. They
+     asked for 125 first and took it up: "125 may be too subtle."
      Three tokens held 120, 200 and 250, so a hover, a panel and a mark each
      moved at their own speed and nothing in the app said why. A reader
      cannot name the axis that separates them.
 
      The three names are gone rather than aliased to one number. Three names
      for one value is how they drift apart again. */
-  --duration: 125ms;
+  --duration: 250ms;
   --ease: cubic-bezier(.2, 0, .2, 1);
 }
 
@@ -244,8 +245,8 @@
 
 * { box-sizing: border-box }
 
-/* EVERYTHING FADES, AT THAT ONE DURATION. Their instruction: 125ms on the
-   whole interface. Before this, 29 declarations carried a transition and
+/* EVERYTHING FADES, AT THAT ONE DURATION. Their instruction: one fade across
+   the whole interface. Before this, 29 declarations carried a transition and
    everything else changed in one frame, so a hover was smooth and a state
    change beside it snapped.
 

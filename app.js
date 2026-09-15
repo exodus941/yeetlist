@@ -6,7 +6,7 @@ const STORE = 'yeetlist-v1';
 const PAYLOAD_VERSION = 2;
 
 /* THE BUILD SHOWN BESIDE THE WORDMARK, in MDexed's format: the date as
-   YYMMDD, then the number of the push that day. 260915-5 is the fifth push
+   YYMMDD, then the number of the push that day. 260915-6 is the sixth push
    of 15 September 2026.
 
    IT IS BUMPED ON EVERY PUSH, AND TWO WENT UP WITHOUT IT. The build read
@@ -18,7 +18,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260915-5';
+const VERSION = '260915-6';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
