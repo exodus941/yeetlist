@@ -1748,7 +1748,32 @@ function sweep (within = null, exclude = null) {
       const groups = [...el.children].filter(seen).filter(c => {
         if (isControl(c)) return false
         const cs = getComputedStyle(c)
-        return cs.display.includes('flex') && [...c.children].filter(seen).length >= 2
+        if (!cs.display.includes('flex')) return false
+        const kids = [...c.children].filter(seen)
+        if (kids.length < 2) return false
+        /* ── A READOUT IS ONE OBJECT, THE WAY A CONTROL IS ──
+         *
+         * A status mark beside its own words is a mark and a label, not two
+         * things a reader scans separately. It is the rule this file already
+         * states about a button: a control's children are ORNAMENT, so the
+         * control is a leaf whatever its display.
+         *
+         * Measured on one header: a dot and the words "Reading Drive…" in a
+         * flex span, beside a pair of buttons in another, reported 8px
+         * against 8px at 1.0:1 on correct markup. The dot has no meaning
+         * apart from the words, and the two are 8px apart because they are
+         * one readout.
+         *
+         * ASK THE TWO PROPERTIES, NEVER THE CLASS. It holds nothing anybody
+         * can press, and all of its ink comes from ONE child. A words column
+         * of a heading and a caption has text in two children and stays a
+         * group. A row of two labels does too. */
+        const pressable = c.querySelector('button, a[href], input, select, textarea, [role="button"], [tabindex]')
+        if (!pressable) {
+          const inked = kids.filter((k) => k.textContent.trim()).length
+          if (inked <= 1) return false
+        }
+        return true
       })
       if (groups.length >= 2) {
         /* MEASURE the distance between groups, never the declared gap.

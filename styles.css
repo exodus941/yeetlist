@@ -214,9 +214,14 @@
   --layer-toast: 800;
 
   /* ---- motion ---------------------------------------------------------- */
-  --duration-fast: 120ms;
-  --duration-hover: 200ms;
-  --duration-panel: 250ms;
+  /* ONE DURATION, WHICH IS THEIRS. 125ms for every fade in the interface.
+     Three tokens held 120, 200 and 250, so a hover, a panel and a mark each
+     moved at their own speed and nothing in the app said why. A reader
+     cannot name the axis that separates them.
+
+     The three names are gone rather than aliased to one number. Three names
+     for one value is how they drift apart again. */
+  --duration: 125ms;
   --ease: cubic-bezier(.2, 0, .2, 1);
 }
 
@@ -238,6 +243,28 @@
    ========================================================================== */
 
 * { box-sizing: border-box }
+
+/* EVERYTHING FADES, AT THAT ONE DURATION. Their instruction: 125ms on the
+   whole interface. Before this, 29 declarations carried a transition and
+   everything else changed in one frame, so a hover was smooth and a state
+   change beside it snapped.
+
+   COLOUR AND OPACITY ONLY. A transition on a LENGTH animates the layout,
+   which moves boxes under the reader's pointer and under every measurement
+   this project takes. Nothing here changes where anything is.
+
+   IT CARRIES NO WEIGHT, so a component stating its own transition still
+   wins. The shorthand in those 29 rules replaces this outright rather than
+   fighting it.
+
+   The reduced-motion block below already answers `!important` on every
+   element, so this needs no second guard. */
+:where(*, *::before, *::after) {
+  transition-property: color, background-color, border-color, outline-color,
+    box-shadow, opacity, fill, stroke;
+  transition-duration: var(--duration);
+  transition-timing-function: var(--ease);
+}
 
 /* hidden means hidden. The UA rule for it is an ordinary (0,1,0), so any
    component class beats it: an inline sprite kept 300x150px of layout and
@@ -341,8 +368,14 @@
 /* BASELINE, NOT CENTRE. The row holds a 20px wordmark and a 12px control
    cluster. Centred, two type sizes give two baselines: measured 2.00px apart,
    with the wordmark low. On the line they share one. */
+/* IT WRAPS RATHER THAN OVERFLOWING. At `nowrap` the row of controls ran 47px
+   past the page once Drive was connected at 375, with no scroller and no
+   error. Wrap costs nothing where it fits and is the only thing that gives
+   where it does not. The row carries its own auto margin, so a wrapped line
+   keeps the end it had beside the brand. */
 header {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-lg);
@@ -415,6 +448,24 @@ header {
   font-size: var(--text-xs);
 }
 
+/* THE ROW OF GROUPS, WHICH IS NOT THE GROUP. `.sync` is the run-of-buttons
+   step and this is the distance between three separate things: the readout,
+   the Drive control and the two file controls. Given the same 8 they read as
+   one run of five, measured at 1.0:1 against a 2:1 bar. 16 is exactly two.
+
+   IT WRAPS, BECAUSE IT DOES NOT ALWAYS FIT. Connected, at 375 on a finger,
+   the brand and this row came to 382px of content in 343 and ran 47px past
+   the page with no scroller. The header held `nowrap`, so nothing gave. On
+   its own line the row keeps the end it had beside the brand. */
+.sync-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  margin-inline-start: auto;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
 /* The dot belongs to the words it qualifies, never to the buttons beside it.
    Grouped, it answers to its own label and the row holds one fewer item. */
 /* The transparent border is not decoration. Every button in this row carries
@@ -442,8 +493,6 @@ header {
 .sync-dot[data-state="busy"] { background: var(--warn) }
 .sync-dot[data-state="error"] { background: var(--danger) }
 
-.dot { color: var(--line) }
-
 /* ==========================================================================
    Buttons
    One size fixes three things: the box, the label and the mark. The mark
@@ -466,9 +515,9 @@ header {
   white-space: nowrap;
   cursor: pointer;
   transition:
-    background-color var(--duration-hover) var(--ease),
-    border-color var(--duration-hover) var(--ease),
-    color var(--duration-hover) var(--ease);
+    background-color var(--duration) var(--ease),
+    border-color var(--duration) var(--ease),
+    color var(--duration) var(--ease);
 }
 
 .btn:hover { background: #2a2a2a }
@@ -537,7 +586,7 @@ header {
   font-size: var(--text-xs);
   text-decoration: underline;
   cursor: pointer;
-  transition: color var(--duration-hover) var(--ease);
+  transition: color var(--duration) var(--ease);
 }
 
 .btn-text:hover { color: var(--text) }
@@ -556,7 +605,7 @@ header {
   color: var(--text);
   font: inherit;
   outline: 0;
-  transition: border-color var(--duration-hover) var(--ease);
+  transition: border-color var(--duration) var(--ease);
 }
 
 .input::placeholder { color: var(--text-quiet) }
@@ -594,7 +643,7 @@ header {
   font-size: var(--text-xs);
   cursor: pointer;
   outline: 0;
-  transition: border-color var(--duration-hover) var(--ease);
+  transition: border-color var(--duration) var(--ease);
 
   /* The chevron matches #i-chevron-down. Its stroke is the one literal in
      this file that cannot read a token: a data URI has no access to a custom
@@ -695,7 +744,7 @@ header {
   color: var(--text-muted);
   cursor: pointer;
   transform: translateY(calc((100% - var(--cap-ratio) * 1em) / 2));
-  transition: color var(--duration-hover) var(--ease);
+  transition: color var(--duration) var(--ease);
 }
 
 .status-x::after {
@@ -832,7 +881,7 @@ header {
   height: 100%;
   border-radius: inherit;
   background: var(--accent);
-  transition: width var(--duration-hover) var(--ease);
+  transition: width var(--duration) var(--ease);
 }
 
 .import-panel .hint { margin-top: 0 }
@@ -885,7 +934,7 @@ header {
 .toast-detail { margin-top: var(--space-2xs); color: var(--text-muted); font-size: var(--text-xs) }
 
 @media (prefers-reduced-motion: no-preference) {
-  .toast { animation: toast-in var(--duration-panel) var(--ease) }
+  .toast { animation: toast-in var(--duration) var(--ease) }
 }
 
 @keyframes toast-in {
@@ -968,8 +1017,8 @@ header {
   font-weight: 650;
   cursor: pointer;
   transition:
-    color var(--duration-hover) var(--ease),
-    background-color var(--duration-hover) var(--ease);
+    color var(--duration) var(--ease),
+    background-color var(--duration) var(--ease);
 }
 
 /* A fixed-height box carrying words packs its single flex line to the top
@@ -1158,7 +1207,7 @@ header {
   color: var(--text);
   font-size: var(--text-xs);
   cursor: pointer;
-  transition: border-color var(--duration-hover) var(--ease);
+  transition: border-color var(--duration) var(--ease);
 }
 
 .multi-trigger:hover { border-color: #777 }
@@ -1177,10 +1226,22 @@ header {
    class, and it centres on its own box rather than on a label it has none of. */
 .multi-chevron {
   color: var(--text-muted);
-  transition: transform var(--duration-fast) var(--ease);
+  transition: transform var(--duration) var(--ease);
 }
 
 .multi-trigger[aria-expanded="true"] .multi-chevron { transform: rotate(180deg) }
+
+/* THE EXPORT MENU BORROWS THE PANEL AND NOT THE TRIGGER. Its trigger is a
+   .btn, because it stands in a row of buttons and answers to that row's box.
+   So the two things the trigger rule carried are restated here: the chevron
+   turns, and the wrapper takes its content rather than the filter's 160px.
+
+   IT OPENS FROM THE END. The filter sits at the start of its row and this
+   sits at the end of the header, so a panel anchored to the start would run
+   off the page. Measured at 375: 176px of panel from an x of 331. */
+.export-menu { width: auto }
+.export-menu .multi-panel { inset-inline-start: auto; inset-inline-end: 0 }
+.export-menu .btn[aria-expanded="true"] .multi-chevron { transform: rotate(180deg) }
 
 /* THE PANEL MAY OUTGROW ITS TRIGGER. The trigger is sized for the label it
    SHOWS, which truncates; the panel holds whole tag names and a long one
@@ -1304,7 +1365,7 @@ header {
   background: var(--surface-sunken);
   color: var(--text-muted);
   height: max(var(--control-md), var(--control-floor));
-  transition: border-color var(--duration-hover) var(--ease);
+  transition: border-color var(--duration) var(--ease);
 }
 
 /* The mark and the field are the part a press should focus.
@@ -1355,7 +1416,7 @@ header {
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  transition: color var(--duration-hover) var(--ease);
+  transition: color var(--duration) var(--ease);
 }
 
 /* Out of flow, so the reach costs no layout, and 100% resolves against the
@@ -1656,7 +1717,7 @@ tbody tr:last-child td { border-bottom: 0 }
   font: inherit;
   letter-spacing: inherit;
   cursor: pointer;
-  transition: color var(--duration-hover) var(--ease);
+  transition: color var(--duration) var(--ease);
 }
 
 .th-sort:hover { color: var(--text) }
@@ -1732,8 +1793,8 @@ tbody tr:last-child td { border-bottom: 0 }
   background: var(--surface-sunken) center / var(--space-md) no-repeat;
   cursor: pointer;
   transition:
-    background-color var(--duration-hover) var(--ease),
-    border-color var(--duration-hover) var(--ease);
+    background-color var(--duration) var(--ease),
+    border-color var(--duration) var(--ease);
 }
 
 .checkbox:hover { border-color: #999 }
@@ -1754,7 +1815,7 @@ tbody tr:last-child td { border-bottom: 0 }
 
 /* A row plane says what it is. Hover is a pointer, selection is a choice, and
    a selected row under the pointer is both. */
-tbody tr { transition: background-color var(--duration-hover) var(--ease) }
+tbody tr { transition: background-color var(--duration) var(--ease) }
 tbody tr:hover { background: var(--row-hover) }
 tbody tr.row-selected { background: var(--row-selected) }
 
@@ -1775,7 +1836,7 @@ tbody tr.row-selected > td:first-child::before {
   inset-inline-start: 0;
   width: var(--select-bar);
   background: var(--accent);
-  transition: width var(--duration-hover) var(--ease);
+  transition: width var(--duration) var(--ease);
 }
 
 tbody tr.row-selected:hover > td:first-child::before { width: var(--select-bar-hover) }
@@ -1806,7 +1867,7 @@ tbody tr.row-selected:hover > td:first-child::before { width: var(--select-bar-h
   color: var(--text);
   font-weight: 650;
   text-decoration: none;
-  transition: color var(--duration-hover) var(--ease);
+  transition: color var(--duration) var(--ease);
 }
 
 .video-link:hover { color: var(--accent); text-decoration: underline }
@@ -2026,8 +2087,8 @@ th.amount { text-align: end }
   color: var(--text-muted);
   cursor: pointer;
   transition:
-    color var(--duration-hover) var(--ease),
-    background-color var(--duration-hover) var(--ease);
+    color var(--duration) var(--ease),
+    background-color var(--duration) var(--ease);
 }
 
 /* min() against zero stops it: at a fine pointer the button already clears
@@ -2109,9 +2170,9 @@ th.amount { text-align: end }
   color: var(--text-muted);
   cursor: pointer;
   transition:
-    color var(--duration-hover) var(--ease),
-    border-color var(--duration-hover) var(--ease),
-    background-color var(--duration-hover) var(--ease);
+    color var(--duration) var(--ease),
+    border-color var(--duration) var(--ease),
+    background-color var(--duration) var(--ease);
 }
 
 .tag-add-btn:hover { color: var(--text); border-color: #777; background: #ffffff14 }
@@ -2169,7 +2230,7 @@ th.amount { text-align: end }
   color: var(--tag-ink);
   font: inherit;
   outline: 0;
-  transition: background-color var(--duration-hover) var(--ease);
+  transition: background-color var(--duration) var(--ease);
 }
 
 .tag-input::placeholder { color: var(--text-quiet) }
@@ -2189,8 +2250,8 @@ th.amount { text-align: end }
   color: var(--text-muted);
   cursor: pointer;
   transition:
-    color var(--duration-hover) var(--ease),
-    background-color var(--duration-hover) var(--ease);
+    color var(--duration) var(--ease),
+    background-color var(--duration) var(--ease);
 }
 
 .row-remove:hover { color: var(--danger-quiet); background: #2a1414 }
@@ -2417,11 +2478,34 @@ dialog menu {
      The shape is stated in the SAME block that hides the label, because CSS
      cannot see a text node and the markup does not change. Every one of them
      carries an aria-label, so nothing loses its name. */
-  .sync .btn-label { display: none }
-  .sync .dot { display: none }
+  /* THE BUILD COSTS A LINE HERE, AND IT IS THE ONE THING IN THE HEADER
+     NOBODY PRESSES. Their instruction, taken on a measurement. At 375 on a
+     finger the brand and the controls need 362px of a 343px line, so the row
+     wraps and the header stands 107px tall. Without the build the brand is
+     106.4 and the sum is 304.4, which fits: 69px and one line.
 
-  .sync .btn,
-  .sync .btn-text {
+     It buys the line back in the state the app is in most of the time. With
+     Drive connected the row is 52px wider and wraps either way, so the build
+     is not what decides that one. The wordmark carries it in a title. */
+  .brand-build { display: none }
+
+  .sync-row .btn-label { display: none }
+
+  /* The chevron goes with the word. A square holding a download mark and a
+     chevron reads as neither, and the menu still opens on a press. */
+  .sync-row .multi-chevron { display: none }
+
+  /* A ROW OF SQUARES HAS NO BASELINE, SO THE HEADER CENTRES INSTEAD. With
+     the words hidden the row holds nothing but icon buttons, and a flex
+     container with no text takes its baseline from its first item's bottom
+     margin edge. That was the 8px status dot: measured at 375, the dot's
+     bottom sat exactly on the wordmark's baseline at y42, which put the
+     44px buttons 3.5px below the wordmark's own optical centre.
+
+     Baseline is right at wide widths, where the row carries words. */
+  header { align-items: center }
+
+  .sync-row .btn {
     aspect-ratio: 1;
     justify-content: center;
     padding: 0;

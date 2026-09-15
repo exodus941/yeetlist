@@ -43,10 +43,11 @@ or date added.
 Each list keeps its own tags, filter, search, selection and sort. Switching
 tabs never carries one list's filter onto the other.
 
-**Import a file.** A `.md` or `.json` YeeTlist export merges in, keeping tags,
-dates and deletions. **Any other file is read for links** — a browser
-bookmarks `.html`, a page saved from the web, a notes file, a plain list of
-addresses. Whatever it finds is sorted into the two lists: YouTube videos go
+**Import a file.** A YeeTlist export merges in, keeping tags, dates and
+deletions. That works for all three shapes it writes: the `.html` bookmark
+file, the `.md` sync file and a bare `.json`. **Any other file is read for
+links** — a browser's own bookmarks `.html`, a page saved from the web, a
+notes file, a plain list of addresses. Whatever it finds is sorted into the two lists: YouTube videos go
 to the watchlist and every other link becomes a bookmark. A YouTube playlist
 or channel is a link rather than a video, so it lands in Other Bookmarks
 instead of being dropped.
@@ -74,8 +75,15 @@ has not already named something, and otherwise the hostname. A file of two
 hundred links costs no requests at all for its bookmarks, and one request per
 fifty for its videos. Both are reported with a progress bar and a count.
 
-**Export a file.** `Export .md` writes `yeetlist.md`: a readable Markdown table
-with a JSON payload underneath, so a round trip loses nothing.
+**Export a file.** `Export` opens a menu: the watchlist, the bookmarks, or
+everything. It writes a browser bookmark file, so Chrome, Firefox, Safari and
+Edge import it as a folder called **YeeTlist**. Exporting everything puts two
+folders inside it, `YouTube Watchlist` and `Other Bookmarks`.
+
+Each link carries its date and its tags as the format's own attributes.
+YeeTlist's whole payload rides in an HTML comment underneath, so importing
+the file back keeps durations, channels and deletions that a bookmark file
+has nowhere to put.
 
 **Sync to Drive.** See below.
 

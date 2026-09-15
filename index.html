@@ -62,47 +62,94 @@
       <span id="brandBuild" class="brand-build"></span>
     </div>
 
-    <div class="sync">
-      <span class="sync-state">
-        <span id="syncDot" class="sync-dot" data-state="local"></span>
-        <span id="syncWords" class="sync-words" role="status">Stored locally</span>
-      </span>
-      <span class="dot" aria-hidden="true">•</span>
+    <!-- A ROW OF GROUPS, SO IT STATES ITS OWN GAP. The two dots that used to
+         stand between these are gone, and without them the readout, the Drive
+         pair and the file pair all sat at the 8px one run of buttons uses.
+         Measured at 1.0:1 against a 2:1 bar, and five things read as one run.
+         `.sync-row` holds 16 between the groups and `.sync` holds 8 inside
+         each. -->
+    <div class="sync-row">
+      <!-- THE STATE AND ITS CONTROL ARE ONE GROUP. The dot says what Drive is
+           doing and the button beside it is what does it. Left as its own
+           child of the row it had 16px on both sides, and at narrow widths
+           the words are hidden, so an 8px dot floated alone between the
+           wordmark and the buttons. -->
+      <span class="sync">
+        <span class="sync-state">
+          <span id="syncDot" class="sync-dot" data-state="local"></span>
+          <span id="syncWords" class="sync-words" role="status">Stored locally</span>
+        </span>
+        <!-- Drive. One button before a connection exists, a group after.
 
-      <!-- Drive. One button before a connection exists, a group after.
+             Every label sits in its own span, because CSS cannot hide a bare
+             text node. At narrow widths the spans go and each button becomes
+             an icon-only square, so aria-label carries the name that the
+             visible words carried before.
 
-           Every label sits in its own span, because CSS cannot hide a bare
-           text node. At narrow widths the spans go and each button becomes
-           an icon-only square, so aria-label carries the name that the
-           visible words carried before. -->
-      <button id="driveConnect" class="btn btn-sm" type="button" aria-label="Link Google Drive">
-        <svg class="icon" aria-hidden="true"><use href="#i-cloud"/></svg>
-        <span class="btn-label">Link Google Drive</span>
-      </button>
-
-      <span id="driveGroup" class="sync" hidden>
-        <button id="driveSync" class="btn btn-sm" type="button" aria-label="Sync Now">
-          <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>
-          <span class="btn-label">Sync Now</span>
+             AND EVERY ONE CARRIES A title. Once the words go, hover is the
+             only way to read what a square does. A screen reader takes the
+             aria-label and ignores the title, so the two never both speak. -->
+        <button id="driveConnect" class="btn btn-sm" type="button"
+                title="Link Google Drive" aria-label="Link Google Drive">
+          <svg class="icon" aria-hidden="true"><use href="#i-cloud"/></svg>
+          <span class="btn-label">Link Google Drive</span>
         </button>
-        <button id="driveDisconnect" class="btn-text" type="button" aria-label="Disconnect Google Drive">
-          <svg class="icon" aria-hidden="true"><use href="#i-unlink"/></svg>
-          <span class="btn-label">Disconnect</span>
-        </button>
+
+        <span id="driveGroup" class="sync" hidden>
+          <button id="driveSync" class="btn btn-sm" type="button"
+                  title="Sync Now" aria-label="Sync Now">
+            <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>
+            <span class="btn-label">Sync Now</span>
+          </button>
+          <!-- THE ONLY ONE WITH NO WORDS AT ANY WIDTH. Their decision: the
+               unlink mark says it, and a row already carrying Sync Now,
+               Import and Export reads as four labels where three are the
+               ones anybody presses. The name lives in aria-label, which is
+               what the other four fall back to at narrow widths anyway. -->
+          <button id="driveDisconnect" class="btn btn-sm btn-icon" type="button"
+                  title="Disconnect Google Drive" aria-label="Disconnect Google Drive">
+            <svg class="icon" aria-hidden="true"><use href="#i-unlink"/></svg>
+          </button>
+        </span>
       </span>
 
-      <span class="dot" aria-hidden="true">•</span>
-      <!-- One file control, reading from the device. A YeeTlist export merges.
-           Any other file is scanned for links, so a notes file, a bookmarks
-           export or a page saved from the web all import. -->
-      <button id="importBtn" class="btn btn-sm" type="button" aria-label="Import a file of links">
-        <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>
-        <span class="btn-label">Import</span>
-      </button>
-      <button id="exportBtn" class="btn btn-sm" type="button" aria-label="Export as Markdown">
-        <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
-        <span class="btn-label">Export .md</span>
-      </button>
+      <!-- THE TWO FILE CONTROLS ARE ONE GROUP. In the row they are a pair,
+           and the row states 16 between its groups, so they need their own 8
+           or the pair reads as two separate controls.
+
+           Import reads from the device. A YeeTlist export merges. Any other
+           file is scanned for links, so a notes file, a bookmarks export or a
+           page saved from the web all import. -->
+      <span class="sync">
+        <button id="importBtn" class="btn btn-sm" type="button"
+                title="Import a file of links" aria-label="Import a file of links">
+          <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>
+          <span class="btn-label">Import</span>
+        </button>
+        <!-- A MENU, BECAUSE THERE ARE THREE ANSWERS. One list, the other, or
+             both. The chevron says so, and it goes with the label at narrow
+             widths: a square holding two marks reads as neither.
+
+             It borrows .multi-panel and .multi-option from the tag filter,
+             which is the menu this app already has. The roles differ, since
+             these are ACTIONS rather than values: menu and menuitem, never
+             listbox and option. -->
+        <span class="multi export-menu">
+          <button id="exportBtn" class="btn btn-sm" type="button"
+                  title="Export bookmarks a browser can import"
+                  aria-label="Export bookmarks a browser can import"
+                  aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenu">
+            <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
+            <span class="btn-label">Export</span>
+            <svg class="icon multi-chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+          </button>
+          <ul class="multi-panel" id="exportMenu" role="menu" aria-label="Export" tabindex="-1" hidden>
+            <li class="multi-option" role="menuitem" tabindex="-1" data-scope="youtube">YouTube Watchlist</li>
+            <li class="multi-option" role="menuitem" tabindex="-1" data-scope="links">Other Bookmarks</li>
+            <li class="multi-option" role="menuitem" tabindex="-1" data-scope="all">Everything</li>
+          </ul>
+        </span>
+      </span>
     </div>
   </header>
 

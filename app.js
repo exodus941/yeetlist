@@ -6,7 +6,7 @@ const STORE = 'yeetlist-v1';
 const PAYLOAD_VERSION = 2;
 
 /* THE BUILD SHOWN BESIDE THE WORDMARK, in MDexed's format: the date as
-   YYMMDD, then the number of the push that day. 260915-4 is the fourth push
+   YYMMDD, then the number of the push that day. 260915-5 is the fifth push
    of 15 September 2026.
 
    IT IS BUMPED ON EVERY PUSH, AND TWO WENT UP WITHOUT IT. The build read
@@ -18,7 +18,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260915-4';
+const VERSION = '260915-5';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -1314,9 +1314,13 @@ function fileText() {
 
 const cell = (value = '') => String(value).replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
+/* THREE SHAPES, ONE READER. The Markdown file fences its payload, the
+   bookmark file hides it in a comment, and a bare .json is the payload
+   itself. Anything else throws here and the caller scans it for links. */
 function parseFile(source) {
+  const commented = source.match(new RegExp(`<!--\\s*${PAYLOAD_MARK}\\s*([\\s\\S]*?)-->`));
   const fenced = source.match(/```json\s*([\s\S]*?)\s*```/);
-  const raw = JSON.parse(fenced ? fenced[1] : source);
+  const raw = JSON.parse(commented ? commented[1] : fenced ? fenced[1] : source);
   const parsed = normalise(raw);
   if (!Array.isArray(parsed.videos)) throw new Error('no videos');
   return parsed;
@@ -1365,11 +1369,105 @@ function merge(local, incoming) {
   return { videos: [...byId.values()], deleted: [...graves.values()] };
 }
 
-function exportFile() {
-  const blob = new Blob([fileText()], { type: 'text/markdown' });
+/* ==========================================================================
+   The export a browser can read
+
+   THE NETSCAPE BOOKMARK FILE, WHICH EVERY BROWSER IMPORTS. Their decision:
+   the download is HTML rather than Markdown, so Chrome, Firefox, Safari and
+   Edge take it as a folder called YeeTlist rather than as a text file nobody
+   can do anything with.
+
+   THE MARKDOWN STAYS, BECAUSE DRIVE IS A DIFFERENT QUESTION. drive.js still
+   writes yeetlist.md, which is the sync file and holds both lists whole.
+   Renaming that would orphan every file already synced.
+
+   AND THE EXPORT IS STILL LOSSLESS, because the payload rides in a comment.
+   A bookmark file carries a name, an address, a date and a tag list. It has
+   nowhere to put a duration, a channel, an upload date or a tombstone, so
+   re-importing a pure bookmark file would quietly flatten the library. The
+   same JSON the Markdown file fences sits in an HTML comment here, and the
+   importer reads it before it reads anchors.
+   ========================================================================== */
+
+/* A COMMENT CANNOT HOLD TWO HYPHENS IN A ROW, and a title can. `--` ends the
+   comment early, so the rest of the payload lands on the page as text. Every
+   hyphen followed by another becomes its own JSON escape, which JSON.parse
+   turns back into a hyphen. The file then holds no `--` at all. */
+const commentSafe = (json) => json.replace(/-(?=-)/g, '\\u002d');
+
+const PAYLOAD_MARK = 'yeetlist:json';
+
+/* SECONDS, NOT MILLISECONDS. ADD_DATE is a Unix time in seconds in every
+   browser that reads this format. A millisecond value reads as a date about
+   fifty thousand years out, and Chrome shows it. */
+const bookmarkDate = (iso) => {
+  const at = Date.parse(iso || '');
+  return Number.isNaN(at) ? '' : ` ADD_DATE="${Math.floor(at / 1000)}"`;
+};
+
+/* TAGS ARE A REAL ATTRIBUTE OF THIS FORMAT. Firefox reads them and Chrome
+   ignores them, which is the right failure: no importer breaks on it. */
+const bookmarkTags = (tags) =>
+  (tags && tags.length ? ` TAGS="${escape(tags.join(','))}"` : '');
+
+const bookmarkLink = (v, indent) =>
+  `${indent}<DT><A HREF="${escape(v.url || `https://www.youtube.com/watch?v=${v.id}`)}"`
+  + `${bookmarkDate(v.addedAt)}${bookmarkTags(v.tags)}>${escape(v.title || v.url || v.id)}</A>`;
+
+const bookmarkFolder = (name, items, indent) => [
+  `${indent}<DT><H3>${escape(name)}</H3>`,
+  `${indent}<DL><p>`,
+  ...items.map((v) => bookmarkLink(v, indent + '    ')),
+  `${indent}</DL><p>`,
+];
+
+/* ONE FOLDER CALLED YEETLIST, AND SUBFOLDERS ONLY WHERE THERE ARE TWO LISTS.
+   Their words: exporting everything makes two folders under YeeTlist. One
+   list needs no subfolder, because a folder holding one folder is a step a
+   reader has to open for nothing. */
+function bookmarkFile(scope) {
+  const clips = videos.filter((v) => listOf(v) === 'youtube');
+  const links = videos.filter((v) => listOf(v) === 'links');
+  const picked = scope === 'youtube' ? clips : scope === 'links' ? links : [...clips, ...links];
+
+  const inner = scope === 'all'
+    ? [...bookmarkFolder('YouTube Watchlist', clips, '        '),
+       ...bookmarkFolder('Other Bookmarks', links, '        ')]
+    : picked.map((v) => bookmarkLink(v, '        '));
+
+  const json = JSON.stringify({ ...payload(), videos: picked }, null, 2);
+
+  return [
+    '<!DOCTYPE NETSCAPE-Bookmark-file-1>',
+    '<!-- This is an automatically generated file. DO NOT EDIT! -->',
+    '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">',
+    '<TITLE>Bookmarks</TITLE>',
+    '<H1>Bookmarks</H1>',
+    '<DL><p>',
+    '    <DT><H3>YeeTlist</H3>',
+    '    <DL><p>',
+    ...inner,
+    '    </DL><p>',
+    '</DL><p>',
+    '',
+    `<!-- ${PAYLOAD_MARK}`,
+    commentSafe(json),
+    '-->',
+    '',
+  ].join('\n');
+}
+
+const EXPORT_FILE = {
+  youtube: 'yeetlist-youtube.html',
+  links: 'yeetlist-bookmarks.html',
+  all: 'yeetlist.html',
+};
+
+function exportFile(scope = 'all') {
+  const blob = new Blob([bookmarkFile(scope)], { type: 'text/html' });
   const link = Object.assign(document.createElement('a'), {
     href: URL.createObjectURL(blob),
-    download: 'yeetlist.md',
+    download: EXPORT_FILE[scope] || EXPORT_FILE.all,
   });
   link.click();
   URL.revokeObjectURL(link.href);
@@ -1386,7 +1484,12 @@ function importFile(file) {
   reader.onload = () => {
     const text = String(reader.result);
 
-    if (!isHtml) {
+    /* THE PAYLOAD IS TRIED ON EVERY FILE NOW, INCLUDING HTML. YeeTlist's own
+       export is a bookmark file, so skipping HTML here would have made the
+       app unable to read what it had just written: the scan would find the
+       links and drop every tag, duration and date. A browser's own export
+       carries no payload, throws, and falls through to the scan as before. */
+    {
       try {
         const incoming = parseFile(text);
         const merged = merge({ videos, deleted: tombstones }, incoming);
@@ -2188,6 +2291,8 @@ $('#tagFilterTrigger').addEventListener('keydown', (event) => {
 addEventListener('pointerdown', (event) => {
   if (multi.open && !event.target.closest('#tagFilter')) closeMulti();
 
+  if (!$('#exportMenu').hidden && !event.target.closest('.export-menu')) openExport(false);
+
   /* The suggestion list is appended to the BODY so it can escape the panel's
      clipping, so it is outside #tagBulk. */
   if (bulkOpen && !event.target.closest('#tagBulk') && !event.target.closest('#tagSuggest')) {
@@ -2540,7 +2645,59 @@ markStuck();
 
 /* ---- the portable file --------------------------------------------------- */
 
-$('#exportBtn').addEventListener('click', exportFile);
+/* ONE OPEN STATE, WRITTEN IN ONE PLACE. The attribute on the button is what
+   the chevron and the screen reader both read, so the menu's visibility and
+   its announced state cannot disagree. */
+function openExport(open) {
+  const trigger = $('#exportBtn');
+  const menu = $('#exportMenu');
+  menu.hidden = !open;
+  trigger.setAttribute('aria-expanded', String(open));
+  if (open) menu.querySelector('.multi-option')?.focus();
+}
+
+const exportItems = () => $$('#exportMenu .multi-option');
+
+$('#exportBtn').addEventListener('click', () => openExport($('#exportMenu').hidden));
+
+$('#exportMenu').addEventListener('click', (event) => {
+  const item = event.target.closest('.multi-option');
+  if (!item) return;
+  openExport(false);
+  $('#exportBtn').focus();
+  exportFile(item.dataset.scope);
+});
+
+/* ARROWS MOVE, ENTER AND SPACE PRESS, ESCAPE LEAVES. A menu is one tab stop,
+   so the items carry tabindex -1 and this moves the focus between them. */
+$('#exportMenu').addEventListener('keydown', (event) => {
+  const items = exportItems();
+  const at = items.indexOf(document.activeElement);
+
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    openExport(false);
+    return $('#exportBtn').focus();
+  }
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    const step = event.key === 'ArrowDown' ? 1 : -1;
+    return items[(at + step + items.length) % items.length]?.focus();
+  }
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    document.activeElement?.click();
+  }
+});
+
+/* The trigger answers Escape too, because focus returns to it on close and a
+   second Escape must not fall through to whatever is behind. */
+$('#exportBtn').addEventListener('keydown', (event) => {
+  if (event.key === 'ArrowDown' && $('#exportMenu').hidden) {
+    event.preventDefault();
+    openExport(true);
+  }
+});
 $('#importBtn').addEventListener('click', () => $('#importFile').click());
 
 /* Cancel stops before the next chunk. A request already in flight is left to
@@ -2582,7 +2739,12 @@ $('#driveDisconnect').addEventListener('click', async () => {
 load();
 
 $('#brandBuild').textContent = VERSION;
-$('#brandBuild').title = `YeeTlist ${VERSION}`;
+
+/* THE TITLE GOES ON THE WORDMARK, NOT ON THE BUILD. Below 1120 the build is
+   hidden, and a title on a hidden span is a title nobody can reach. The
+   wordmark is on screen at every width, so the build stays readable by
+   hover wherever it stops being readable by sight. */
+$('.brand').title = `YeeTlist ${VERSION}`;
 
 /* The tab a reader left on is where they meant to be. It is a view rather
    than data, so it stays local and never reaches Drive. */
