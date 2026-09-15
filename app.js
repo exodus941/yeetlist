@@ -6,7 +6,7 @@ const STORE = 'yeetlist-v1';
 const PAYLOAD_VERSION = 2;
 
 /* THE BUILD SHOWN BESIDE THE WORDMARK, in MDexed's format: the date as
-   YYMMDD, then the number of the push that day. 260915-7 is the seventh push
+   YYMMDD, then the number of the push that day. 260915-8 is the eighth push
    of 15 September 2026.
 
    IT IS BUMPED ON EVERY PUSH, AND TWO WENT UP WITHOUT IT. The build read
@@ -18,7 +18,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260915-7';
+const VERSION = '260915-8';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -318,20 +318,7 @@ function render() {
   renderTagFilter();
   renderSortState();
 
-  /* Three states. Indeterminate is the honest answer when some of the rows
-     below are chosen and some are not. */
-  const chosen = filtered.filter((v) => selected.has(v.id)).length;
-  const all = filtered.length > 0 && chosen === filtered.length;
-  const some = chosen > 0 && chosen < filtered.length;
-
-  /* ONE RENDERER FOR BOTH BOXES. The table's header cell holds one and the
-     sort bar holds the other, because the card view renders no header. Two
-     writers would let them disagree about a state neither reader can check. */
-  [$('#allCheck'), $('#allCheckBar')].forEach((box) => {
-    box.checked = all;
-    box.indeterminate = some;
-    box.disabled = filtered.length === 0;
-  });
+  renderSelection();
 
   /* The count on a tab is its WHOLE list, never the filtered one. A filter
      belongs to the tab you are on, so a number shrinking on the tab you are
@@ -344,16 +331,85 @@ function render() {
      can see and still something to clear. */
   $('#searchClear').hidden = !$('#search').value;
 
+  $('#clearFilter').disabled = !filtering;
+
+  fitTags();
+}
+
+/* A CONTENT CHANGE DISSOLVES, BECAUSE THE ROWS DO NOT SURVIVE IT.
+   render() rewrites #rows, so every node it touches is a new one. A new node
+   has nothing to transition FROM, which is why the duration token moved and
+   nothing about a filter, a sort or a deletion changed.
+
+   A VIEW TRANSITION IS THE ONE MECHANISM THAT NEEDS NO SECOND TREE. The
+   browser snapshots the page, runs the callback, and dissolves the old
+   picture into the new one. Two mounted copies of a list is the shape that
+   makes a tool measure the surface that is leaving.
+
+   THE FOLLOW-UP GOES INSIDE THE CALLBACK. `startViewTransition` defers the
+   update, so anything after the call runs against the OLD DOM: a focus would
+   land on a node about to be replaced. Hand it here and it runs with the
+   update, in the same frame.
+
+   FOUR CALLERS TAKE THE DIRECT PATH, and each is a repaint nobody watches.
+   A search keystroke calls render() per letter, the import progress ticks
+   many times a second, and the first paint has no previous picture. Those
+   call paint() rather than this.
+
+   A READER WHO ASKED FOR LESS MOTION GETS NONE. The media query cannot reach
+   a view transition, whose animation lives on pseudo-elements rather than on
+   any element this call can see. */
+function dissolve(after) {
+  const run = () => { render(); if (after) after(); };
+  const quiet = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (quiet || typeof document.startViewTransition !== 'function') return run();
+  return document.startViewTransition(run);
+}
+
+/* A SELECTION CHANGE REPAINTS THE SELECTION, NEVER THE LIST.
+   render() rewrites #rows wholesale, so a checkbox that toggled itself
+   destroyed the box being toggled. The node a transition would run on was
+   gone in the frame after the click, and getComputedStyle on it answered
+   with empty strings, which is what a detached element returns.
+
+   Nothing about the rows changes when a row is chosen. Their fill, their
+   bar and the three controls that act on a selection do, and every one of
+   those is an attribute on a node that already exists.
+
+   ONE WRITER, TWO CALLERS. render() calls this rather than restating it, so
+   the full repaint and the cheap one cannot disagree about what chosen
+   means. */
+function renderSelection() {
+  const filtered = filteredVideos();
+  const chosen = filtered.filter((v) => selected.has(v.id)).length;
+
+  $$('#rows tr').forEach((tr) => {
+    tr.classList.toggle('row-selected', selected.has(tr.dataset.id));
+  });
+  $$('#rows .select').forEach((box) => {
+    box.checked = selected.has(box.dataset.id);
+  });
+
+  /* Three states. Indeterminate is the honest answer when some of the rows
+     below are chosen and some are not.
+
+     ONE RENDERER FOR BOTH BOXES. The table's header cell holds one and the
+     sort bar holds the other, because the card view renders no header. Two
+     writers would let them disagree about a state neither reader can check. */
+  [$('#allCheck'), $('#allCheckBar')].forEach((box) => {
+    if (!box) return;
+    box.checked = filtered.length > 0 && chosen === filtered.length;
+    box.indeterminate = chosen > 0 && chosen < filtered.length;
+    box.disabled = filtered.length === 0;
+  });
+
   $('#deleteSelected').disabled = selected.size === 0;
   $('#tagSelected').disabled = selected.size === 0;
-  $('#clearFilter').disabled = !filtering;
 
   /* A panel about a selection cannot outlive it. Deselecting the last row
      with the panel open would leave two buttons acting on nothing. */
   if (bulkOpen && !selected.size) closeBulk();
   else if (bulkOpen) renderBulk();
-
-  fitTags();
 }
 
 /* THE TAGS COLUMN HUGS ITS OWN CONTENT, BETWEEN TWO BOUNDS. Its floor is its
@@ -918,7 +974,7 @@ function removeTag(id, tag) {
   video.tags = (video.tags || []).filter((t) => t !== tag);
   save();
   if (!allTags().includes(tag)) activeTags.delete(tag);
-  render();
+  dissolve();
 }
 
 /* ==========================================================================
@@ -966,7 +1022,7 @@ function applyPendingTags() {
   save();
   pendingTags = [];
   closeBulk({ refocus: true });
-  render();
+  dissolve();
   say(`Added ${added} tag${added === 1 ? '' : 's'} to ${ids.size} video${ids.size === 1 ? '' : 's'}.`);
 }
 
@@ -985,7 +1041,7 @@ function clearSelectedTags() {
   [...activeTags].forEach((t) => { if (!live.has(t)) activeTags.delete(t); });
 
   closeBulk({ refocus: true });
-  render();
+  dissolve();
   say(`Cleared the tags from ${touched} video${touched === 1 ? '' : 's'}.`);
 }
 
@@ -1053,7 +1109,7 @@ function addTags(id, raw) {
   video.tags = sortTags([...seen.values()]);
 
   save();
-  render();
+
   /* THE FIELD STAYS OPEN FOR THE NEXT TAG. Tags arrive in runs, so a landed
      one used to leave the reader on the plus with a second press to make
      before they could type again.
@@ -1061,8 +1117,11 @@ function addTags(id, raw) {
      The row was rebuilt, so the field is a NEW element and the old one's
      focus went with it. Re-find it and open it. Escape and a click outside
      both put it back to the plus, which is what those two already did to an
-     empty field. */
-  expandTagField($(`tr[data-id="${CSS.escape(id)}"] .tag-add`));
+     empty field.
+
+     IT RUNS INSIDE THE DISSOLVE, or it would re-find the field in the OLD
+     DOM and focus a node about to be thrown away. */
+  dissolve(() => expandTagField($(`tr[data-id="${CSS.escape(id)}"] .tag-add`)));
 }
 
 /* ONE PASS FILLS THE GAPS AND FINDS THE DEAD, because both questions are
@@ -1122,7 +1181,7 @@ async function refreshMetadata() {
   });
 
   save();
-  render();
+  dissolve();
 }
 
 /* ==========================================================================
@@ -1177,7 +1236,7 @@ async function addVideo() {
     }
     await (tab === 'links' ? addLink(url) : addYouTube(url));
     $('#videoUrl').value = '';
-    render();
+    dissolve();
   } catch (error) {
     say(error.message || 'Could not add that link.');
   } finally {
@@ -1271,7 +1330,7 @@ function commitDelete() {
   });
 
   save();
-  render();
+  dissolve();
 }
 
 /* ==========================================================================
@@ -1496,7 +1555,7 @@ function importFile(file) {
         videos = merged.videos;
         tombstones = merged.deleted;
         save();
-        render();
+        dissolve();
         /* A YeeTlist file holds both lists, so the count names both. */
         const clips = videos.filter((v) => listOf(v) === 'youtube').length;
         const links = videos.length - clips;
@@ -1821,7 +1880,7 @@ async function importLinks(text, isHtml) {
     $('#importFill').style.width = '0%';
   }
 
-  render();
+  dissolve();
   reportImport(counts, total, importRun.cancelled, freshPages.length);
   importRun.error = null;
 }
@@ -2085,7 +2144,7 @@ async function drivePull({ announce = false } = {}) {
 
     localStorage.setItem(STORE, JSON.stringify({ version: PAYLOAD_VERSION, videos, deleted: tombstones }));
     DRIVE.remember({ syncedAt: found.modifiedTime });
-    render();
+    dissolve();
     driveStatus('ok', 'Synced to Drive');
 
     if (announce) {
@@ -2150,7 +2209,7 @@ function clearSearch() {
   $('#search').value = '';
   searchTerm = '';
   $('#search').focus();
-  render();
+  dissolve();
 }
 
 $('#searchClear').addEventListener('click', clearSearch);
@@ -2174,8 +2233,10 @@ function showTab(next) {
   searchTerm = '';
   $('#search').value = '';
   try { localStorage.setItem(TAB_STORE, tab); } catch { /* a private window */ }
-  render();
-  $('#tab-' + (tab === 'links' ? 'links' : 'youtube')).focus();
+
+  /* The pill already faded, because its fill is a property on a node that
+     survives. The rows are rebuilt, so they need the dissolve. */
+  dissolve(() => $('#tab-' + (tab === 'links' ? 'links' : 'youtube')).focus());
 }
 
 $('.tabs').addEventListener('click', (event) => {
@@ -2207,7 +2268,7 @@ const clearFilters = () => {
   untaggedOnly = false;
   searchTerm = '';
   $('#search').value = '';
-  render();
+  dissolve();
 };
 
 $('#clearFilter').addEventListener('click', clearFilters);
@@ -2257,11 +2318,12 @@ function toggleOption(option) {
   else activeTags.add(option.dataset.tag);
 
   const held = multi.index;
-  render();
-  /* render() rebuilt the list, so put the active mark back where it was. */
-  multi.index = held;
-  const options = multiOptions();
-  options.forEach((o, i) => o.classList.toggle('active', i === multi.index));
+  /* The repaint rebuilds the menu too, so the active mark goes back where it
+     was, inside the callback and against the new options. */
+  dissolve(() => {
+    multi.index = held;
+    multiOptions().forEach((o, i) => o.classList.toggle('active', i === multi.index));
+  });
 }
 
 $('#tagFilterTrigger').addEventListener('click', () => {
@@ -2325,7 +2387,7 @@ $('thead').addEventListener('click', (event) => {
   const key = button.dataset.key;
   sort.dir = sort.key === key ? -sort.dir : 1;
   sort.key = key;
-  render();
+  dissolve();
 });
 
 $('#sortKey').addEventListener('change', (event) => {
@@ -2336,12 +2398,12 @@ $('#sortKey').addEventListener('change', (event) => {
      read "Descending" and the sort key would be invisible. */
   if (picked.startsWith('dir:')) {
     sort.dir = Number(picked.slice(4));
-    render();
+    dissolve();
     return;
   }
 
   sort.key = picked;
-  render();
+  dissolve();
 });
 
 /* ---- the sticky stack ---------------------------------------------------- */
@@ -2386,7 +2448,7 @@ stackSticky();
 function selectAll(event) {
   const filtered = filteredVideos();
   filtered.forEach((v) => { if (event.target.checked) selected.add(v.id); else selected.delete(v.id); });
-  render();
+  renderSelection();
 }
 
 $('#allCheckBar').addEventListener('change', selectAll);
@@ -2413,7 +2475,7 @@ $('#rows').addEventListener('change', (event) => {
   if (!event.target.classList.contains('select')) return;
   const id = event.target.dataset.id;
   if (event.target.checked) selected.add(id); else selected.delete(id);
-  render();
+  renderSelection();
 });
 
 
@@ -2453,19 +2515,23 @@ function startEdit(id) {
   if (!item) return;
   editing = id;
   draft = item.title || '';
-  render();
 
   /* SELECTED, NOT JUST FOCUSED. A fetched site name is usually the thing
-     being replaced rather than corrected, so typing should overwrite it. */
-  const field = $('#rows .title-input');
-  if (field) { field.focus(); field.select(); }
+     being replaced rather than corrected, so typing should overwrite it.
+
+     The field does not exist until the repaint has run, so the search for it
+     belongs inside the callback. */
+  dissolve(() => {
+    const field = $('#rows .title-input');
+    if (field) { field.focus(); field.select(); }
+  });
 }
 
 function cancelEdit() {
   if (editing === null) return;
   editing = null;
   draft = '';
-  render();
+  dissolve();
 }
 
 function saveName() {
@@ -2485,7 +2551,7 @@ function saveName() {
 
   editing = null;
   draft = '';
-  render();
+  dissolve();
 }
 
 /* One open field at a time. Two of them would leave a row looking ready for
@@ -2554,7 +2620,7 @@ $('#state').addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]')?.dataset.action;
   if (action === 'clear-filter') clearFilters();
   if (action === 'focus-add') $('#videoUrl').focus();
-  if (action === 'retry') { listState = 'ready'; render(); refreshMetadata(); }
+  if (action === 'retry') { listState = 'ready'; dissolve(); refreshMetadata(); }
 });
 
 /* ---- tag autocomplete ---------------------------------------------------- */

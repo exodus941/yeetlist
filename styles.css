@@ -320,6 +320,15 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   dialog[open], dialog[open]::backdrop { opacity: 0 }
 }
 
+/* THE VIEW TRANSITION READS THE SAME TOKEN. Its default is 250ms, which is
+   a second duration nobody chose, in the one place the stylesheet does not
+   obviously own. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--duration);
+  animation-timing-function: var(--ease);
+}
+
 /* A TOAST IS A NEW NODE, so it has no previous style to come from and
    @starting-style is the whole entrance. Its exit is a `remove()`, and a
    removed node cannot transition, so the script marks it and waits. */
