@@ -214,15 +214,15 @@
   --layer-toast: 800;
 
   /* ---- motion ---------------------------------------------------------- */
-  /* ONE DURATION, WHICH IS THEIRS. 250ms for every fade in the interface. They
-     asked for 125 first and took it up: "125 may be too subtle."
+  /* ONE DURATION, WHICH IS THEIRS. 125ms for every fade in the interface. They
+     tried 250 and came back: 125 is the number.
      Three tokens held 120, 200 and 250, so a hover, a panel and a mark each
      moved at their own speed and nothing in the app said why. A reader
      cannot name the axis that separates them.
 
      The three names are gone rather than aliased to one number. Three names
      for one value is how they drift apart again. */
-  --duration: 250ms;
+  --duration: 125ms;
   --ease: cubic-bezier(.2, 0, .2, 1);
 }
 
@@ -244,6 +244,91 @@
    ========================================================================== */
 
 * { box-sizing: border-box }
+
+/* ==========================================================================
+   Everything the script shows and hides, fading
+
+   `hidden` IS display:none, AND display CANNOT TWEEN. Every panel, menu and
+   card in this app appears and disappears in one frame, however long the
+   fade token says. The export menu is the one they saw. It was thirteen.
+
+   `transition-behavior: allow-discrete` flips display at the far end of the
+   run rather than at the start, so the box stays laid out while the opacity
+   falls. `@starting-style` gives the entering element a value to come FROM,
+   because an element that was display:none has no previous style.
+
+   Measured against this file's own `[hidden] { display: none !important }`:
+   entering read 0.22 at 50ms with one animation running, leaving read 0.80
+   with display still block, and display reached none only at the end. An
+   important declaration does not stop it.
+
+   THIS IS A LIST, AND A LIST APPROVES WHATEVER NOBODY THOUGHT OF. It is the
+   set of elements `app.js` writes `hidden` on, which is a question about the
+   script rather than about the DOM, so no selector can ask it. Grep
+   `.hidden =` in app.js before adding a panel: there are thirteen here and
+   the grep must return the same set.
+
+   NOT A GLOBAL RULE. Putting display in the transition every element gets
+   would fade every label a media query drops and every cell the card view
+   rearranges, on each breakpoint a drag crosses. That is work nobody asked
+   for at a width nobody stops at. */
+#listRuntime, #searchClear, #state, #tagSuggest, #tagBulkPanel,
+#addStatusDismiss, #typedConfirm, #importPanel, #driveConnect,
+#driveGroup, #driveAlert, #tagFilterList, #exportMenu {
+  transition:
+    opacity var(--duration) var(--ease),
+    display var(--duration) allow-discrete;
+}
+
+#listRuntime[hidden], #searchClear[hidden], #state[hidden], #tagSuggest[hidden],
+#tagBulkPanel[hidden], #addStatusDismiss[hidden], #typedConfirm[hidden],
+#importPanel[hidden], #driveConnect[hidden], #driveGroup[hidden],
+#driveAlert[hidden], #tagFilterList[hidden], #exportMenu[hidden] {
+  opacity: 0;
+}
+
+@starting-style {
+  #listRuntime:not([hidden]), #searchClear:not([hidden]), #state:not([hidden]),
+  #tagSuggest:not([hidden]), #tagBulkPanel:not([hidden]),
+  #addStatusDismiss:not([hidden]), #typedConfirm:not([hidden]),
+  #importPanel:not([hidden]), #driveConnect:not([hidden]),
+  #driveGroup:not([hidden]), #driveAlert:not([hidden]),
+  #tagFilterList:not([hidden]), #exportMenu:not([hidden]) {
+    opacity: 0;
+  }
+}
+
+/* TWO MORE APPEAR AND DISAPPEAR WITHOUT `hidden`, and grepping for the
+   attribute would have missed both. The dialog opens with showModal() and
+   the toast is a node the script appends and removes.
+
+   A DIALOG NEEDS `overlay` AS WELL. It sits in the top layer, and the
+   browser takes it out of that layer the moment it closes. Without this the
+   opacity has nothing to fall over and the exit is instant, however the
+   display behaves. The backdrop is its own box and fades with it. */
+dialog,
+dialog::backdrop {
+  transition:
+    opacity var(--duration) var(--ease),
+    display var(--duration) allow-discrete,
+    overlay var(--duration) allow-discrete;
+}
+
+dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
+
+@starting-style {
+  dialog[open], dialog[open]::backdrop { opacity: 0 }
+}
+
+/* A TOAST IS A NEW NODE, so it has no previous style to come from and
+   @starting-style is the whole entrance. Its exit is a `remove()`, and a
+   removed node cannot transition, so the script marks it and waits. */
+.toast { transition: opacity var(--duration) var(--ease) }
+.toast[data-leaving] { opacity: 0 }
+
+@starting-style {
+  .toast { opacity: 0 }
+}
 
 /* EVERYTHING FADES, AT THAT ONE DURATION. Their instruction: one fade across
    the whole interface. Before this, 29 declarations carried a transition and

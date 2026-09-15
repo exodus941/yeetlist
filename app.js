@@ -6,7 +6,7 @@ const STORE = 'yeetlist-v1';
 const PAYLOAD_VERSION = 2;
 
 /* THE BUILD SHOWN BESIDE THE WORDMARK, in MDexed's format: the date as
-   YYMMDD, then the number of the push that day. 260915-6 is the sixth push
+   YYMMDD, then the number of the push that day. 260915-7 is the seventh push
    of 15 September 2026.
 
    IT IS BUMPED ON EVERY PUSH, AND TWO WENT UP WITHOUT IT. The build read
@@ -18,7 +18,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260915-6';
+const VERSION = '260915-7';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -1885,17 +1885,32 @@ function toast(kind, title, detail) {
     </div>
     <button class="btn btn-sm btn-icon toast-close" type="button" aria-label="Dismiss">${icon('x')}</button>`;
 
-  node.querySelector('.toast-close').addEventListener('click', () => {
-    node.remove();
-    reserveToastRoom();
-  });
+  node.querySelector('.toast-close').addEventListener('click', () => dismissToast(node));
 
   const box = $('#toasts');
   box.append(node);
   /* Capped, or the reserved room grows without bound and eats the page. */
-  while (box.children.length > TOAST_LIMIT) box.firstElementChild.remove();
+  while (box.children.length > TOAST_LIMIT) dismissToast(box.firstElementChild);
   reserveToastRoom();
   return node;
+}
+
+/* A REMOVED NODE CANNOT TRANSITION, so the mark goes on first and the node
+   goes when the fade ends. The room is reserved again at once rather than on
+   the way out, or the page would hold the gap for the whole run.
+
+   THE TIMER IS NOT A SECOND WRITER. `transitionend` may never arrive: a
+   reader with reduced motion gets 1ms, and a node dismissed while the tab is
+   hidden runs no frames at all. Whichever lands first removes the node, and
+   the second call finds it already gone. */
+function dismissToast(node) {
+  if (!node || node.dataset.leaving) return;
+  node.dataset.leaving = '';
+  reserveToastRoom();
+
+  const done = () => { node.remove(); reserveToastRoom(); };
+  node.addEventListener('transitionend', done, { once: true });
+  setTimeout(done, 1000);
 }
 
 /* ==========================================================================
