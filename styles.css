@@ -223,7 +223,12 @@
      The three names are gone rather than aliased to one number. Three names
      for one value is how they drift apart again. */
   --duration: 125ms;
-  --ease: cubic-bezier(.2, 0, .2, 1);
+  /* IT EASES IN AS WELL AS OUT. The old curve started at almost full speed:
+     9.6% of the distance in the first 10% of the run, and 44.8% by a quarter
+     of it. Only the landing was soft. Measured on the replacement: 2.6% and
+     23.7%, with the same 99.4% at nine tenths. So the start is soft, the
+     finish is unchanged, and nothing runs longer. */
+  --ease: cubic-bezier(.4, 0, .2, 1);
 }
 
 /* A coarse pointer raises the floor. Every control height reads
@@ -325,6 +330,28 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
    obviously own. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
+  animation-duration: var(--duration);
+  animation-timing-function: var(--ease);
+}
+
+/* THE CHOSEN PILL GLIDES ACROSS RATHER THAN SWAPPING FILLS. Their ask.
+
+   A view transition pairs the old picture with the new one BY NAME, and the
+   name sits on whichever tab is chosen. Before the switch that is one tab
+   and after it the other, so the browser has two rectangles for one name and
+   moves between them. Nothing measures a position and nothing writes one.
+
+   THE NAME MUST BE UNIQUE WHILE THE TRANSITION RUNS, and exactly one tab
+   carries aria-selected="true" at a time. A second element answering to this
+   selector would abort the whole transition rather than glide.
+
+   IT COSTS NO JAVASCRIPT AND NO EXTRA ELEMENT. The other answer is an
+   absolutely placed bar under the tabs, whose left and width are measured
+   and written on every switch, every resize and every font swap. That is
+   three writers for one position. */
+.tab[aria-selected="true"] { view-transition-name: tab-pill }
+
+::view-transition-group(tab-pill) {
   animation-duration: var(--duration);
   animation-timing-function: var(--ease);
 }
@@ -1176,11 +1203,25 @@ header {
    overhang rather than a height.
 
    It wraps rather than squeezing: below the width where both fit, the picker
-   takes its own line at the start of the row. */
+   takes its own line.
+
+   AND THAT LINE GOES ABOVE THE TITLE. Their instruction. `wrap-reverse`
+   stacks the lines the other way, and it tracks the real break at every title
+   length. A media query cannot: the break is a sum of the title's own ink, so
+   a threshold measured on "34 of 100 Saved Videos" splits the row early on
+   every shorter one. Measured at 375: the picker at y 279 and the title at
+   321, where they were 279 and 343. The block is 98 tall either way, so the
+   filter row below it does not move. The switch is at 568: one row at 569,
+   two at 567.
+
+   THE CROSS AXIS FLIPS WITH IT, so `flex-end` is what `flex-start` used to
+   mean. Left alone, the picker sat 22px low on the one-row layout: the line
+   is 56 tall and the group is 34. Measured on a 900px shell, before and
+   after: the group at x 572.6, y 279, and the row 56 tall in both. */
 .list-head {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  flex-wrap: wrap-reverse;
+  align-items: flex-end;
   justify-content: space-between;
   gap: var(--space-sm) var(--space-lg);
   /* 24 above, which is 150% of the 16 the tab strip used to stand at, and one
