@@ -1823,21 +1823,36 @@ header {
    `position: sticky`. Locked to the viewport there is nothing to stick to:
    the chrome cannot move, so it does not need pinning.
 
-   TWO FLOORS, AND BOTH ARE SUMS. Below either one the page scrolls exactly
-   as it did, because a locked app with no room for its list is worse than a
-   long page.
+   THE FLOOR IS ROOM FOR THREE ROWS, and a row is two sizes. The table view
+   draws a 52px row and the card view draws a 163px card, so one height cannot
+   serve both. 1121 is where the table view starts, which is a threshold this
+   file already declares.
 
-   WIDTH. At 375 the chrome above the table measured 706px of an 812px
-   viewport, against 339 at 1265. The filter row is 236 of that difference,
-   and the card view is where the row stacks. 1120 is the width that already
-   declares it, so this reuses a threshold rather than adding one.
+   TABLE VIEW, at least 700 tall. 339 above the table, 36 of footer and 48 of
+   shell padding is 423, plus the wrapper's own 260px floor. 683 rounds to 700.
 
-   HEIGHT. 339 above the table, 36 for the footer and 48 of shell padding is
-   423, and the wrapper states its own 260px floor. 683 rounds to 700.
+   CARD VIEW, at least 700 wide AND 950 tall. Measured at 768x1024: 390 above
+   the table, 54 of footer and 16 of padding, leaving 564 for 3.46 cards. The
+   sum for three is 390 + 54 + 16 + 489, which is 949.
+
+   THE WIDTH IS THERE BECAUSE THE CHROME GROWS AS THE PAGE NARROWS. Measured
+   with the filters folded: 390 above the table at 753 wide, 428 at 693, and
+   470 at 600 and below. The footer runs 54, 72, 90 and 108 over the same
+   band. So one height floor is right at one end of the card view and wrong at
+   the other. 700 is where the chrome stops growing.
+
+   IT COVERS EVERY REAL SIZE. A tablet in portrait is 1024 tall or more and
+   locks. The tallest phone is 956 and 430 wide, so the width stops it. A
+   tablet in LANDSCAPE is 768 tall, which leaves 308px for 1.9 cards, and the
+   height stops that.
+
+   Below either floor the page scrolls exactly as it did. A locked app with no
+   room for its list is worse than a long page.
 
    THE FOOTER STAYS OUT OF THE SCROLLER, so the scrollbar is the list's and
-   nothing else's. It costs 36px at 1265. */
-@media (min-width: 1121px) and (min-height: 700px) {
+   nothing else's. It costs 36px at 1265 and 54 at 768. */
+@media (min-width: 1121px) and (min-height: 700px),
+       (max-width: 1120px) and (min-width: 700px) and (min-height: 950px) {
   .shell {
     display: flex;
     flex-direction: column;
@@ -1876,10 +1891,15 @@ header {
    turns an overlay scrollbar into a classic one on macOS. `scrollbar-gutter`
    holds the width either way, so an empty list does not move the columns.
 
-   AN 8px HANDLE IN A 12px TRACK. Their number. The 2px transparent border
-   plus `background-clip: padding-box` is what insets the thumb without a
-   second element: 12 - 4 = 8, and the handle stands clear of the edge it
-   runs beside.
+   AN 8px HANDLE IN A 24px TRACK. Their number for the handle. The 8px
+   transparent border plus `background-clip: padding-box` insets it without a
+   second element: 24 - 16 = 8.
+
+   THE TRACK IS WIDE SO THE GAPS MATCH. A 12px track with a 12px padding
+   beside it put 14px between the list and the handle and 2px between the
+   handle and the table's own edge. They saw it and called it uneven. Centred
+   in a 24px track the handle has 8 on both sides, and the gutter costs the
+   same 24px it cost as 12 plus 12.
 
    FIREFOX TAKES ONE COLOUR AND ONE WIDTH. `scrollbar-width: thin` is not a
    length, and `scrollbar-color` has no state. So the hover and the held
@@ -1890,21 +1910,31 @@ header {
    Chrome takes them and DISREGARDS every `::-webkit-scrollbar` rule below.
    Measured that way: a 10px bar with no hover and no held state, against the
    12 asked for. `@supports selector()` is the split, because the pseudo-
-   element's own support is exactly the question. */
+   element's own support is exactly the question.
+
+   THE PAGE'S OWN BAR TAKES THE SAME RULES. Below the lock's floors the PAGE
+   scrolls and the list does not, so the reader met the browser's default bar
+   at one width and this one at the next. Two scrollbars in one app, and the
+   width decided which. `html` is the viewport's scroller, and it carries no
+   gutter: a reserved 24px with nothing in it would inset the whole page. */
 .table-wrap { scrollbar-gutter: stable }
 
 @supports not selector(::-webkit-scrollbar) {
-  .table-wrap {
+  html, .table-wrap {
     scrollbar-width: thin;
     scrollbar-color: var(--scroll-rest) transparent;
   }
 }
 
-.table-wrap::-webkit-scrollbar { width: 12px; height: 12px }
+html::-webkit-scrollbar,
+.table-wrap::-webkit-scrollbar { width: 24px; height: 24px }
+
+html::-webkit-scrollbar-track,
 .table-wrap::-webkit-scrollbar-track { background: transparent }
 
+html::-webkit-scrollbar-thumb,
 .table-wrap::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
+  border: var(--space-sm) solid transparent;
   border-radius: var(--radius-pill);
   background-color: var(--scroll-rest);
   background-clip: padding-box;
@@ -1912,7 +1942,10 @@ header {
 
 /* A PSEUDO-ELEMENT SCROLLBAR TAKES NO TRANSITION, so these two snap. The
    duration token reaches every other control and cannot reach this one. */
+html::-webkit-scrollbar-thumb:hover,
 .table-wrap::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-hover) }
+
+html::-webkit-scrollbar-thumb:active,
 .table-wrap::-webkit-scrollbar-thumb:active { background-color: var(--scroll-held) }
 
 /* FIXED LAYOUT, SO THE TABLE IS EXACTLY ITS CONTAINER AT EVERY WIDTH.
