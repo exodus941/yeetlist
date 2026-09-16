@@ -343,85 +343,101 @@
        SO THE STICKY STACK READS IN THIS ORDER TOO: stackSticky() names the
        rows in document order, and the two `top` tokens follow it. -->
   <section class="filters" id="filterPanel">
-    <!-- A LABEL AND WHAT IT NAMES ARE ONE GROUP, so they are one element.
-         Flex cannot give one pair its own gap, and the row's comment has
-         claimed 16 against 8 while every painted gap measured 16. A label
-         equidistant from its own control and from the next group tells a
-         reader nothing about which two belong together. -->
-    <div class="filters-group">
-      <span class="filters-label">FILTER BY TAG</span>
+    <!-- THE ROW IS ITS OWN ELEMENT, SO THE FOLD HAS A TRACK TO COLLAPSE.
+         The section is a one-row grid and this is the row. At 0fr the track
+         is zero and this clips itself, its own padding with it, so the
+         section reaches a true zero with nothing measured and nothing pinned.
 
-      <!-- One control for one decision, at every width. A wrapping run of ten
-           pills was four rows tall on a phone and still a long row on a
-           desktop, so both widths get the dropdown. -->
-      <div class="multi" id="tagFilter">
-        <button class="multi-trigger" id="tagFilterTrigger" type="button"
-                aria-expanded="false" aria-haspopup="listbox" aria-controls="tagFilterList">
-          <svg class="icon" aria-hidden="true"><use href="#i-tag"/></svg>
-          <span class="multi-value" id="tagFilterValue">All videos</span>
-          <svg class="icon multi-chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
-        </button>
-        <ul class="multi-panel" id="tagFilterList" role="listbox"
-            aria-multiselectable="true" aria-label="Filter by tag" tabindex="-1" hidden></ul>
-      </div>
-    </div>
+         THE PADDING LIVES HERE RATHER THAN ON THE SECTION. Padding on the
+         grid itself cannot collapse, and it floored the fold at 37px. -->
+    <!-- THE CLIPPER CARRIES NO PADDING OF ITS OWN. box-sizing floors a box
+         at its padding, so a padded element can never reach zero however
+         small its track is. Measured at 0fr with the padding here: 37px.
+         Three parts, and each has one job. The section is the grid, this
+         clips, and the row inside holds the padding and the flex. -->
+    <div class="filters-fold">
+      <div class="filters-row">
+        <!-- A LABEL AND WHAT IT NAMES ARE ONE GROUP, so they are one element.
+             Flex cannot give one pair its own gap, and the row's comment has
+             claimed 16 against 8 while every painted gap measured 16. A label
+             equidistant from its own control and from the next group tells a
+             reader nothing about which two belong together. -->
+        <div class="filters-group">
+          <span class="filters-label">FILTER BY TAG</span>
 
-    <!-- THE LABEL WRAPS THE FIELD, NOT THE WHOLE BOX. A button is a labelable
-         element, so a label holding one that it does not label is invalid,
-         and the label's activation would forward the press to the input as
-         well. Wrapping only the mark and the input keeps click-to-focus on
-         the mark and needs no script. -->
-    <div class="search">
-      <label class="search-hit">
-        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
-        <input id="search" placeholder="Search titles, channels, or tags" aria-label="Search titles, channels, or tags" />
-      </label>
-      <button id="searchClear" class="search-clear" type="button" hidden
-              aria-label="Clear the search">
-        <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
-      </button>
-    </div>
-
-    <!-- THE PANEL IS THE ROW'S TAG EDITOR, NOT A SECOND ONE. It carries the
-         same .tags, .tag-chip and .tag-add markup, so the chips, the
-         collapsing plus and the autocomplete are the shipped components
-         rather than a copy of them.
-
-         Its chips are what is ABOUT to be applied. They are not the tags the
-         selection already holds, because Apply adds rather than replaces, and
-         a panel showing existing tags would make a removed chip mean "take
-         this off every video" without saying so. -->
-    <div class="tag-bulk" id="tagBulk">
-      <button id="tagSelected" class="btn" type="button" disabled
-              aria-expanded="false" aria-haspopup="dialog" aria-controls="tagBulkPanel">
-        <svg class="icon" aria-hidden="true"><use href="#i-tag"/></svg>
-        <span class="btn-label">Tag Selected</span>
-      </button>
-
-      <div class="tag-panel" id="tagBulkPanel" role="dialog"
-           aria-labelledby="tagBulkCount" hidden>
-        <p class="tag-panel-count" id="tagBulkCount" role="status"></p>
-        <div class="tags" id="tagBulkTags"></div>
-        <div class="tag-panel-actions">
-          <button id="tagBulkClear" class="btn btn-sm btn-danger-outline" type="button">Clear Current Tags</button>
-          <button id="tagBulkApply" class="btn btn-sm btn-primary" type="button" disabled>Apply Tags</button>
+          <!-- One control for one decision, at every width. A wrapping run of ten
+               pills was four rows tall on a phone and still a long row on a
+               desktop, so both widths get the dropdown. -->
+          <div class="multi" id="tagFilter">
+            <button class="multi-trigger" id="tagFilterTrigger" type="button"
+                    aria-expanded="false" aria-haspopup="listbox" aria-controls="tagFilterList">
+              <svg class="icon" aria-hidden="true"><use href="#i-tag"/></svg>
+              <span class="multi-value" id="tagFilterValue">All videos</span>
+              <svg class="icon multi-chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+            </button>
+            <ul class="multi-panel" id="tagFilterList" role="listbox"
+                aria-multiselectable="true" aria-label="Filter by tag" tabindex="-1" hidden></ul>
+          </div>
         </div>
+
+        <!-- THE LABEL WRAPS THE FIELD, NOT THE WHOLE BOX. A button is a labelable
+             element, so a label holding one that it does not label is invalid,
+             and the label's activation would forward the press to the input as
+             well. Wrapping only the mark and the input keeps click-to-focus on
+             the mark and needs no script. -->
+        <div class="search">
+          <label class="search-hit">
+            <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+            <input id="search" placeholder="Search titles, channels, or tags" aria-label="Search titles, channels, or tags" />
+          </label>
+          <button id="searchClear" class="search-clear" type="button" hidden
+                  aria-label="Clear the search">
+            <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+          </button>
+        </div>
+
+        <!-- THE PANEL IS THE ROW'S TAG EDITOR, NOT A SECOND ONE. It carries the
+             same .tags, .tag-chip and .tag-add markup, so the chips, the
+             collapsing plus and the autocomplete are the shipped components
+             rather than a copy of them.
+
+             Its chips are what is ABOUT to be applied. They are not the tags the
+             selection already holds, because Apply adds rather than replaces, and
+             a panel showing existing tags would make a removed chip mean "take
+             this off every video" without saying so. -->
+        <div class="tag-bulk" id="tagBulk">
+          <button id="tagSelected" class="btn" type="button" disabled
+                  aria-expanded="false" aria-haspopup="dialog" aria-controls="tagBulkPanel">
+            <svg class="icon" aria-hidden="true"><use href="#i-tag"/></svg>
+            <span class="btn-label">Tag Selected</span>
+          </button>
+
+          <div class="tag-panel" id="tagBulkPanel" role="dialog"
+               aria-labelledby="tagBulkCount" hidden>
+            <p class="tag-panel-count" id="tagBulkCount" role="status"></p>
+            <div class="tags" id="tagBulkTags"></div>
+            <div class="tag-panel-actions">
+              <button id="tagBulkClear" class="btn btn-sm btn-danger-outline" type="button">Clear Current Tags</button>
+              <button id="tagBulkApply" class="btn btn-sm btn-primary" type="button" disabled>Apply Tags</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- The medium step, not sm. These share a row with the tag control and
+             the search field, and a control row is one stated height. Delete
+             Selected carried btn-sm beside the old heading, and it takes the
+             row's height here instead. -->
+        <button id="deleteSelected" class="btn btn-danger-outline" type="button" disabled>
+          <svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>
+          <span class="btn-label">Delete Selected</span>
+        </button>
+
+        <button id="clearFilter" class="btn" type="button">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+          <span class="btn-label">Clear Filters</span>
+        </button>
       </div>
     </div>
-
-    <!-- The medium step, not sm. These share a row with the tag control and
-         the search field, and a control row is one stated height. Delete
-         Selected carried btn-sm beside the old heading, and it takes the
-         row's height here instead. -->
-    <button id="deleteSelected" class="btn btn-danger-outline" type="button" disabled>
-      <svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>
-      <span class="btn-label">Delete Selected</span>
-    </button>
-
-    <button id="clearFilter" class="btn" type="button">
-      <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
-      <span class="btn-label">Clear Filters</span>
-    </button>
   </section>
 
   <section class="table-wrap">

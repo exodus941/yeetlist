@@ -445,12 +445,17 @@
   #filterPanel {
     transition:
       opacity var(--duration-fold) var(--ease-out),
-      height var(--duration-fold) var(--ease-out),
-      padding var(--duration-fold) var(--ease-out),
+      grid-template-rows var(--duration-fold) var(--ease-out),
       display var(--duration-fold) allow-discrete;
   }
 
-  #filterPanel[data-folding] { overflow: hidden }
+  #filterPanel[hidden] { grid-template-rows: 0fr }
+
+  /* An element that was display: none has no previous style, so the entering
+     fold needs a value to come FROM. */
+  @starting-style {
+    #filterPanel:not([hidden]) { grid-template-rows: 0fr }
+  }
 }
 
 /* TWO MORE APPEAR AND DISAPPEAR WITHOUT `hidden`, and grepping for the
@@ -1513,7 +1518,15 @@ header {
    declares border-top: 0 and takes this one instead. That is what keeps the
    rule at the BAND'S foot: the table's own top scrolls away, and the band
    still ends in a line. Deleting it opened the table on three sides. */
-/* NO BOTTOM BORDER, BECAUSE THE LIST OWNS ITS OWN TOP EDGE NOW. That line
+/* THE SECTION IS THE FOLD AND .filters-row IS WHAT FOLDS. A one-row grid
+   going 1fr to 0fr needs nothing measured, nothing pinned and nothing
+   released, so the end state IS the natural height rather than a number
+   somebody wrote down. Two faults came out of measuring it: a box floored at
+   its own padding, and a second slide when the pin was released.
+
+   THE PADDING MOVED TO THE ROW. On the grid itself it cannot collapse.
+
+   NO BOTTOM BORDER, BECAUSE THE LIST OWNS ITS OWN TOP EDGE NOW. That line
    used to live here, and it made the box's top corners belong to nothing:
    "i don't see a 4px radius here", pointing at the top right. A rule spanning
    the content width cannot be rounded. Moved onto .table-wrap, it is the same
@@ -1522,6 +1535,20 @@ header {
    The card view draws no list box at all and states its own rule for this,
    a few hundred lines below. */
 .filters {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+
+/* THE CLIPPER, AND IT CARRIES NO PADDING. box-sizing floors a box at its own
+   padding, so a padded grid item never reaches zero however small the track
+   gets. Measured with the padding here: 37px at 0fr. Both declarations are
+   needed, or a grid item refuses to go under its own content. */
+.filters-fold {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.filters-row {
   display: flex;
   align-items: center;
   gap: var(--space-lg);
@@ -1727,7 +1754,7 @@ header {
    shipped face. Everything else in the sum is a published token: the label's
    start inset, the mark and its gap, then the control with its two margins.
    The label gives up its end inset while the control is there. */
-.filters { flex-wrap: nowrap }
+.filters-row { flex-wrap: nowrap }
 
 .search {
   display: flex;
@@ -3283,7 +3310,7 @@ dialog menu {
 
   /* THE CARD VIEW IS WHERE THE ROW STOPS BEING ONE ROW. Above it the field
      absorbs every pixel down to its floor, and this width is that floor. */
-  .filters { flex-wrap: wrap }
+  .filters-row { flex-wrap: wrap }
   .search { order: 1; flex: 1 1 100%; min-width: 0 }
   .filters-group { order: 2; flex: 1 1 100% }
   .filters-group .multi { flex: 1 1 auto; width: auto }
@@ -3320,10 +3347,8 @@ dialog menu {
      controls, so every line in it sits the same distance from the next. At
      12 the sort row sat closer to the buttons than the filter rows sit to
      each other. */
-  .filters {
-    padding-block-end: 0;
-    border-bottom: 0;
-  }
+  .filters { border-bottom: 0 }
+  .filters-row { padding-block-end: 0 }
 
   /* THE LAST VISIBLE ROW OF THE BAND CARRIES ITS FOOT, and which row that is
      depends on the fold. The panel moved below the sort bar, so folded the
@@ -3336,11 +3361,15 @@ dialog menu {
      browser without it draws a second line between the two rows, 152px from
      the first, which is a divider rather than a fault. */
   .filters:not([hidden]) {
-    padding-block-end: calc(var(--space-md) * 2 + 1px);
     background:
       linear-gradient(var(--line), var(--line)) 0 calc(100% - var(--space-md)) /
         100% 1px no-repeat,
       var(--bg);
+  }
+
+  /* A DESCENDANT, because the clipper now stands between the two. */
+  .filters:not([hidden]) .filters-row {
+    padding-block-end: calc(var(--space-md) * 2 + 1px);
   }
 
   .sort-bar:has(+ .filters:not([hidden])) { background: var(--bg) }
