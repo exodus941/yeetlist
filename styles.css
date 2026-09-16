@@ -146,7 +146,10 @@
   --tag-active-ink: #111111;
 
   /* ---- space, on the 4px grid ------------------------------------------ */
-  --space-2xs: 2px;
+  /* EVERY STEP IS A MULTIPLE OF 4. Their instruction. The scale used to open
+     at 2px, and that step paid for a chip's inner gap, the pill group's inset
+     and four other distances. Two optical corrections still state 2px, and
+     each says so where it is written. */
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 12px;
@@ -169,6 +172,16 @@
   --leading-tight: 1.2;
   --leading-body: 1.5;
 
+  /* THE SAME RATIO, SNAPPED TO THE GRID. 1.5 produced 15, 18, 21 and 30 at
+     four of the six type steps, and 21 is the one they named. Rounded: 16,
+     20, 20, 24, 32, 36. The two that were already on the grid do not move.
+
+     THE em RESOLVES WHERE THE TOKEN IS USED, because a custom property
+     substitutes as tokens and the declaration is parsed on that element. So
+     one value serves every size, exactly as the ratio did. */
+  --lead-tight: round(calc(var(--leading-tight) * 1em), 4px);
+  --lead-body: round(calc(var(--leading-body) * 1em), 4px);
+
   /* The body face's cap height, as a share of its size. Measured from painted
      ink at 400px, where whole-pixel rounding cannot swamp it. Onest is
      0.71875 and Inter was 0.73438, so this moves when the face does. */
@@ -187,8 +200,10 @@
   --icon-gap: 8px;
   --icon-stroke: 1.75;
 
+  /* Three steps, all on the grid. The middle one was 6px and its four
+     consumers are the brand mark and three floating panels, which is the
+     raised plane the cards already draw at 8. */
   --radius-sm: 4px;
-  --radius-md: 6px;
   --radius-lg: 8px;
   --radius-pill: 999px;
 
@@ -210,9 +225,9 @@
   --select-bar: 4px;
 
   /* The bar widens under the pointer rather than changing colour. A brighter
-     red was shown beside it and not taken. 6px is inside --select-inset at
-     16px, so the label does not move and the gap to it goes 12 to 10. */
-  --select-bar-hover: 6px;
+     red was shown beside it and not taken. 8px is inside --select-inset at
+     16px, so the label does not move and the gap to it goes 12 to 8. */
+  --select-bar-hover: 8px;
   --select-inset: calc(var(--space-md) + var(--select-bar));
 
   /* ---- stacking -------------------------------------------------------- */
@@ -431,6 +446,21 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
 
 :where(h1, h2, h3, p, menu) { margin: 0 }
 
+/* EVERY LINE BOX LANDS ON THE GRID, AND IT TAKES A RULE PER ELEMENT. A ratio
+   inherits as a ratio, so each element recomputes it from its own size. A
+   LENGTH inherits as that length, so setting it once on the body would give a
+   24px heading the body's own 20px line.
+
+   The ratio stays as the first declaration. A browser without round() then
+   keeps today's leading rather than falling back to the font's own normal.
+
+   It carries no weight, so every component stating its own line-height still
+   wins. Two do, and both are snapped the same way. */
+:where(*) {
+  line-height: var(--leading-body);
+  line-height: var(--lead-body);
+}
+
 :where(button) { font: inherit }
 
 /* One focus ring for everything. An outline costs no layout and survives
@@ -579,7 +609,7 @@ header {
   justify-content: center;
   width: var(--control-sm);
   height: var(--control-sm);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--accent);
   color: var(--accent-ink);
 }
@@ -959,7 +989,7 @@ header {
   font-size: var(--text-lg);
   font-weight: 700;
   letter-spacing: var(--track-tight);
-  line-height: var(--leading-tight);
+  line-height: var(--lead-tight);
 }
 
 /* 8px under the title, against 16px to the row's own neighbours. The title
@@ -968,7 +998,7 @@ header {
   margin: var(--space-sm) 0 0;
   color: var(--text-muted);
   font-size: var(--text-sm);
-  line-height: var(--leading-body);
+  line-height: var(--lead-body);
 }
 
 .alert .btn { flex: 0 0 auto }
@@ -991,7 +1021,9 @@ header {
    whole line, which is what an orphan gets. */
 @media (max-width: 693px) {
   .alert { flex-wrap: wrap }
-  .alert-mark { align-self: flex-start; margin-top: var(--space-2xs) }
+  /* AN OPTICAL CORRECTION, NOT A DISTANCE. It drops the mark onto the
+     title's cap band, so it answers to the ink rather than to the grid. */
+  .alert-mark { align-self: flex-start; margin-top: 2px }
   .alert .btn { flex: 1 1 100% }
 }
 
@@ -1015,9 +1047,8 @@ header {
 
 .import-panel h3 { font-size: var(--text-sm) }
 
-/* 6px sits on the space grid: multiples of 2 are legal below 8. */
 .progress-track {
-  height: 6px;
+  height: var(--space-sm);
   overflow: hidden;
   border-radius: var(--radius-pill);
   background: var(--surface-sunken);
@@ -1074,13 +1105,14 @@ header {
 
 /* The mark carries the outcome, so it takes the meaning colour. A reader who
    cannot separate two hues still gets the wording beside it. */
-.toast-mark { flex: 0 0 auto; margin-top: var(--space-2xs); color: var(--ok) }
+/* The same optical correction as the alert's mark, for the same reason. */
+.toast-mark { flex: 0 0 auto; margin-top: 2px; color: var(--ok) }
 .toast[data-kind="warn"] .toast-mark { color: var(--warn) }
 .toast[data-kind="error"] .toast-mark { color: var(--danger) }
 
 .toast-body { flex: 1; min-width: 0 }
 .toast-title { font-weight: 650 }
-.toast-detail { margin-top: var(--space-2xs); color: var(--text-muted); font-size: var(--text-xs) }
+.toast-detail { margin-top: var(--space-xs); color: var(--text-muted); font-size: var(--text-xs) }
 
 @media (prefers-reduced-motion: no-preference) {
   .toast { animation: toast-in var(--duration) var(--ease) }
@@ -1131,9 +1163,15 @@ header {
   display: flex;
   flex-wrap: nowrap;
   flex: 0 0 auto;
-  gap: var(--space-2xs);
-  padding: var(--space-2xs);
-  border: 1px solid var(--line-subtle);
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  /* AN OUTLINE RATHER THAN A BORDER, SO THE BOX IS THE TITLE'S LINE. A border
+     adds its own 2px: at 28 + 8 + 2 the group came out 38 against a 36px line
+     box and sat 1.50px off the title's cap band. An outline costs no layout,
+     and at a negative offset it paints on the box edge the border drew.
+     Measured after: the group is 36 and reads 0.50 off the band. */
+  outline: 1px solid var(--line-subtle);
+  outline-offset: -1px;
   border-radius: var(--radius-pill);
   background: var(--surface);
 }
@@ -1156,7 +1194,9 @@ header {
   flex: 0 0 auto;
   min-width: 0;
   height: var(--control-sm);
-  padding-inline: var(--space-md);
+  /* A BUTTON CARRIES 1px OF BLOCK PADDING FROM THE USER AGENT, and a stated
+     height hides it rather than removing it. Nobody chose that pixel. */
+  padding: 0 var(--space-md);
   border: 0;
   border-radius: var(--radius-pill);
   background: transparent;
@@ -1211,7 +1251,7 @@ header {
 /* A FILL IS DISREGARDED IN FORCED COLORS, so the chosen pill loses its only
    marker there. An outline survives that mode and costs no layout. */
 @media (forced-colors: active) {
-  .tabs { border: 1px solid CanvasText }
+  .tabs { outline: 1px solid CanvasText; outline-offset: -1px }
   .tab[aria-selected="true"] { outline: 2px solid Highlight; outline-offset: -2px }
 }
 
@@ -1260,7 +1300,7 @@ header {
 .list-words {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2xs);
+  gap: var(--space-xs);
   min-width: 0;
 }
 
@@ -1468,7 +1508,7 @@ header {
   overflow-y: auto;
   list-style: none;
   border: 1px solid var(--line);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--surface-raised);
   box-shadow: 0 8px 24px #000000a8;
 }
@@ -1638,6 +1678,9 @@ header {
   width: 100%;
   min-width: 0;
   height: 100%;
+  /* The user agent's own 1px by 2px, which the wrapper's inset already
+     answers. Left alone it put the value 2px off the mark beside it. */
+  padding: 0;
   border: 0;
   background: transparent;
   color: var(--text);
@@ -1985,7 +2028,7 @@ table {
      render and states the width in pixels, between the heading's own ink
      and two chips with the add control beside them. 58 is that heading plus
      its two paddings, which is the floor the measurement never goes under. */
-  --col-tags: 58px;
+  --col-tags: 60px;
 
   width: 100%;
   table-layout: fixed;
@@ -2092,7 +2135,7 @@ tbody tr:last-child td { border-bottom: 0 }
    eight columns cannot hold their own headers, and the ladder has nothing
    left to give up. */
 @media (max-width: 1172px) {
-  table { --col-date: 118px }
+  table { --col-date: 120px }
   .cell-up .date-full, .cell-added .date-full { display: none }
   .cell-up .date-day, .cell-added .date-day { display: inline }
 }
@@ -2197,14 +2240,28 @@ tbody tr.row-selected:hover > td:first-child::before { width: var(--select-bar-h
    clips an element's own ::after, and the anchor needs one to reach the touch
    floor without its box becoming layout. Measured with the clipping here: the
    link's target came out 22px against a 44 floor. */
+/* THE TARGET IS A REACH AT EVERY WIDTH, NOT ONLY THE NARROW ONE. The link's
+   box is its child's line box, 20px, against a 24px floor. The overhang used
+   to live in the card view's block alone, so 34 titles on the table view were
+   4px short of the mouse minimum. It costs no layout, so it belongs here. */
 .video-link {
+  position: relative;
   display: block;
   min-width: 0;
-  line-height: max(var(--target-mouse), var(--control-floor));
+  /* THE FLOOR IS THE ::after, NEVER THE LEADING. Written as a line-height it
+     became 44px of layout around a 20px line at a coarse pointer, and the
+     24px of slack read as padding under the words. */
+  line-height: var(--lead-body);
   color: var(--text);
   font-weight: 650;
   text-decoration: none;
   transition: color var(--duration) var(--ease);
+}
+
+.video-link::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2)) 0;
 }
 
 .video-link:hover { color: var(--accent); text-decoration: underline }
@@ -2240,11 +2297,14 @@ th.amount { text-align: end }
    is what a row shows almost all of the time: two chips at 61 and 99, a 4px
    gap between them, 12px before the add control and 24px for it. The field
    only exists while someone is typing, and it may take a second line. */
+/* THE GAP BETWEEN CHIPS CLEARS THE GAP INSIDE ONE, at exactly 2:1. The
+   chip's own label-to-cross gap went 2 to 4 when the scale lost its 2px
+   step, so both distances read 4 and six rows reported 1.0:1. */
 .tags {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
   min-width: 0;
 }
 
@@ -2281,7 +2341,7 @@ th.amount { text-align: end }
   width: min(320px, calc(100vw - var(--space-2xl) * 2));
   padding: var(--space-md);
   border: 1px solid var(--line);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--surface-raised);
   box-shadow: 0 8px 24px #000000a8;
 }
@@ -2364,7 +2424,7 @@ th.amount { text-align: end }
 .dead-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2xs);
+  gap: var(--space-xs);
   min-height: var(--control-sm);
   padding-inline: var(--space-sm);
   border: 1px solid var(--danger-line);
@@ -2388,9 +2448,9 @@ th.amount { text-align: end }
 .tag-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2xs);
+  gap: var(--space-xs);
   min-height: var(--control-sm);
-  padding-inline: var(--space-sm) var(--space-2xs);
+  padding-inline: var(--space-sm) var(--space-xs);
   border-radius: var(--radius-pill);
   background: var(--tag-bg);
   color: var(--tag-ink);
@@ -2648,7 +2708,7 @@ th.amount { text-align: end }
   overflow-y: auto;
   list-style: none;
   border: 1px solid var(--line);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--surface-raised);
   box-shadow: 0 8px 24px #000000a8;
 }
@@ -2730,7 +2790,7 @@ footer {
 footer strong { color: var(--tag-ink) }
 
 code {
-  padding: var(--space-2xs) var(--space-xs);
+  padding: var(--space-xs);
   border-radius: var(--radius-sm);
   background: var(--line-subtle);
   font-family: var(--font-mono);
@@ -3042,17 +3102,6 @@ dialog menu {
      of slack read as padding under the words. The ::after is out of flow, so
      the target costs nothing, and 100% resolves against the element, so one
      rule serves the link at any type size. */
-  .video-link {
-    position: relative;
-    line-height: var(--leading-body);
-  }
-
-  .video-link::after {
-    content: "";
-    position: absolute;
-    inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2)) 0;
-  }
-
   /* CENTRED ON LINE 1, NOT PARKED AT ITS TOP. The row declares align-items:
      start, which is right for the text cells and wrong for a 16px control
      beside a 44px line: it sat 13.5px above the title's cap band.
