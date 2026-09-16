@@ -303,6 +303,20 @@
      23.7%, with the same 99.4% at nine tenths. So the start is soft, the
      finish is unchanged, and nothing runs longer. */
   --ease: cubic-bezier(.4, 0, .2, 1);
+
+  /* A SECOND PAIR, FOR THE TWO THINGS THAT TRAVEL FAR. Their instruction,
+     17 September 2026: 500ms for the filter fold and for the list switcher,
+     eased out, "no ease-in ... only ease-out".
+
+     THE FIRST CONTROL POINT IS THE ORIGIN, which is what makes it pure. Any
+     x1 above 0 holds the start back, and --ease sets 0.4 on purpose. Here the
+     run leaves at full speed and only the landing is soft: 33.6% of the
+     distance in the first tenth, 68.9% by a quarter, 99.0% at nine tenths.
+
+     125ms STAYS FOR EVERYTHING ELSE. A hover, a chevron and a chip have no
+     distance to cover, and 500ms on those reads as lag rather than motion. */
+  --duration-fold: 500ms;
+  --ease-out: cubic-bezier(0, 0, .2, 1);
 }
 
 /* A coarse pointer raises the floor. Every control height reads
@@ -327,6 +341,12 @@
 @media (prefers-reduced-motion: reduce) {
   .multi-chevron { transition-property: none }
   .tab[aria-selected="true"] { view-transition-name: none }
+
+  /* THE FOLD IS A TRAVEL, so it goes. The opacity and the display flip stay,
+     which is the cross-fade the platform keeps under this setting. app.js
+     asks the same query and skips the measuring, because with no height in
+     the run there is no transitionend to clear the pinned pixels. */
+  #filterPanel { transition-property: opacity, display }
 }
 
 /* ==========================================================================
@@ -390,6 +410,40 @@
   }
 }
 
+/* ==========================================================================
+   The filter panel folds by its own height
+
+   Their instruction, 17 September 2026: a 500ms slide that pushes everything
+   below it down, and back up on the way in.
+
+   A HEIGHT, NOT A TRANSFORM. A transform moves the panel and nothing else, so
+   the list would sit still and the panel would slide over it. The push is the
+   whole ask, and only a length in flow can do it.
+
+   `display` IS ALREADY IN THE RUN, with allow-discrete, so `hidden` flips at
+   the far end rather than the near one and the box stays laid out while the
+   height falls. That mechanism is the block above, and this reads the same
+   attribute rather than adding a second state.
+
+   THE PIXELS COME FROM app.js, because a height has nothing to interpolate
+   against `auto`. The script measures the natural height, pins it for one
+   frame, then sets the target.
+
+   overflow: hidden ONLY WHILE IT RUNS. The tag menu inside this panel is
+   absolutely placed and opens past the panel's own foot, so a permanent clip
+   would cut it off. The script marks the panel for the length of the run.
+   ========================================================================== */
+@media (max-width: 1120px) {
+  #filterPanel {
+    transition:
+      opacity var(--duration-fold) var(--ease-out),
+      height var(--duration-fold) var(--ease-out),
+      display var(--duration-fold) allow-discrete;
+  }
+
+  #filterPanel[data-folding] { overflow: hidden }
+}
+
 /* TWO MORE APPEAR AND DISAPPEAR WITHOUT `hidden`, and grepping for the
    attribute would have missed both. The dialog opens with showModal() and
    the toast is a node the script appends and removes.
@@ -438,9 +492,22 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
    three writers for one position. */
 .tab[aria-selected="true"] { view-transition-name: tab-pill }
 
+/* THE SWITCHER TAKES THE LONG PAIR. Their instruction: the same 500ms and the
+   same eased-out curve as the filter fold. The pill only moves on a switch,
+   so it needs no state to ask about. */
 ::view-transition-group(tab-pill) {
-  animation-duration: var(--duration);
-  animation-timing-function: var(--ease);
+  animation-duration: var(--duration-fold);
+  animation-timing-function: var(--ease-out);
+}
+
+/* AND THE ROWS UNDER IT, BUT ONLY ON A SWITCH. dissolve() runs on a filter,
+   a sort and a deletion too, and 500ms on those is lag rather than motion.
+   showTab() marks the root for the length of its own transition, so one
+   attribute separates the switch from every other render. */
+[data-vt="tab"]::view-transition-old(root),
+[data-vt="tab"]::view-transition-new(root) {
+  animation-duration: var(--duration-fold);
+  animation-timing-function: var(--ease-out);
 }
 
 /* A TOAST IS A NEW NODE, so it has no previous style to come from and

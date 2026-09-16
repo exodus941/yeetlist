@@ -401,10 +401,21 @@ function render() {
    Measured: three `InvalidStateError: Transition was aborted because of
    invalid state` in the console on one load. An uncaught rejection a reader
    can open the console and see is a defect whatever caused it. */
-function dissolve(after) {
+/* `kind` MARKS THE ROOT FOR THE LENGTH OF ONE TRANSITION, and the stylesheet
+   reads it. dissolve() runs on a filter, a sort and a deletion as well, and
+   the switcher's own 500ms would be lag on those. One attribute separates the
+   list switch from every other render. */
+function dissolve(after, kind) {
+  const root = document.documentElement;
+  const mark = () => { if (kind) root.dataset.vt = kind; };
+  const clear = () => { if (kind) delete root.dataset.vt; };
+
   const run = () => { render(); if (after) after(); };
   if (typeof document.startViewTransition !== 'function') return run();
+
+  mark();
   const transition = document.startViewTransition(run);
+  transition.finished.then(clear, clear);
   transition.ready.catch(() => {});
   transition.finished.catch(() => {});
   transition.updateCallbackDone.catch((error) => {
@@ -2286,8 +2297,9 @@ function showTab(next) {
   try { localStorage.setItem(TAB_STORE, tab); } catch { /* a private window */ }
 
   /* The pill already faded, because its fill is a property on a node that
-     survives. The rows are rebuilt, so they need the dissolve. */
-  dissolve(() => $('#tab-' + (tab === 'links' ? 'links' : 'youtube')).focus());
+     survives. The rows are rebuilt, so they need the dissolve. `tab` is what
+     gives this one the switcher's own duration. */
+  dissolve(() => $('#tab-' + (tab === 'links' ? 'links' : 'youtube')).focus(), 'tab');
 }
 
 $('.tabs').addEventListener('click', (event) => {
@@ -2341,17 +2353,96 @@ $('#clearFilter').addEventListener('click', clearFilters);
 const NARROW = matchMedia('(max-width: 1120px)');
 let filtersOpen = false;
 
-function renderFilterToggle() {
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)');
+
+/* WHAT THE PANEL IS ACTUALLY SHOWING. renderFilterToggle() runs on every
+   render, and a fold replayed there would restart mid-run on any filter
+   change. null means nothing has been applied yet, which is the one call that
+   must not animate. */
+let foldedNow = null;
+
+/* THE PANEL SLIDES BY ITS OWN HEIGHT, SO EVERYTHING BELOW IT MOVES. Their
+   instruction, 17 September 2026. A transform would slide the panel over the
+   list and push nothing.
+
+   A HEIGHT HAS NOTHING TO INTERPOLATE AGAINST auto, so the measuring lives
+   here. The stylesheet still owns the duration and the curve: this writes
+   three lengths and one attribute and nothing else.
+
+   THE CLIP IS ONLY ON WHILE IT RUNS. The tag menu inside the panel is
+   absolutely placed and opens past the panel's own foot, so a permanent
+   overflow: hidden would cut it off. */
+let foldTimer = 0;
+
+/* A PINNED HEIGHT OUTLIVES THE RUN, so an open panel could not reflow with
+   its own content afterwards. */
+function clearFold() {
   const panel = $('#filterPanel');
+  panel.removeAttribute('data-folding');
+  panel.style.height = '';
+}
+
+function applyFold(folded, animate) {
+  const panel = $('#filterPanel');
+  if (foldedNow === folded) return;
+  foldedNow = folded;
+
+  clearTimeout(foldTimer);
+  clearFold();
+
+  /* Under reduced motion the height is out of the transition, so there is no
+     transitionend to clear a pinned pixel value with. */
+  if (!animate || REDUCED.matches) {
+    panel.hidden = folded;
+    return;
+  }
+
+  panel.setAttribute('data-folding', '');
+
+  if (folded) {
+    /* `hidden` flips display at the FAR end of the run, so the box is still
+       laid out while the height falls to zero. */
+    panel.style.height = `${panel.getBoundingClientRect().height}px`;
+    panel.getBoundingClientRect();
+    panel.hidden = true;
+    panel.style.height = '0px';
+    return;
+  }
+
+  panel.hidden = false;
+  panel.style.height = 'auto';
+  const open = panel.getBoundingClientRect().height;
+  panel.style.height = '0px';
+  panel.getBoundingClientRect();
+  panel.style.height = `${open}px`;
+
+  /* A TIMER RATHER THAN transitionend, because that event never arrives on
+     the half that needs it least and cannot be relied on for the half that
+     needs it most. A close ends at display: none and dispatches nothing. An
+     open cancelled by a close fires transitioncancel at the very start of the
+     close, which would clear the pins one frame in.
+
+     THE STYLESHEET IS STILL THE ONE WRITER of the duration: it is read back
+     off the element rather than typed here. */
+  const ms = (parseFloat(getComputedStyle(panel).transitionDuration) || 0) * 1000;
+  foldTimer = setTimeout(clearFold, ms + 50);
+}
+
+function renderFilterToggle(animate = true) {
   const btn = $('#filterToggle');
   const folded = NARROW.matches && !filtersOpen;
 
-  panel.hidden = folded;
+  applyFold(folded, animate && foldedNow !== null);
+
   btn.setAttribute('aria-expanded', String(!folded));
 
   const label = folded ? 'Show filters' : 'Hide filters';
   btn.setAttribute('aria-label', label);
   btn.title = label;
+
+  /* THE MARK SAYS WHICH WAY THE PRESS GOES. Their instruction: the struck
+     funnel while the panel is open, the plain one while it is folded. */
+  btn.querySelector('use').setAttribute('href', folded ? '#i-filter' : '#i-filter-off');
 
   /* A FOLDED PANEL HIDES ITS OWN STATE. Without this the list can show 4 of
      34 rows and nothing on screen says which filter did it. */
@@ -2374,7 +2465,10 @@ $('#filterToggle').addEventListener('click', () => {
    1265, narrow to 768, and the panel was shown. */
 NARROW.addEventListener('change', (event) => {
   if (event.matches) filtersOpen = false;
-  renderFilterToggle();
+  /* A WIDTH CHANGE IS NOT A PRESS, so the fold is applied rather than played.
+     Dragging a window edge across 1120 would otherwise run a 500ms slide
+     nobody asked for. */
+  renderFilterToggle(false);
 });
 
 /* ---- tag multiselect ---------------------------------------------------- */
