@@ -2422,9 +2422,17 @@ function renderFilterToggle() {
 let foldMark = null;
 
 function markFolding(panel) {
+  const seen = getComputedStyle(panel);
+
+  /* NOTHING TRAVELS UNDER REDUCED MOTION, so there is nothing to hold the
+     bar's line back for. The duration survives that block and the track is
+     dropped from the list, so reading the duration alone would leave the band
+     with no rule at all for 500ms. */
+  if (!seen.transitionProperty.includes('grid-template-rows')) return;
+
   clearTimeout(foldMark);
   panel.dataset.folding = '';
-  const ms = parseFloat(getComputedStyle(panel).transitionDuration) * 1000 || 0;
+  const ms = parseFloat(seen.transitionDuration) * 1000 || 0;
   foldMark = setTimeout(() => delete panel.dataset.folding, ms);
 }
 
