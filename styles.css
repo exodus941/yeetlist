@@ -1390,20 +1390,21 @@ header {
    tab already uses, so the two read as one state and not as two. */
 .filter-toggle { display: none }
 
-/* THE FLOOR IS A REACH HERE, NOT A HEIGHT, which is the rule the tab pill
-   beside it already follows. At `max(28, --control-floor)` a finger promoted
-   this to 44 against a 17.00px cap band: 9.00 above the cap line and 18.00
-   below the baseline. They saw it and called it huge.
+/* IT ANSWERS TO THE SORT BAR NOW, NOT TO THE TITLE. It used to sit on the
+   heading's row, where 36 was the title's own line box and a finger promoting
+   it to 44 overhung a 17.00px cap band by 9.00 above and 18.00 below. They
+   called it huge. Moved in beside the select and the select-all box, the row
+   it belongs to is a row of controls, and everything in one is one height.
 
-   36 IS THE TITLE'S OWN LINE BOX, which is what sized it. The row aligns its
-   items to the line's top, so a control shorter than the line sits high: 28
-   measured 3.50px above the band's centre and 36 measures 0.50. That is under
-   the whole pixel a repair needs, and it needs no transform to get there.
+   SO THE HEIGHT IS A max AGAIN, like every other control. Its neighbours read
+   max(36, --control-floor), which is 36 on a mouse and 44 on a finger. A bare
+   36 here would leave two heights in one row the moment a finger arrives.
 
-   The ::after costs no layout, so the target is 44 and the box is 36. */
+   The ::after stays. It resolves to no overhang once the box is already past
+   the floor, so it costs nothing and covers the mouse case. */
 .filter-toggle {
   position: relative;
-  height: var(--control-md);
+  height: max(var(--control-md), var(--control-floor));
 }
 
 .filter-toggle::after {

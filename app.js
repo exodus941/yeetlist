@@ -2364,7 +2364,18 @@ $('#filterToggle').addEventListener('click', () => {
   if (filtersOpen) $('#search').focus();
 });
 
-NARROW.addEventListener('change', renderFilterToggle);
+/* CROSSING INTO THE NARROW BAND STARTS FROM HIDDEN. Their instruction,
+   17 September 2026: the filters stay hidden by default in the tablet and
+   phone views.
+
+   The flag only means anything while the panel CAN fold. Above 1120 the panel
+   is always open and nothing writes it, so a panel opened at 768 came back
+   open after a trip through the wide layout. Measured: open at 768, widen to
+   1265, narrow to 768, and the panel was shown. */
+NARROW.addEventListener('change', (event) => {
+  if (event.matches) filtersOpen = false;
+  renderFilterToggle();
+});
 
 /* ---- tag multiselect ---------------------------------------------------- */
 

@@ -252,18 +252,6 @@
       <p id="listRuntime" class="list-runtime" hidden></p>
     </div>
 
-    <!-- THE FILTER ROW COSTS 236px OF A 812px PHONE, and it is the tallest
-         thing on that screen after the list itself. This folds it behind one
-         control, on the title's own row.
-
-         IT IS NOT IN THE LIVE REGION. .list-words carries role="status", and
-         a control inside one is announced again on every count change. -->
-    <button class="btn btn-icon filter-toggle" id="filterToggle" type="button"
-            aria-expanded="false" aria-controls="filterPanel"
-            title="Show filters" aria-label="Show filters">
-      <svg class="icon" aria-hidden="true"><use href="#i-filter"/></svg>
-    </button>
-
     <div class="tabs" role="tablist" aria-label="Which list">
       <button class="tab" id="tab-youtube" type="button" role="tab" data-tab="youtube"
               aria-selected="true" aria-controls="listPanel">
@@ -404,6 +392,25 @@
       <input id="allCheckBar" class="checkbox" type="checkbox" />
       <span>Select All</span>
     </label>
+
+    <!-- THE FILTER ROW COSTS 236px OF A 812px PHONE, and it is the tallest
+         thing on that screen after the list itself. This folds it behind one
+         control.
+
+         IT SITS WITH THE OTHER LIST CONTROLS, not on the title's row. Their
+         instruction, 17 September 2026: to the right of the Select All
+         checkbox, in the tablet and narrower views. This bar exists at
+         exactly the widths the control does, so one is never without the
+         other.
+
+         IT WAS NOT IN THE LIVE REGION EITHER. .list-words carries
+         role="status", and a control inside one is announced again on every
+         count change. -->
+    <button class="btn btn-icon filter-toggle" id="filterToggle" type="button"
+            aria-expanded="false" aria-controls="filterPanel"
+            title="Show filters" aria-label="Show filters">
+      <svg class="icon" aria-hidden="true"><use href="#i-filter"/></svg>
+    </button>
   </div>
 
   <section class="table-wrap">
