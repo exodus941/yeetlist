@@ -241,8 +241,13 @@
   --icon-stroke: 1.75;
 
   /* Three steps, all on the grid. The middle one was 6px and its four
-     consumers are the brand mark and three floating panels, which is the
-     raised plane the cards already draw at 8. */
+     consumers are the brand mark and three floating panels.
+
+     THE LIST AND THE CARDS TOOK THE SMALL STEP, 17 September 2026: "give the
+     list corners and card corners 4px radii." So a card and the control
+     standing on it now share one corner, and 8 is left to the things that
+     float above the page: the brand mark, the alert, the import panel, the
+     toast, the three dropdown panels and the dialog. */
   --radius-sm: 4px;
   --radius-lg: 8px;
   --radius-pill: 999px;
@@ -898,7 +903,7 @@ header {
 .add-card {
   padding: var(--space-xl);
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   background: var(--surface);
 }
 
@@ -1866,7 +1871,7 @@ header {
   background: var(--bg);
 }
 
-.shell[data-stuck]::before { height: calc(var(--page-pad) + var(--radius-lg)) }
+.shell[data-stuck]::before { height: calc(var(--page-pad) + var(--radius-sm)) }
 
 .filters { top: var(--stick-1, 0px) }
 .sort-bar { top: var(--stick-2, 0px) }
@@ -1908,8 +1913,8 @@ header {
 .table-wrap {
   border: 1px solid var(--line);
   border-top: 0;
-  border-end-start-radius: var(--radius-lg);
-  border-end-end-radius: var(--radius-lg);
+  border-end-start-radius: var(--radius-sm);
+  border-end-end-radius: var(--radius-sm);
   min-height: 260px;
 }
 
@@ -2031,9 +2036,15 @@ header {
    number paints, so the script knows nothing about which view is on screen.
    ========================================================================== */
 
+/* ONE NUMBER FOR EVERY EDGE, AND app.js READS IT FROM HERE. It was 32, the
+   top of the range they first gave, and they halved it once they could see
+   it: "make it half of what it is". 16 is the bottom of that same range. */
+:root { --edge-fade: var(--space-lg) }
+
 @property --scrolled-top { syntax: "<length>"; inherits: true; initial-value: 0px }
 @property --scrolled-end { syntax: "<length>"; inherits: true; initial-value: 0px }
 @property --bar-tail { syntax: "<length>"; inherits: true; initial-value: 0px }
+@property --page-fade-end { syntax: "<length>"; inherits: true; initial-value: 0px }
 
 /* The mask's top term is the scroller's own travel, except where something
    opaque already sits at that edge and a tail does the work instead. */
@@ -2093,6 +2104,31 @@ thead th::after {
 .sort-bar::after { height: var(--bar-tail) }
 
 thead th::after { height: 0 }
+
+/* THE PAGE HAS A FOOT TOO, AND ONLY WHEN THE PAGE IS THE SCROLLER. Their
+   instruction: "apply it to the bottom too." A locked app never scrolls the
+   document, so the script reads zero there and this paints nothing without
+   asking a media query.
+
+   FIXED TO THE VIEWPORT, because the cut is the window's own lower edge
+   rather than any element's. It takes no press: 16px across the foot of the
+   screen is a band a reader may want to click through. */
+.shell::after {
+  content: "";
+  position: fixed;
+  inset-block-end: 0;
+  inset-inline: 0;
+  height: var(--page-fade-end);
+  z-index: calc(var(--layer-sticky) + 2);
+  background: linear-gradient(
+    to top,
+    var(--bg) 0,
+    color-mix(in srgb, var(--bg) 87%, transparent) 28%,
+    color-mix(in srgb, var(--bg) 40%, transparent) 62%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
 
 /* THE TABLE'S HEADINGS ARE THE OPAQUE THING IN THE LOCKED TABLE VIEW, so the
    top of that scroller takes a tail and the mask's top term goes to zero. A
@@ -3220,7 +3256,7 @@ dialog menu {
     align-items: start;
     padding: var(--space-lg);
     border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-sm);
     background: var(--surface);
   }
 

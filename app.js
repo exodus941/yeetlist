@@ -361,9 +361,9 @@ function render() {
 
   fitTags();
 
-  /* The row count decides how far the list can travel, so the cut edges are
-     re-read whenever it changes. */
-  edgeFades();
+  /* The row count decides how far both scrollers can travel, so every cut
+     edge is re-read whenever it changes. */
+  everyEdge();
 }
 
 /* A CONTENT CHANGE DISSOLVES, BECAUSE THE ROWS DO NOT SURVIVE IT.
@@ -2835,7 +2835,7 @@ function edgeFades() {
   if (!wrap) return;
 
   const step = parseFloat(
-    getComputedStyle(document.documentElement).getPropertyValue('--space-2xl'),
+    getComputedStyle(document.documentElement).getPropertyValue('--edge-fade'),
   ) || 0;
 
   /* The scroller's own two edges. A box with nothing to scroll is not cut. */
@@ -2866,10 +2866,31 @@ function edgeFades() {
   carrier.style.setProperty('--bar-tail', `${Math.min(step, Math.max(0, under))}px`);
 }
 
-$('.table-wrap').addEventListener('scroll', edgeFades, { passive: true });
-addEventListener('scroll', edgeFades, { passive: true });
-addEventListener('resize', edgeFades, { passive: true });
-edgeFades();
+/* AND THE PAGE'S OWN FOOT, which is the window's lower edge rather than any
+   element's. A locked app never scrolls the document, so this reads zero
+   there and the strip paints nothing without being asked about the layout. */
+function pageFade() {
+  const shell = $('.shell');
+  if (!shell) return;
+
+  const step = parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue('--edge-fade'),
+  ) || 0;
+
+  const page = document.scrollingElement;
+  const left = page.scrollHeight - page.clientHeight - page.scrollTop;
+  shell.style.setProperty('--page-fade-end', `${Math.min(step, Math.max(0, left))}px`);
+}
+
+function everyEdge() {
+  edgeFades();
+  pageFade();
+}
+
+$('.table-wrap').addEventListener('scroll', everyEdge, { passive: true });
+addEventListener('scroll', everyEdge, { passive: true });
+addEventListener('resize', everyEdge, { passive: true });
+everyEdge();
 
 /* ---- the portable file --------------------------------------------------- */
 
