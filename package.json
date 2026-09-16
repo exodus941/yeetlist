@@ -6,7 +6,7 @@
     "dev": "node dev-server.cjs",
     "start": "node dev-server.cjs",
     "vercel-dev": "vercel dev",
-    "check": "node tools/syntax-guard.mjs ."
+    "check": "node tools/syntax-guard.mjs . && node tools/grid-guard.mjs styles.css"
   },
   "engines": {
     "node": ">=18"

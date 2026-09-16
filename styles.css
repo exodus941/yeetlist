@@ -1023,7 +1023,7 @@ header {
   .alert { flex-wrap: wrap }
   /* AN OPTICAL CORRECTION, NOT A DISTANCE. It drops the mark onto the
      title's cap band, so it answers to the ink rather than to the grid. */
-  .alert-mark { align-self: flex-start; margin-top: 2px }
+  .alert-mark { align-self: flex-start; margin-top: 2px /* optical */ }
   .alert .btn { flex: 1 1 100% }
 }
 
@@ -1106,7 +1106,7 @@ header {
 /* The mark carries the outcome, so it takes the meaning colour. A reader who
    cannot separate two hues still gets the wording beside it. */
 /* The same optical correction as the alert's mark, for the same reason. */
-.toast-mark { flex: 0 0 auto; margin-top: 2px; color: var(--ok) }
+.toast-mark { flex: 0 0 auto; margin-top: 2px /* optical */; color: var(--ok) }
 .toast[data-kind="warn"] .toast-mark { color: var(--warn) }
 .toast[data-kind="error"] .toast-mark { color: var(--danger) }
 
