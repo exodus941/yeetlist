@@ -2380,6 +2380,7 @@ function clearFold() {
   const panel = $('#filterPanel');
   panel.removeAttribute('data-folding');
   panel.style.height = '';
+  panel.style.paddingBlock = '';
 }
 
 function applyFold(folded, animate) {
@@ -2399,22 +2400,42 @@ function applyFold(folded, animate) {
 
   panel.setAttribute('data-folding', '');
 
+  /* A HEIGHT OF ZERO IS NOT A BOX OF ZERO. box-sizing: border-box floors the
+     used height at the padding, so this panel bottoms out at its own 12 and
+     25. Left behind, that 37 went in one frame when display flipped, and they
+     saw it: "there's a weird jerking motion at the end of the animation."
+     Both ends travel with the height now. */
+  /* READ THE PADDING WHILE THE PANEL IS SHOWN, or the wrong number comes back.
+     Its foot is 25 only while it is the band's last VISIBLE row, and the rule
+     that says so keys off the same `hidden` this function writes. Asked while
+     folded it answers 0. */
+  const shownPad = () => {
+    const now = getComputedStyle(panel);
+    return `${parseFloat(now.paddingTop)}px ${parseFloat(now.paddingBottom)}px`;
+  };
+
   if (folded) {
     /* `hidden` flips display at the FAR end of the run, so the box is still
        laid out while the height falls to zero. */
+    const pad = shownPad();
     panel.style.height = `${panel.getBoundingClientRect().height}px`;
+    panel.style.paddingBlock = pad;
     panel.getBoundingClientRect();
     panel.hidden = true;
     panel.style.height = '0px';
+    panel.style.paddingBlock = '0px';
     return;
   }
 
   panel.hidden = false;
   panel.style.height = 'auto';
+  const pad = shownPad();
   const open = panel.getBoundingClientRect().height;
   panel.style.height = '0px';
+  panel.style.paddingBlock = '0px';
   panel.getBoundingClientRect();
   panel.style.height = `${open}px`;
+  panel.style.paddingBlock = pad;
 
   /* A TIMER RATHER THAN transitionend, because that event never arrives on
      the half that needs it least and cannot be relied on for the half that

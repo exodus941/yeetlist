@@ -432,12 +432,21 @@
    overflow: hidden ONLY WHILE IT RUNS. The tag menu inside this panel is
    absolutely placed and opens past the panel's own foot, so a permanent clip
    would cut it off. The script marks the panel for the length of the run.
+
+   AND THE PADDING TRAVELS WITH THE HEIGHT, or the run ends in a jerk. Their
+   report: "there's a weird jerking motion at the end of the animation."
+
+   A HEIGHT OF ZERO IS NOT A BOX OF ZERO. `box-sizing: border-box` floors the
+   used height at the padding, so this panel bottomed out at 37px, which is
+   its own 12 and 25. The last 37 then went in one frame, when `display`
+   flipped to none. Both ends move together now, and the box reaches 0.
    ========================================================================== */
 @media (max-width: 1120px) {
   #filterPanel {
     transition:
       opacity var(--duration-fold) var(--ease-out),
       height var(--duration-fold) var(--ease-out),
+      padding var(--duration-fold) var(--ease-out),
       display var(--duration-fold) allow-discrete;
   }
 
