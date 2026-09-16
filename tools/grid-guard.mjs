@@ -1,5 +1,5 @@
-/* Every authored length is a whole number and a multiple of 4.
-   Their instruction, 17 September 2026:
+/* Every authored length is a whole number and a multiple of 4, unless a
+   marker beside it says otherwise. Their instruction, 17 September 2026:
 
      can we make sure that as many measurements (particularly matters of
      padding) of the UI are WHOLE NUMBERS that are multiples of 4?
@@ -15,11 +15,23 @@
    definition. A radius of 900px or more is "as round as it goes" and answers
    to no grid.
 
-   ANYTHING ELSE NEEDS THE WORD `optical` IN A COMMENT ON ITS OWN LINE. A
-   name list approves whatever nobody thought of, so the exemption is a marker
-   the author types rather than a selector this file remembers. It is for the
-   corrections they exempted: a mark dropped onto a cap band answers to the
-   ink rather than to the grid. */
+   ANYTHING ELSE NEEDS A MARKER IN A COMMENT ON ITS OWN LINE. A name list
+   approves whatever nobody thought of, so the exemption is a word the author
+   types rather than a selector this file remembers. There are two, and each
+   one names what it permits.
+
+   `half-step` TAKES A MULTIPLE OF 2, AND NOTHING ELSE. Their correction,
+   17 September 2026:
+
+     you can switch to multiples of 2 instead of multiples of 4 for areas
+     that seem too tight or too spacious compared to what we had before
+
+   So the marker cannot let an arbitrary number through: an odd value carrying
+   it still exits 1. The stylesheet states where a half-step is legal.
+
+   `optical` TAKES ANY VALUE, because a correction measured against painted
+   ink answers to the ink rather than to either grid. Two marks carry it, and
+   each drops onto a cap band. */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -64,6 +76,9 @@ const DECL = new RegExp(
 const TYPE_TOKEN = /^--(text|track|font|leading|lead|cap|icon-stroke|mark)$|^--(text|track|font|leading|lead|cap)-/;
 
 let findings = 0;
+/* The verdict names its own denominator AND how many half-steps it let
+   through. A marker nobody counts is a marker that spreads unnoticed. */
+let halves = 0;
 let checked = 0;
 
 for (const file of files) {
@@ -76,6 +91,10 @@ for (const file of files) {
   const rawLines = raw.split('\n');
   const lineAt = (index) => src.slice(0, index).split('\n').length;
   const exempt = (line) => /optical/i.test(rawLines[line - 1] || '');
+  /* A half-step is a multiple of 2, so the marker can only ever admit one.
+     Asking the value as well as the word is what stops it becoming a way to
+     type any number at all. */
+  const halfStep = (px, line) => px % 2 === 0 && /half-step/i.test(rawLines[line - 1] || '');
 
   const off = [];
 
@@ -90,6 +109,7 @@ for (const file of files) {
       const px = Math.abs(Number(hit[1]));
       if (px === 0 || px === 1 || px >= 900) continue;
       if (px % 4 === 0) continue;
+      if (halfStep(px, line)) { halves += 1; continue; }
       if (exempt(line)) continue;
       off.push(`${file}:${line}  ${prop}: ${value.trim().replace(/\s+/g, ' ')}   [${hit[0]}]`);
     }
@@ -103,6 +123,7 @@ for (const file of files) {
     const px = Math.abs(Number(hit[2]));
     if (px === 0 || px === 1 || px >= 900) continue;
     if (px % 4 === 0) continue;
+    if (halfStep(px, line)) { halves += 1; continue; }
     if (exempt(line)) continue;
     off.push(`${file}:${line}  ${name}: ${hit[2]}px`);
   }
@@ -122,4 +143,4 @@ if (findings) {
   process.exit(1);
 }
 
-console.log(`grid guard: ${checked} lengths, all on the 4px grid`);
+console.log(`grid guard: ${checked} lengths read, ${halves} marked half-step, the rest on the 4px grid`);

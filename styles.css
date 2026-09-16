@@ -146,10 +146,22 @@
   --tag-active-ink: #111111;
 
   /* ---- space, on the 4px grid ------------------------------------------ */
-  /* EVERY STEP IS A MULTIPLE OF 4. Their instruction. The scale used to open
-     at 2px, and that step paid for a chip's inner gap, the pill group's inset
-     and four other distances. Two optical corrections still state 2px, and
-     each says so where it is written. */
+  /* EVERY STEP IS A MULTIPLE OF 4, AND ONE HALF-STEP SITS UNDER THE SCALE.
+     Their instruction, 17 September 2026, then their correction the same day:
+
+       you can switch to multiples of 2 instead of multiples of 4 for areas
+       that seem too tight or too spacious compared to what we had before
+
+     Moving the floor to 4 doubled six distances, and every one of them sits
+     INSIDE a single object: a chip's label to its cross, that cross's own
+     inset, a count to its runtime line, a toast title to its detail, a code
+     chip's block padding, and the dead marker's mark to its word.
+
+     THE HALF-STEP IS FOR A DISTANCE INSIDE ONE OBJECT, never between two.
+     Nothing above it moved, so the rhythm between things is still 4 and up.
+     The grid guard takes 2 only where a comment says `half-step`, and it
+     refuses anything that is not a multiple of 2 whatever the marker says. */
+  --space-2xs: 2px; /* half-step */
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 12px;
@@ -225,9 +237,10 @@
   --select-bar: 4px;
 
   /* The bar widens under the pointer rather than changing colour. A brighter
-     red was shown beside it and not taken. 8px is inside --select-inset at
-     16px, so the label does not move and the gap to it goes 12 to 8. */
-  --select-bar-hover: 8px;
+     red was shown beside it and not taken. 6px is inside --select-inset at
+     16px, so the label does not move and the gap to it goes 12 to 10. At 8
+     that clearance halved, which is a distance nobody chose. */
+  --select-bar-hover: 6px; /* half-step */
   --select-inset: calc(var(--space-md) + var(--select-bar));
 
   /* ---- stacking -------------------------------------------------------- */
@@ -1112,7 +1125,7 @@ header {
 
 .toast-body { flex: 1; min-width: 0 }
 .toast-title { font-weight: 650 }
-.toast-detail { margin-top: var(--space-xs); color: var(--text-muted); font-size: var(--text-xs) }
+.toast-detail { margin-top: var(--space-2xs); color: var(--text-muted); font-size: var(--text-xs) }
 
 @media (prefers-reduced-motion: no-preference) {
   .toast { animation: toast-in var(--duration) var(--ease) }
@@ -1297,10 +1310,13 @@ header {
   margin: var(--space-xl) 0 var(--space-sm);
 }
 
+/* THE COUNT AND ITS RUNTIME ARE ONE READOUT, so they take the half-step. At
+   4 the second line read as a caption under the title rather than as the rest
+   of the same sentence. */
 .list-words {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--space-2xs);
   min-width: 0;
 }
 
@@ -2026,8 +2042,13 @@ table {
   /* THE SCRIPT IS THE WRITER HERE, AND THIS IS ONLY THE VALUE BEFORE THE
      FIRST ROW EXISTS. fitTags() measures the painted chips after every
      render and states the width in pixels, between the heading's own ink
-     and two chips with the add control beside them. 58 is that heading plus
-     its two paddings, which is the floor the measurement never goes under. */
+     and two chips with the add control beside them. The floor is that
+     heading plus its two paddings, measured at 30.23 + 24 = 54.23.
+
+     THE TOKEN ROUNDS THAT UP RATHER THAN STATING IT. A floor can only be
+     wrong by being too small, so 60 is safe where 54 is exact, and it sits
+     on the grid with no marker. The comment used to say 58, which matched
+     neither the token nor the measurement. */
   --col-tags: 60px;
 
   width: 100%;
@@ -2294,17 +2315,19 @@ th.amount { text-align: end }
 /* NO MINIMUM. Under fixed layout a minimum wider than the column does not
    widen the table, it pushes the chips over the column beside it. The column
    states the width, and --col-tags is sized for the COLLAPSED state, which
-   is what a row shows almost all of the time: two chips at 61 and 99, a 4px
-   gap between them, 12px before the add control and 24px for it. The field
-   only exists while someone is typing, and it may take a second line. */
-/* THE GAP BETWEEN CHIPS CLEARS THE GAP INSIDE ONE, at exactly 2:1. The
-   chip's own label-to-cross gap went 2 to 4 when the scale lost its 2px
-   step, so both distances read 4 and six rows reported 1.0:1. */
+   is what a row shows almost all of the time: two chips, a 4px gap between
+   them, 12px before the add control and 24px for it. A chip is as wide as
+   its own word, measured over 39 of them at 60.84 to 93.67. The field only
+   exists while someone is typing, and it may take a second line. */
+/* THE GAP BETWEEN CHIPS CLEARS THE GAP INSIDE ONE, at exactly 2:1. Both
+   halves doubled when the scale lost its 2px step, and the row was the most
+   spacious thing the pass produced: each chip grew 4px and every gap grew 4.
+   The chip's inner distances took the half-step back, so this one follows. */
 .tags {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
   min-width: 0;
 }
 
@@ -2424,7 +2447,7 @@ th.amount { text-align: end }
 .dead-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-2xs);
   min-height: var(--control-sm);
   padding-inline: var(--space-sm);
   border: 1px solid var(--danger-line);
@@ -2448,9 +2471,9 @@ th.amount { text-align: end }
 .tag-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-2xs);
   min-height: var(--control-sm);
-  padding-inline: var(--space-sm) var(--space-xs);
+  padding-inline: var(--space-sm) var(--space-2xs);
   border-radius: var(--radius-pill);
   background: var(--tag-bg);
   color: var(--tag-ink);
@@ -2790,7 +2813,7 @@ footer {
 footer strong { color: var(--tag-ink) }
 
 code {
-  padding: var(--space-xs);
+  padding: var(--space-2xs) var(--space-xs);
   border-radius: var(--radius-sm);
   background: var(--line-subtle);
   font-family: var(--font-mono);
