@@ -194,6 +194,17 @@
   --lead-tight: round(calc(var(--leading-tight) * 1em), 4px);
   --lead-body: round(calc(var(--leading-body) * 1em), 4px);
 
+  /* AND ONE FIXED LENGTH, FOR A BOX THAT STANDS IN FOR A SMALL RUN. The two
+     above read 1em, so they answer whichever element uses them. Three boxes
+     need the line a 14px run occupies whatever their own size is: the title
+     cell's floor, a skeleton bar, and the card's own remove and edit
+     controls.
+
+     All three wrote calc(--text-sm * --leading-body) and got the UNSNAPPED
+     21, which is the exact number they named. The grid guard could not see
+     it, because a length built only from tokens holds no px literal. */
+  --lead-sm: round(calc(var(--text-sm) * var(--leading-body)), 4px);
+
   /* The body face's cap height, as a share of its size. Measured from painted
      ink at 400px, where whole-pixel rounding cannot swamp it. Onest is
      0.71875 and Inter was 0.73438, so this moves when the face does. */
@@ -2708,7 +2719,7 @@ th.amount { text-align: end }
    the box is identical in both states. */
 .cell-title {
   position: relative;
-  min-height: calc(var(--text-sm) * var(--leading-body));
+  min-height: var(--lead-sm);
 }
 
 @media (forced-colors: active) {
@@ -2787,7 +2798,7 @@ th.amount { text-align: end }
    in for, so the skeleton and the loaded row measure the same. */
 .skeleton-row td > span {
   display: block;
-  height: calc(var(--text-sm) * var(--leading-body));
+  height: var(--lead-sm);
   border-radius: var(--radius-sm);
   background: #262626;
 }
@@ -3251,7 +3262,7 @@ dialog menu {
     position: absolute;
     display: flex;
     align-items: center;
-    height: calc(var(--text-sm) * var(--leading-body));
+    height: var(--lead-sm);
     inset-block-start: var(--space-lg);
     inset-inline-end: var(--space-lg);
   }

@@ -104,6 +104,19 @@ for (const file of files) {
     const value = match[3];
     const line = lineAt(match.index);
 
+    /* A LENGTH BUILT ONLY FROM TOKENS HOLDS NO px LITERAL, so the loop below
+       cannot see it. Three heights read calc(--text-sm * --leading-body) and
+       computed 21, which is the exact number they named, for as long as this
+       guard reported clean.
+
+       The shape is exact rather than a judgement: --leading-* is a RATIO, so
+       multiplying it into a box produces whatever the type step happens to
+       be. --lead-* is the same ratio already snapped. A value that rounds for
+       itself passes, which is how the token declarations get through. */
+    if (/--leading-/.test(value) && !/round\(/.test(value)) {
+      off.push(`${file}:${line}  ${prop}: ${value.trim().replace(/\s+/g, ' ')}   [a leading RATIO sized a box; read a --lead- token]`);
+    }
+
     for (const hit of value.matchAll(/(-?\d*\.?\d+)px/g)) {
       checked += 1;
       const px = Math.abs(Number(hit[1]));
