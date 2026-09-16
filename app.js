@@ -360,6 +360,10 @@ function render() {
   $('#clearFilter').disabled = !filtering();
 
   fitTags();
+
+  /* The row count decides how far the list can travel, so the cut edges are
+     re-read whenever it changes. */
+  edgeFades();
 }
 
 /* A CONTENT CHANGE DISSOLVES, BECAUSE THE ROWS DO NOT SURVIVE IT.
@@ -2812,6 +2816,60 @@ function markStuck() {
 addEventListener('scroll', markStuck, { passive: true });
 addEventListener('resize', markStuck, { passive: true });
 markStuck();
+
+/* EVERY CUT EDGE OF THE LIST, MEASURED HERE AND PLACED BY THE STYLESHEET.
+   This publishes three lengths and has no opinion about which view is on
+   screen. styles.css decides where each one paints.
+
+   A SCROLL TIMELINE WAS THE FIRST ANSWER AND IT SHIPPED TWICE UNSEEN.
+   `animation-timeline` is the one thing in that rule a browser may not have,
+   and without it the fade is absent rather than degraded. A listener runs
+   everywhere.
+
+   THE APP HAS TWO SCROLLERS, NOT ONE. Locked to the viewport the list scrolls
+   inside .table-wrap. Below 950px of height nothing locks, the page scrolls,
+   and the rows pass under a sticky bar instead. Both are read on every
+   scroll, and each falls to zero when nothing sits past that edge. */
+function edgeFades() {
+  const wrap = $('.table-wrap');
+  if (!wrap) return;
+
+  const step = parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue('--space-2xl'),
+  ) || 0;
+
+  /* The scroller's own two edges. A box with nothing to scroll is not cut. */
+  const travel = wrap.scrollHeight - wrap.clientHeight;
+  const scrolls = travel > 1;
+  const top = scrolls ? Math.min(step, wrap.scrollTop) : 0;
+  const end = scrolls ? Math.min(step, Math.max(0, travel - wrap.scrollTop)) : 0;
+  wrap.style.setProperty('--scrolled-top', `${top}px`);
+  wrap.style.setProperty('--scrolled-end', `${end}px`);
+
+  /* The bar the PAGE scrolls rows under. WHICH bar depends on what is
+     rendered: the sort bar belongs to the card view and the filters row can
+     be folded away, so the last sticky one with a height wins. Reading it
+     beats naming it, because a name goes stale the next time one is hidden. */
+  const bars = $$('.filters, .sort-bar');
+  const carrier = bars
+    .filter((el) => el.offsetHeight > 0 && getComputedStyle(el).position === 'sticky')
+    .pop();
+
+  for (const el of bars) {
+    if (el !== carrier) el.style.setProperty('--bar-tail', '0px');
+  }
+  if (!carrier) return;
+
+  /* How far the list's top has travelled past the bar's foot, which is the
+     same ramp the mask uses and reaches zero before anything is covered. */
+  const under = carrier.getBoundingClientRect().bottom - wrap.getBoundingClientRect().top;
+  carrier.style.setProperty('--bar-tail', `${Math.min(step, Math.max(0, under))}px`);
+}
+
+$('.table-wrap').addEventListener('scroll', edgeFades, { passive: true });
+addEventListener('scroll', edgeFades, { passive: true });
+addEventListener('resize', edgeFades, { passive: true });
+edgeFades();
 
 /* ---- the portable file --------------------------------------------------- */
 

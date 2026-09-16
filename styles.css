@@ -1897,9 +1897,19 @@ header {
    Table
    ========================================================================== */
 
+/* THE LIST IS A SURFACE, SO IT TAKES THE SURFACE RADIUS. Their question,
+   17 September 2026: "how come the button corners have a radius but the table
+   corners don't?" Measured: every card reads 8, every control reads 4, and
+   this box read 0. It was the only surface in the app with square corners.
+
+   THE TWO IT OWNS ARE THE BOTTOM PAIR. The filter row's own bottom border is
+   this box's top edge, and a rule spanning the content width has no corners
+   to round. So the sides start square against that rule and close at 8. */
 .table-wrap {
   border: 1px solid var(--line);
   border-top: 0;
+  border-end-start-radius: var(--radius-lg);
+  border-end-end-radius: var(--radius-lg);
   min-height: 260px;
 }
 
@@ -1972,108 +1982,125 @@ header {
 }
 
 /* ==========================================================================
-   The top of the list fades, in the card view alone
+   Every cut edge of the list fades
 
-   A HARD CUT AT THE TOP OF A SCROLLER READS AS A BROKEN ROW. Their
-   instruction, 17 September 2026:
+   A HARD CUT READS AS A BROKEN ROW. Their instruction, 17 September 2026:
 
      can you add a little fading-to-black gradient near the top so that it
      doesn't cut off so harshly? 16-32px height ought to do it
 
-   24 is the step on the grid between the two figures they gave.
+   Then twice more, the same day: both ends, and the table as well as the
+   cards, "within its bounds".
 
-   THE CARD VIEW ONLY, WHICH IS THEIR SECOND INSTRUCTION THE SAME DAY:
+   I SHIPPED IT TWICE AND THEY SAW NEITHER, BECAUSE I ONLY MEASURED THE LOCKED
+   APP. Their words: "still a sharp cut, both at the top and bottom edges.
+   what are you doing wrong?"
 
-     i think the gradient is only needed in reduced-width responsive mode,
-     tablet view and mobile view, not in desktop mode
+   The lock needs 950px of height. Below that the app scrolls as one document
+   and .table-wrap is not a scroller at all, so a rule written for its edges
+   paints nothing. Measured at 900 by 800: the shell is 6456 tall, the page
+   scrolls, and the sort bar is sticky at 146 with an opaque fill. The rows
+   cut at its foot, which is a place neither earlier fix could reach.
 
-   The table view has a sticky heading row that paints the page colour over
-   the same band, so nothing is cut there. This used to sit in the shared
-   block and was covered rather than absent. Covered and absent look the same
-   and are not the same, because a rule nobody can see is a rule that outlives
-   its reason.
+   SO THERE ARE FOUR CUTS, AND TWO MECHANISMS ANSWER THEM.
 
-   THE QUERY IS THE LOCK'S OWN NARROW CLAUSE, word for word. Below 700px wide
-   the app does not lock, so the page scrolls as one document and the list has
-   no top edge to cut against.
+   | where a row is cut                    | what answers it       |
+   |---------------------------------------|-----------------------|
+   | under a sticky bar, the page scrolling | a tail below the bar |
+   | under the sticky headings, table locked | a tail below them   |
+   | the scroller's own top, cards locked   | a mask               |
+   | the scroller's own foot, either view locked | a mask          |
 
-   A SCRIM PAINTS THE PAGE COLOUR, AND THE THING BEING CUT IS A CARD. That was
-   the first version and they rejected it on sight: "still looks like a pretty
-   hard cut to me". The page is #0f0f0f and a card is #181818, so the strongest
-   the scrim can pull is 9 values out of 255. It darkens the card by 3.5% and
-   the cut edge survives underneath, whatever height the band is given.
+   A TAIL IS THE OPAQUE THING CARRYING ON PAST ITS OWN EDGE. It starts at the
+   fill the bar already paints and reaches nothing, so a row emerges from it
+   rather than appearing. A MASK is for an edge with nothing over it: the rows
+   themselves go to transparent and the page shows through.
 
-   SO THE CONTENT FADES, RATHER THAN SOMETHING PAINTING OVER IT. A mask takes
-   the rows themselves to transparent, so the page shows through and there is
-   no edge left to soften. It answers any fill behind it, which a colour
-   cannot.
+   A SCRIM IS NEITHER, AND IT WAS MY FIRST ANSWER. Painting the page colour
+   over a card at partial alpha moves it 9 values out of 255, so the cut
+   survives underneath whatever height the band is given.
 
-   32px, THE TOP OF THE RANGE THEY GAVE, and the ramp is eased rather than
-   linear. A straight ramp ends abruptly and the eye finds that end.
+   EACH ONE IS ZERO WHERE NOTHING SITS PAST IT. Their rule: "make sure it
+   stops existing at the very bottom of the list ... just like it shouldn't
+   exist at the very top of the list either."
 
-   AND IT ARRIVES WITH THE SCROLL. At rest the first card is whole, and fading
-   its top would be a cost for a cut that is not there yet. --list-fade is a
-   registered length so it can interpolate, and at 0 every stop collapses to
-   the same place, which leaves the mask fully opaque.
-
-   THE FALLBACK IS NO FADE. Without a scroll timeline the length stays 0, so a
-   browser that cannot animate it draws exactly what shipped before. An
-   always-on mask would eat the first card's own top edge instead.
+   AND app.js PUBLISHES THE THREE LENGTHS, rather than a scroll timeline.
+   `animation-timeline` is the one thing here a browser may not have, and
+   without it the fade is simply absent, which is the state they reported
+   twice. A scroll listener runs everywhere. This file decides where each
+   number paints, so the script knows nothing about which view is on screen.
    ========================================================================== */
 
-@property --list-fade {
-  syntax: "<length>";
-  inherits: false;
-  initial-value: 0px;
+@property --scrolled-top { syntax: "<length>"; inherits: true; initial-value: 0px }
+@property --scrolled-end { syntax: "<length>"; inherits: true; initial-value: 0px }
+@property --bar-tail { syntax: "<length>"; inherits: true; initial-value: 0px }
+
+/* The mask's top term is the scroller's own travel, except where something
+   opaque already sits at that edge and a tail does the work instead. */
+.table-wrap { --mask-top: var(--scrolled-top) }
+
+.table-wrap {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #0000 0,
+    #0006 calc(var(--mask-top) * 0.38),
+    #000d calc(var(--mask-top) * 0.72),
+    #000 var(--mask-top),
+    #000 calc(100% - var(--scrolled-end)),
+    #000d calc(100% - var(--scrolled-end) * 0.72),
+    #0006 calc(100% - var(--scrolled-end) * 0.38),
+    #0000 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #0000 0,
+    #0006 calc(var(--mask-top) * 0.38),
+    #000d calc(var(--mask-top) * 0.72),
+    #000 var(--mask-top),
+    #000 calc(100% - var(--scrolled-end)),
+    #000d calc(100% - var(--scrolled-end) * 0.72),
+    #0006 calc(100% - var(--scrolled-end) * 0.38),
+    #0000 100%
+  );
 }
 
-@property --list-fade-end {
-  syntax: "<length>";
-  inherits: false;
-  initial-value: 0px;
+/* THE TAIL MIRRORS THE MASK'S RAMP, reversed. The mask reaches nothing at the
+   cut and full at 38% and 72% of the way in. The tail is full at the bar's
+   own edge, so its stops sit at 28% and 62%, which are the same two points
+   measured from the other end. */
+.filters::after,
+.sort-bar::after,
+thead th::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 100%;
+  background: linear-gradient(
+    to bottom,
+    var(--bg) 0,
+    color-mix(in srgb, var(--bg) 87%, transparent) 28%,
+    color-mix(in srgb, var(--bg) 40%, transparent) 62%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
-@media (max-width: 1120px) and (min-width: 700px) and (min-height: 950px) {
-  .table-wrap {
-    mask-image: linear-gradient(
-      to bottom,
-      #0000 0,
-      #0006 calc(var(--list-fade) * 0.38),
-      #000d calc(var(--list-fade) * 0.72),
-      #000 var(--list-fade),
-      #000 calc(100% - var(--list-fade-end)),
-      #000d calc(100% - var(--list-fade-end) * 0.72),
-      #0006 calc(100% - var(--list-fade-end) * 0.38),
-      #0000 100%
-    );
-  }
+/* Which bar carries it is the script's answer, because it depends on what is
+   rendered: the sort bar exists in the card view and the filters row can be
+   folded away. Height 0 is the rest state, so a bar nobody scrolls under
+   paints nothing. */
+.filters::after,
+.sort-bar::after { height: var(--bar-tail) }
 
-  @supports (animation-timeline: scroll()) {
-    .table-wrap {
-      animation: list-top-fade linear both, list-bottom-fade linear both;
-      animation-timeline: scroll(self block), scroll(self block);
-      animation-range: 0 var(--space-2xl), calc(100% - var(--space-2xl)) 100%;
-    }
-  }
+thead th::after { height: 0 }
+
+/* THE TABLE'S HEADINGS ARE THE OPAQUE THING IN THE LOCKED TABLE VIEW, so the
+   top of that scroller takes a tail and the mask's top term goes to zero. A
+   mask there would fade the headings themselves, which nothing is cutting. */
+@media (min-width: 1121px) and (min-height: 700px) {
+  .table-wrap { --mask-top: 0px }
+  thead th::after { height: var(--scrolled-top) }
 }
-
-/* Each edge is 0 where there is nothing past it, which is their rule for both:
-   "make sure it stops existing at the very bottom of the list ... just like it
-   shouldn't exist at the very top of the list either."
-
-   The top one runs FORWARD over the first 32px of scroll. The bottom one runs
-   BACKWARD over the last 32px, so it is full while rows remain below and gone
-   on arrival. Both hold their end value outside their range, which is what
-   `both` buys. */
-@keyframes list-top-fade { to { --list-fade: var(--space-2xl) } }
-
-@keyframes list-bottom-fade {
-  from { --list-fade-end: var(--space-2xl) }
-  to { --list-fade-end: 0px }
-}
-
-/* ==========================================================================
-   The scrollbar
 
    ALWAYS DRAWN, NEVER OVERLAID. `overflow-y: scroll` keeps the track on
    screen with a short list, and styling the WebKit pseudo-elements is what
@@ -3163,7 +3190,9 @@ dialog menu {
      One DOM either way. Each cell carries data-label, which is what names
      the fact once the header row is gone. */
 
-  .table-wrap { overflow-x: visible; border: 0; min-height: 0 }
+  /* The card view draws no box, so there are no corners to round. Left on, a
+     radius on a scroller clips whatever reaches its foot. */
+  .table-wrap { overflow-x: visible; border: 0; border-radius: 0; min-height: 0 }
   /* THE COLUMNS GO, OR THE TABLE KEEPS A WIDTH NO ROW USES. The rows here
      are grid cards and render none of the eight columns, but the colgroup
      still declares them and fixed layout still honours the sum. Measured at
