@@ -72,6 +72,19 @@
   --line: #303030;
   --line-subtle: #282828;
 
+  /* THE SCROLL THUMB IS A THREE-STATE RAMP, DERIVED FROM A CONTRAST TARGET
+     RATHER THAN PICKED. Measured against --bg #0f0f0f: 1.43, 2.20 and 3.50.
+     Rest reads as a hairline, which is what subtle means here. Hover is a
+     step nobody has to hunt for. Held, the thumb is the loudest neutral the
+     page draws outside its text.
+
+     Rest IS --line, so the thumb at rest matches the edge it runs beside.
+     The other two have no token on the neutral ramp: it steps from #363636
+     to #8f8f8f, and both ends are wrong for a hover. */
+  --scroll-rest: #303030;
+  --scroll-hover: #4c4c4c;
+  --scroll-held: #6a6a6a;
+
   /* A LINE IS CHOSEN AGAINST THE GROUND IT SITS ON, and a dropdown panel is
      one step up from a card. --line reads 1.345 on --surface and only 1.235
      on --surface-raised, which is the floor. #363636 reads 1.348 there, so a
@@ -237,11 +250,22 @@
   :root { --control-floor: var(--target-touch) }
 }
 
+/* MOTION STOPS. A CROSS-FADE IS NOT MOTION, AND THE BLUNT FORM KILLED BOTH.
+   This block read `transition-duration: 1ms !important` on every element.
+
+   macOS carries Reduce Motion as a SYSTEM setting, so one switch turned every
+   animation off in every browser on that machine. They reported exactly that.
+
+   Counted in this file: 3 things travel and 31 rules fade. So the blunt form
+   spent the whole interface to stop three. The travels are the chevron's
+   rotation, the pill's glide between tabs, and the toast's rise. The last one
+   and the skeleton's pulse are already gated on `no-preference`.
+
+   Replacing a slide with a cross-fade is what the platform itself does under
+   this setting, so the fades stay and nothing moves. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    transition-duration: 1ms !important;
-    animation-duration: 1ms !important;
-  }
+  .multi-chevron { transition-property: none }
+  .tab[aria-selected="true"] { view-transition-name: none }
 }
 
 /* ==========================================================================
@@ -270,7 +294,7 @@
    THIS IS A LIST, AND A LIST APPROVES WHATEVER NOBODY THOUGHT OF. It is the
    set of elements `app.js` writes `hidden` on, which is a question about the
    script rather than about the DOM, so no selector can ask it. Grep
-   `.hidden =` in app.js before adding a panel: there are thirteen here and
+   `.hidden =` in app.js before adding a panel: there are fourteen here and
    the grep must return the same set.
 
    NOT A GLOBAL RULE. Putting display in the transition every element gets
@@ -279,7 +303,7 @@
    for at a width nobody stops at. */
 #listRuntime, #searchClear, #state, #tagSuggest, #tagBulkPanel,
 #addStatusDismiss, #typedConfirm, #importPanel, #driveConnect,
-#driveGroup, #driveAlert, #tagFilterList, #exportMenu {
+#driveGroup, #driveAlert, #tagFilterList, #exportMenu, #filterPanel {
   transition:
     opacity var(--duration) var(--ease),
     display var(--duration) allow-discrete;
@@ -288,7 +312,8 @@
 #listRuntime[hidden], #searchClear[hidden], #state[hidden], #tagSuggest[hidden],
 #tagBulkPanel[hidden], #addStatusDismiss[hidden], #typedConfirm[hidden],
 #importPanel[hidden], #driveConnect[hidden], #driveGroup[hidden],
-#driveAlert[hidden], #tagFilterList[hidden], #exportMenu[hidden] {
+#driveAlert[hidden], #tagFilterList[hidden], #exportMenu[hidden],
+#filterPanel[hidden] {
   opacity: 0;
 }
 
@@ -298,7 +323,8 @@
   #addStatusDismiss:not([hidden]), #typedConfirm:not([hidden]),
   #importPanel:not([hidden]), #driveConnect:not([hidden]),
   #driveGroup:not([hidden]), #driveAlert:not([hidden]),
-  #tagFilterList:not([hidden]), #exportMenu:not([hidden]) {
+  #tagFilterList:not([hidden]), #exportMenu:not([hidden]),
+  #filterPanel:not([hidden]) {
     opacity: 0;
   }
 }
@@ -379,8 +405,9 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
    wins. The shorthand in those 29 rules replaces this outright rather than
    fighting it.
 
-   The reduced-motion block below already answers `!important` on every
-   element, so this needs no second guard. */
+   IT NEEDS NO REDUCED-MOTION GUARD, and the reason is the property list
+   above rather than a second rule. Nothing here changes a position or a
+   size, so there is no motion to reduce. */
 :where(*, *::before, *::after) {
   transition-property: color, background-color, border-color, outline-color,
     box-shadow, opacity, fill, stroke;
@@ -1264,6 +1291,48 @@ header {
   letter-spacing: var(--track-tight);
 }
 
+/* THE FUNNEL ONLY EXISTS WHERE THE ROW STACKS. Above 1120 the filter row is
+   61px on one line and folding it saves a reader nothing. Below it the row
+   is 236, which is more than the add card and the header together.
+
+   IT MARKS AN ACTIVE FILTER, because a folded panel hides the one thing a
+   reader needs to know about it. Without this the list can be showing 4 of
+   34 rows with nothing on screen saying why. The fill is the one a chosen
+   tab already uses, so the two read as one state and not as two. */
+.filter-toggle { display: none }
+
+/* THE FLOOR IS A REACH HERE, NOT A HEIGHT, which is the rule the tab pill
+   beside it already follows. At `max(28, --control-floor)` a finger promoted
+   this to 44 against a 17.00px cap band: 9.00 above the cap line and 18.00
+   below the baseline. They saw it and called it huge.
+
+   36 IS THE TITLE'S OWN LINE BOX, which is what sized it. The row aligns its
+   items to the line's top, so a control shorter than the line sits high: 28
+   measured 3.50px above the band's centre and 36 measures 0.50. That is under
+   the whole pixel a repair needs, and it needs no transform to get there.
+
+   The ::after costs no layout, so the target is 44 and the box is 36. */
+.filter-toggle {
+  position: relative;
+  height: var(--control-md);
+}
+
+.filter-toggle::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2));
+}
+
+.filter-toggle[data-on] {
+  border-color: var(--line-raised);
+  background: var(--row-selected);
+  color: var(--text);
+}
+
+@media (max-width: 1120px) {
+  .filter-toggle { display: inline-flex }
+}
+
 /* ==========================================================================
    Filters
    Two groups on one row. The gap between them is twice the gap inside them,
@@ -1746,6 +1815,105 @@ header {
   border-top: 0;
   min-height: 260px;
 }
+
+/* ==========================================================================
+   The list scrolls, the app does not
+
+   The page used to scroll as one document, and three bars answered that with
+   `position: sticky`. Locked to the viewport there is nothing to stick to:
+   the chrome cannot move, so it does not need pinning.
+
+   TWO FLOORS, AND BOTH ARE SUMS. Below either one the page scrolls exactly
+   as it did, because a locked app with no room for its list is worse than a
+   long page.
+
+   WIDTH. At 375 the chrome above the table measured 706px of an 812px
+   viewport, against 339 at 1265. The filter row is 236 of that difference,
+   and the card view is where the row stacks. 1120 is the width that already
+   declares it, so this reuses a threshold rather than adding one.
+
+   HEIGHT. 339 above the table, 36 for the footer and 48 of shell padding is
+   423, and the wrapper states its own 260px floor. 683 rounds to 700.
+
+   THE FOOTER STAYS OUT OF THE SCROLLER, so the scrollbar is the list's and
+   nothing else's. It costs 36px at 1265. */
+@media (min-width: 1121px) and (min-height: 700px) {
+  .shell {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+  }
+
+  .add-card, .filters, .sort-bar { position: static }
+
+  /* It painted the gap the stuck card scrolled through. Nothing scrolls. */
+  .shell::before { content: none }
+
+  /* `min-height: 0` is what lets a flex item shrink under its own content.
+     The wrapper's own 260px floor would otherwise push the column past the
+     viewport and give the document its scrollbar back. */
+  .table-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: scroll;
+  }
+
+  /* THE HEADINGS ARE NOW INSIDE A SCROLLER, so they pin to its top. They
+     paint nothing of their own, and the rows would read straight through. */
+  thead th {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: var(--layer-raised);
+    background: var(--bg);
+  }
+}
+
+/* ==========================================================================
+   The scrollbar
+
+   ALWAYS DRAWN, NEVER OVERLAID. `overflow-y: scroll` keeps the track on
+   screen with a short list, and styling the WebKit pseudo-elements is what
+   turns an overlay scrollbar into a classic one on macOS. `scrollbar-gutter`
+   holds the width either way, so an empty list does not move the columns.
+
+   AN 8px HANDLE IN A 12px TRACK. Their number. The 2px transparent border
+   plus `background-clip: padding-box` is what insets the thumb without a
+   second element: 12 - 4 = 8, and the handle stands clear of the edge it
+   runs beside.
+
+   FIREFOX TAKES ONE COLOUR AND ONE WIDTH. `scrollbar-width: thin` is not a
+   length, and `scrollbar-color` has no state. So the hover and the held
+   states are WebKit and Blink only, and the rest colour is what Firefox
+   draws throughout.
+
+   AND THOSE TWO PROPERTIES MUST NOT REACH BLINK AT ALL. Declared globally,
+   Chrome takes them and DISREGARDS every `::-webkit-scrollbar` rule below.
+   Measured that way: a 10px bar with no hover and no held state, against the
+   12 asked for. `@supports selector()` is the split, because the pseudo-
+   element's own support is exactly the question. */
+.table-wrap { scrollbar-gutter: stable }
+
+@supports not selector(::-webkit-scrollbar) {
+  .table-wrap {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-rest) transparent;
+  }
+}
+
+.table-wrap::-webkit-scrollbar { width: 12px; height: 12px }
+.table-wrap::-webkit-scrollbar-track { background: transparent }
+
+.table-wrap::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: var(--radius-pill);
+  background-color: var(--scroll-rest);
+  background-clip: padding-box;
+}
+
+/* A PSEUDO-ELEMENT SCROLLBAR TAKES NO TRANSITION, so these two snap. The
+   duration token reaches every other control and cannot reach this one. */
+.table-wrap::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-hover) }
+.table-wrap::-webkit-scrollbar-thumb:active { background-color: var(--scroll-held) }
 
 /* FIXED LAYOUT, SO THE TABLE IS EXACTLY ITS CONTAINER AT EVERY WIDTH.
 

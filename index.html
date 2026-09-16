@@ -48,6 +48,7 @@
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14" vector-effect="non-scaling-stroke"/><path d="M5 12h14" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M22 3H2l8 9.46V19l4 2v-8.54z" vector-effect="non-scaling-stroke"/></symbol>
 </defs></svg>
 
 <main class="shell">
@@ -251,6 +252,18 @@
       <p id="listRuntime" class="list-runtime" hidden></p>
     </div>
 
+    <!-- THE FILTER ROW COSTS 236px OF A 812px PHONE, and it is the tallest
+         thing on that screen after the list itself. This folds it behind one
+         control, on the title's own row.
+
+         IT IS NOT IN THE LIVE REGION. .list-words carries role="status", and
+         a control inside one is announced again on every count change. -->
+    <button class="btn btn-icon filter-toggle" id="filterToggle" type="button"
+            aria-expanded="false" aria-controls="filterPanel"
+            title="Show filters" aria-label="Show filters">
+      <svg class="icon" aria-hidden="true"><use href="#i-filter"/></svg>
+    </button>
+
     <div class="tabs" role="tablist" aria-label="Which list">
       <button class="tab" id="tab-youtube" type="button" role="tab" data-tab="youtube"
               aria-selected="true" aria-controls="listPanel">
@@ -270,7 +283,7 @@
     </div>
   </section>
 
-  <section class="filters">
+  <section class="filters" id="filterPanel">
     <!-- A LABEL AND WHAT IT NAMES ARE ONE GROUP, so they are one element.
          Flex cannot give one pair its own gap, and the row's comment has
          claimed 16 against 8 while every painted gap measured 16. A label

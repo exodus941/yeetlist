@@ -18,7 +18,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260915-9';
+const VERSION = '260916-1';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -182,11 +182,32 @@ function load() {
   tombstones = parsed.deleted;
 }
 
+/* A VIDEO YOUTUBE NO LONGER SERVES CARRIES #removed. The refresh already
+   marks such a record `dead`, and the row already shows an Unavailable chip.
+   The tag filter reads TAGS, so a reader could see every dead row and had no
+   way to select them.
+
+   IT IS DERIVED FROM THE FLAG, NEVER TYPED. So it appears the moment the
+   refresh condemns a video and goes the moment one comes back, and a library
+   that died before this shipped gains it on the next load. The name is
+   reserved as a consequence: a hand-typed #removed on a live video does not
+   survive the next pass, because the flag is the only writer.
+
+   Stored bare, like every tag. hashed() puts the # on for the screen. */
+const DEAD_TAG = 'removed';
+
 /* BOTH SHAPES GET THE SAME ORDER. The bare array is the first version's, and
    its tags are in whatever order they were typed. Sorting here is what puts
    every stored record in order on the first load after this ships, without
-   a migration step anybody has to remember to run. */
-const ordered = (v) => (v.tags?.length ? { ...v, tags: sortTags(v.tags) } : v);
+   a migration step anybody has to remember to run.
+
+   EVERY DOOR THAT WRITES A TAGS ARRAY CALLS THIS, which is what makes one
+   writer out of five: the load, the import merge, the refresh, and the two
+   adders. */
+const ordered = (v) => {
+  const kept = (v.tags || []).filter((t) => t.toLowerCase() !== DEAD_TAG);
+  return { ...v, tags: sortTags(v.dead ? [...kept, DEAD_TAG] : kept) };
+};
 
 /* Accepts the bare array the first version wrote, and the object this one
    writes. A stored shape that stops being read is a watchlist that vanishes. */
@@ -242,6 +263,11 @@ const bareCount = () => inTab().filter(bare).length;
    that condition: the menu and the prune both read it. */
 const bareOffered = () => bareCount() > 0 && allTags().length > 0;
 
+/* ONE READER FOR "SOMETHING IS FILTERING". Four things ask it: the count's
+   wording, the empty state, the Clear button, and the funnel's own mark.
+   It was an expression inside render(), so the funnel could not see it. */
+const filtering = () => activeTags.size > 0 || untaggedOnly || Boolean(searchTerm);
+
 /* A tag is stored bare and shown with a hash. Keeping the hash out of storage
    means no migration, no chance of a double hash, and an export whose JSON
    payload does not change shape.
@@ -289,13 +315,13 @@ function render() {
   const spec = LISTS[tab];
   const held = inTab();
   const filtered = filteredVideos();
-  const filtering = activeTags.size > 0 || untaggedOnly || Boolean(searchTerm);
 
   renderChrome(spec);
+  renderFilterToggle();
 
   const noun = spec.noun[held.length === 1 ? 0 : 1];
   const head = spec.head ? spec.head + ' ' : '';
-  $('#listCount').textContent = filtering
+  $('#listCount').textContent = filtering()
     ? `${filtered.length} of ${held.length} ${head}${noun}`
     : `${held.length} ${head}${noun}`;
 
@@ -314,7 +340,7 @@ function render() {
 
   $('#rows').innerHTML = listState === 'loading' ? skeleton() : filtered.map(row).join('');
 
-  renderState(filtered.length, filtering);
+  renderState(filtered.length, filtering());
   renderTagFilter();
   renderSortState();
 
@@ -331,7 +357,7 @@ function render() {
      can see and still something to clear. */
   $('#searchClear').hidden = !$('#search').value;
 
-  $('#clearFilter').disabled = !filtering;
+  $('#clearFilter').disabled = !filtering();
 
   fitTags();
 }
@@ -356,14 +382,33 @@ function render() {
    many times a second, and the first paint has no previous picture. Those
    call paint() rather than this.
 
-   A READER WHO ASKED FOR LESS MOTION GETS NONE. The media query cannot reach
-   a view transition, whose animation lives on pseudo-elements rather than on
-   any element this call can see. */
+   IT RUNS UNDER REDUCED MOTION, AND IT USED TO RETURN EARLY THERE. The root
+   pair animates opacity alone, so the whole page cross-fades and no box
+   moves. A reader who asked for less motion is asking about travel.
+
+   The one thing here that DID travel is the tab pill, which the stylesheet
+   answers by dropping its `view-transition-name` under that query. Without a
+   second name the browser has one rectangle and nothing to glide between. */
+/* A SKIPPED TRANSITION REJECTS `ready`, AND NOBODY WAS CATCHING IT. The
+   browser skips one when a second starts while the first is in flight, and
+   again when the document is not being painted. Both are normal, and the
+   repaint still lands, because `render()` runs in the callback either way.
+
+   Measured: three `InvalidStateError: Transition was aborted because of
+   invalid state` in the console on one load. An uncaught rejection a reader
+   can open the console and see is a defect whatever caused it. */
 function dissolve(after) {
   const run = () => { render(); if (after) after(); };
-  const quiet = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (quiet || typeof document.startViewTransition !== 'function') return run();
-  return document.startViewTransition(run);
+  if (typeof document.startViewTransition !== 'function') return run();
+  const transition = document.startViewTransition(run);
+  transition.ready.catch(() => {});
+  transition.finished.catch(() => {});
+  transition.updateCallbackDone.catch((error) => {
+    /* THIS ONE IS NOT NORMAL. It rejects when render() itself threw, and
+       swallowing that would hide a broken list behind a quiet screen. */
+    console.error('YeeTlist: render failed inside a view transition', error);
+  });
+  return transition;
 }
 
 /* A SELECTION CHANGE REPAINTS THE SELECTION, NEVER THE LIST.
@@ -617,8 +662,8 @@ const CELLS = {
       ${v.dead ? `<span class="dead-chip">${icon('alert')}Unavailable</span>` : ''}
       ${(v.tags || []).map((t) => `<span class="tag-chip">
         <span>${escape(hashed(t))}</span>
-        <button class="tag-remove" type="button" data-id="${escape(v.id)}" data-tag="${escape(t)}"
-                aria-label="Remove ${escape(hashed(t))} from ${escape(v.title)}">${icon('x')}</button>
+        ${t === DEAD_TAG ? '' : `<button class="tag-remove" type="button" data-id="${escape(v.id)}" data-tag="${escape(t)}"
+                aria-label="Remove ${escape(hashed(t))} from ${escape(v.title)}">${icon('x')}</button>`}
       </span>`).join('')}
       <span class="tag-add">
         <button class="tag-add-btn" type="button" aria-label="Add a tag to ${escape(v.title)}"
@@ -1017,7 +1062,7 @@ function applyPendingTags() {
   const added = pendingTags.length;
 
   videos = videos.map((v) =>
-    ids.has(v.id) ? { ...v, tags: mergeTags(v.tags || [], pendingTags) } : v);
+    ids.has(v.id) ? ordered({ ...v, tags: mergeTags(v.tags || [], pendingTags) }) : v);
 
   save();
   pendingTags = [];
@@ -1032,7 +1077,9 @@ function clearSelectedTags() {
   const touched = videos.filter((v) => ids.has(v.id) && (v.tags || []).length).length;
   if (!touched) return;
 
-  videos = videos.map((v) => (ids.has(v.id) ? { ...v, tags: [] } : v));
+  /* CLEAR IS ABOUT WHAT SOMEBODY TYPED. #removed is derived from the dead
+     flag, so ordered() puts it straight back on a video that is still gone. */
+  videos = videos.map((v) => (ids.has(v.id) ? ordered({ ...v, tags: [] }) : v));
   save();
 
   /* A tag whose last video just lost it is retired, so a filter on it must go
@@ -1106,7 +1153,7 @@ function addTags(id, raw) {
 
   const seen = new Map((video.tags || []).map((t) => [t.toLowerCase(), t]));
   tags.forEach((tag) => { if (!seen.has(tag.toLowerCase())) seen.set(tag.toLowerCase(), tag); });
-  video.tags = sortTags([...seen.values()]);
+  video.tags = ordered({ ...video, tags: [...seen.values()] }).tags;
 
   save();
 
@@ -1175,9 +1222,9 @@ async function refreshMetadata() {
          public again. Clearing the flag costs nothing and a stale one is a
          row the reader distrusts for no reason. */
       const { dead, ...rest } = video;
-      return { ...rest, ...fresh, tags: video.tags, addedAt: video.addedAt };
+      return ordered({ ...rest, ...fresh, tags: video.tags, addedAt: video.addedAt });
     }
-    return trustworthy ? { ...video, dead: true } : video;
+    return trustworthy ? ordered({ ...video, dead: true }) : video;
   });
 
   save();
@@ -1393,7 +1440,7 @@ function merge(local, incoming) {
 
   const put = (video) => {
     const existing = byId.get(video.id);
-    if (!existing) return byId.set(video.id, { ...video, tags: sortTags(video.tags || []) });
+    if (!existing) return byId.set(video.id, ordered(video));
 
     const richer = (a, b) =>
       (a.duration && a.duration !== '—' ? 1 : 0) + (a.uploadedAt ? 1 : 0)
@@ -1404,11 +1451,11 @@ function merge(local, incoming) {
     [...(existing.tags || []), ...(video.tags || [])]
       .forEach((t) => { if (!seen.has(t.toLowerCase())) seen.set(t.toLowerCase(), t); });
 
-    byId.set(video.id, {
+    byId.set(video.id, ordered({
       ...base,
-      tags: sortTags([...seen.values()]),
+      tags: [...seen.values()],
       addedAt: [existing.addedAt, video.addedAt].filter(Boolean).sort()[0] || base.addedAt,
-    });
+    }));
   };
 
   local.videos.forEach(put);
@@ -2272,6 +2319,48 @@ const clearFilters = () => {
 };
 
 $('#clearFilter').addEventListener('click', clearFilters);
+
+/* ---- the filter panel folds on a phone ---------------------------------- */
+
+/* THE PANEL IS 236px OF AN 812px SCREEN, so it folds behind one control on
+   the title's row. It holds the search field as well as the tag menu, which
+   is what the reader sees fold.
+
+   THE WIDTH DECIDES WHETHER IT CAN FOLD AT ALL, and only CSS knows that
+   width, so the query is asked here rather than guessed from innerWidth. The
+   panel is shown outright above it: `hidden` is a script attribute and no
+   media query can lift it, so leaving a folded panel behind on a resize
+   would hide the filters on a desktop with nothing to open them.
+
+   ONE STATE, TWO WRITERS AVOIDED. render() calls this, so the mark cannot
+   disagree with the list it describes. */
+const NARROW = matchMedia('(max-width: 1120px)');
+let filtersOpen = false;
+
+function renderFilterToggle() {
+  const panel = $('#filterPanel');
+  const btn = $('#filterToggle');
+  const folded = NARROW.matches && !filtersOpen;
+
+  panel.hidden = folded;
+  btn.setAttribute('aria-expanded', String(!folded));
+
+  const label = folded ? 'Show filters' : 'Hide filters';
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
+
+  /* A FOLDED PANEL HIDES ITS OWN STATE. Without this the list can show 4 of
+     34 rows and nothing on screen says which filter did it. */
+  btn.toggleAttribute('data-on', filtering());
+}
+
+$('#filterToggle').addEventListener('click', () => {
+  filtersOpen = !filtersOpen;
+  renderFilterToggle();
+  if (filtersOpen) $('#search').focus();
+});
+
+NARROW.addEventListener('change', renderFilterToggle);
 
 /* ---- tag multiselect ---------------------------------------------------- */
 
