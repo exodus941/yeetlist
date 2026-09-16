@@ -442,19 +442,34 @@
    flipped to none. Both ends move together now, and the box reaches 0.
    ========================================================================== */
 @media (max-width: 1120px) {
+  /* THE FADE IS THE CONTENT'S, NOT THE BOX'S. Their report: the band's rule
+     "is now disappearing when the transition happens, and popping into
+     existence at the end of it."
+
+     OPACITY APPLIES TO AN ELEMENT AND EVERYTHING IT PAINTS, its pseudo-
+     elements with it. So the panel fading took its own rule with it, and a
+     pure ease-out spends the fade early: under 0.31 at 125ms of 500. The line
+     was gone for three quarters of a slide it is supposed to ride.
+
+     The clipper fades and the panel's box does not. The rule then travels at
+     full strength and lands on the bar's own line, which is what it hands over
+     to. Everything inside still cross-fades. */
   #filterPanel {
     transition:
-      opacity var(--duration-fold) var(--ease-out),
       grid-template-rows var(--duration-fold) var(--ease-out),
       display var(--duration-fold) allow-discrete;
   }
 
-  #filterPanel[hidden] { grid-template-rows: 0fr }
+  #filterPanel[hidden] { grid-template-rows: 0fr; opacity: 1 }
+
+  .filters-fold { transition: opacity var(--duration-fold) var(--ease-out) }
+  #filterPanel[hidden] .filters-fold { opacity: 0 }
 
   /* An element that was display: none has no previous style, so the entering
      fold needs a value to come FROM. */
   @starting-style {
     #filterPanel:not([hidden]) { grid-template-rows: 0fr }
+    #filterPanel:not([hidden]) .filters-fold { opacity: 0 }
   }
 }
 
