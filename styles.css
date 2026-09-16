@@ -184,15 +184,29 @@
   --leading-tight: 1.2;
   --leading-body: 1.5;
 
-  /* THE SAME RATIO, SNAPPED TO THE GRID. 1.5 produced 15, 18, 21 and 30 at
-     four of the six type steps, and 21 is the one they named. Rounded: 16,
-     20, 20, 24, 32, 36. The two that were already on the grid do not move.
+  /* THE SAME RATIO, SNAPPED TO THE HALF-STEP. 1.5 over the six type steps
+     gives 15, 18, 21, 24, 30 and 36, and 21 is the one they named. At 2px
+     that reads 16, 18, 22, 24, 30 and 36.
+
+     THEY CHOSE IT FROM A DRAWING, 17 September 2026, after the ladders were
+     rendered side by side on the shipped components: "let's go with 2px".
+
+     A 4px SNAP WAS THE FIRST ANSWER AND IT MOVED THREE OF THE SIX. It gave
+     16, 20, 20, 24, 32, 36, which loosened 12px from 18 to 20 and tightened
+     14px from 21 to 20. The ratios then ran 1.43 to 1.67 against 1.50 to 1.60
+     here, so the half-step is nearer the ratio everywhere.
+
+     WHAT IT COSTS, MEASURED ON THE SHIPPED LIST. A five-line run at 14px goes
+     100px to 110. The same run at 12px goes 100 to 90. A card goes 166 to 164,
+     because its grid rows ARE the line boxes: 20 20 20 36 becomes 22 18 18 36.
+     A table row does not move at all, at 53 either way, because a 28px chip
+     sets that height rather than the line.
 
      THE em RESOLVES WHERE THE TOKEN IS USED, because a custom property
      substitutes as tokens and the declaration is parsed on that element. So
      one value serves every size, exactly as the ratio did. */
-  --lead-tight: round(calc(var(--leading-tight) * 1em), 4px);
-  --lead-body: round(calc(var(--leading-body) * 1em), 4px);
+  --lead-tight: round(calc(var(--leading-tight) * 1em), 2px);
+  --lead-body: round(calc(var(--leading-body) * 1em), 2px);
 
   /* AND ONE FIXED LENGTH, FOR A BOX THAT STANDS IN FOR A SMALL RUN. The two
      above read 1em, so they answer whichever element uses them. Three boxes
@@ -202,8 +216,11 @@
 
      All three wrote calc(--text-sm * --leading-body) and got the UNSNAPPED
      21, which is the exact number they named. The grid guard could not see
-     it, because a length built only from tokens holds no px literal. */
-  --lead-sm: round(calc(var(--text-sm) * var(--leading-body)), 4px);
+     it, because a length built only from tokens holds no px literal.
+
+     IT SNAPS THE SAME WAY THE OTHER TWO DO, so it reads 22 and cannot drift
+     from the line it stands in for. */
+  --lead-sm: round(calc(var(--text-sm) * var(--leading-body)), 2px);
 
   /* The body face's cap height, as a share of its size. Measured from painted
      ink at 400px, where whole-pixel rounding cannot swamp it. Onest is
@@ -1980,39 +1997,80 @@ header {
    the app does not lock, so the page scrolls as one document and the list has
    no top edge to cut against.
 
-   A STICKY PSEUDO-ELEMENT WITH A NEGATIVE MARGIN, so it pins to the
-   scroller's top edge and costs no layout. `z-index: 1` orders it against its
-   own siblings and never joins the published scale.
+   A SCRIM PAINTS THE PAGE COLOUR, AND THE THING BEING CUT IS A CARD. That was
+   the first version and they rejected it on sight: "still looks like a pretty
+   hard cut to me". The page is #0f0f0f and a card is #181818, so the strongest
+   the scrim can pull is 9 values out of 255. It darkens the card by 3.5% and
+   the cut edge survives underneath, whatever height the band is given.
 
-   AND IT ARRIVES WITH THE SCROLL. A band that is always on washes the first
-   card's own top edge at rest, which is a cost for a cut that is not there
-   yet. It is opacity alone, so nothing travels.
+   SO THE CONTENT FADES, RATHER THAN SOMETHING PAINTING OVER IT. A mask takes
+   the rows themselves to transparent, so the page shows through and there is
+   no edge left to soften. It answers any fill behind it, which a colour
+   cannot.
+
+   32px, THE TOP OF THE RANGE THEY GAVE, and the ramp is eased rather than
+   linear. A straight ramp ends abruptly and the eye finds that end.
+
+   AND IT ARRIVES WITH THE SCROLL. At rest the first card is whole, and fading
+   its top would be a cost for a cut that is not there yet. --list-fade is a
+   registered length so it can interpolate, and at 0 every stop collapses to
+   the same place, which leaves the mask fully opaque.
+
+   THE FALLBACK IS NO FADE. Without a scroll timeline the length stays 0, so a
+   browser that cannot animate it draws exactly what shipped before. An
+   always-on mask would eat the first card's own top edge instead.
    ========================================================================== */
 
+@property --list-fade {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --list-fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
 @media (max-width: 1120px) and (min-width: 700px) and (min-height: 950px) {
-  .table-wrap::before {
-    content: "";
-    position: sticky;
-    z-index: 1;
-    inset-block-start: 0;
-    display: block;
-    height: var(--space-xl);
-    margin-block-end: calc(var(--space-xl) * -1);
-    background: linear-gradient(var(--bg), transparent);
-    pointer-events: none;
+  .table-wrap {
+    mask-image: linear-gradient(
+      to bottom,
+      #0000 0,
+      #0006 calc(var(--list-fade) * 0.38),
+      #000d calc(var(--list-fade) * 0.72),
+      #000 var(--list-fade),
+      #000 calc(100% - var(--list-fade-end)),
+      #000d calc(100% - var(--list-fade-end) * 0.72),
+      #0006 calc(100% - var(--list-fade-end) * 0.38),
+      #0000 100%
+    );
   }
 
   @supports (animation-timeline: scroll()) {
-    .table-wrap::before {
-      opacity: 0;
-      animation: list-top-fade linear both;
-      animation-timeline: scroll(nearest block);
-      animation-range: 0 var(--space-xl);
+    .table-wrap {
+      animation: list-top-fade linear both, list-bottom-fade linear both;
+      animation-timeline: scroll(self block), scroll(self block);
+      animation-range: 0 var(--space-2xl), calc(100% - var(--space-2xl)) 100%;
     }
   }
 }
 
-@keyframes list-top-fade { to { opacity: 1 } }
+/* Each edge is 0 where there is nothing past it, which is their rule for both:
+   "make sure it stops existing at the very bottom of the list ... just like it
+   shouldn't exist at the very top of the list either."
+
+   The top one runs FORWARD over the first 32px of scroll. The bottom one runs
+   BACKWARD over the last 32px, so it is full while rows remain below and gone
+   on arrival. Both hold their end value outside their range, which is what
+   `both` buys. */
+@keyframes list-top-fade { to { --list-fade: var(--space-2xl) } }
+
+@keyframes list-bottom-fade {
+  from { --list-fade-end: var(--space-2xl) }
+  to { --list-fade-end: 0px }
+}
 
 /* ==========================================================================
    The scrollbar
