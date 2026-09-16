@@ -2411,8 +2411,26 @@ function renderFilterToggle() {
   btn.toggleAttribute('data-on', filtering());
 }
 
+/* THE PANEL IS MARKED FOR THE LENGTH OF THE FOLD, and nothing else needs it.
+   The band's rule is drawn by the panel and rides up with it, so the sort bar
+   must not draw its own until the panel has gone. `hidden` flips on the press
+   and `display` flips 500ms later, so neither one names that moment.
+
+   A RUN THAT ENDS AT `display: none` DISPATCHES NO `transitionend`, which is
+   why this is a timer. The duration is read off the element, so the stylesheet
+   stays the only place it is written. */
+let foldMark = null;
+
+function markFolding(panel) {
+  clearTimeout(foldMark);
+  panel.dataset.folding = '';
+  const ms = parseFloat(getComputedStyle(panel).transitionDuration) * 1000 || 0;
+  foldMark = setTimeout(() => delete panel.dataset.folding, ms);
+}
+
 $('#filterToggle').addEventListener('click', () => {
   filtersOpen = !filtersOpen;
+  if (!filtersOpen) markFolding($('#filterPanel'));
   renderFilterToggle();
   if (filtersOpen) $('#search').focus();
 });

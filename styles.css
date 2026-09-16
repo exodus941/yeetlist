@@ -3388,11 +3388,34 @@ dialog menu {
      The RULE needs to know what follows, which is what :has can answer. A
      browser without it draws a second line between the two rows, 152px from
      the first, which is a divider rather than a fault. */
-  .filters:not([hidden]) {
-    background:
-      linear-gradient(var(--line), var(--line)) 0 calc(100% - var(--space-md)) /
-        100% 1px no-repeat,
-      var(--bg);
+  /* THE RULE TRAVELS WITH THE PANEL, SO IT IS A PSEUDO-ELEMENT AND NOT A
+     BACKGROUND. Their report: "why does the separator line blink ahead of the
+     other stuff when collapsing the filter? shouldn't it slide back up with
+     the others?"
+
+     It blinked because the OWNER swapped at the press. The sort bar's own line
+     came back the instant `hidden` was set, 189px above where the panel's line
+     was still sitting, and the panel then slid up to meet a line already at its
+     destination.
+
+     A BACKGROUND IS CLIPPED TO ITS OWN BOX AND AN ABSOLUTE CHILD IS NOT. At a
+     12px track the gradient's 1px sat above the box and stopped painting, so
+     the line would have vanished 12px short whichever way it was keyed. This
+     one paints at every height, and at a zero track it lands exactly on the
+     sort bar's own line. So the handover is a coincidence of position rather
+     than a swap anybody can see. */
+  .filters::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    /* PLACED BY ITS TOP, so it lands on the same pixel the bar's own line
+       uses. The bar states 100% - 12px as a background position, which is the
+       line's TOP edge. Stated as inset-block-end the same 12 puts the line's
+       BOTTOM there, and the handover hopped 1px. */
+    inset-block-start: calc(100% - var(--space-md));
+    height: 1px;
+    background: var(--line);
+    pointer-events: none;
   }
 
   /* A DESCENDANT, because the clipper now stands between the two. */
@@ -3400,7 +3423,13 @@ dialog menu {
     padding-block-end: calc(var(--space-md) * 2 + 1px);
   }
 
-  .sort-bar:has(+ .filters:not([hidden])) { background: var(--bg) }
+  /* AND THE BAR HOLDS ITS OWN LINE BACK FOR THE WHOLE RUN, not only while the
+     panel is open. `hidden` flips on the press and `display` flips 500ms later,
+     so the attribute alone hands the line over at the wrong end. The script
+     marks the panel for the length of the fold, which is the one moment CSS
+     cannot ask about. */
+  .sort-bar:has(+ .filters:not([hidden])),
+  .sort-bar:has(+ .filters[data-folding]) { background: var(--bg) }
 
   .sort-bar {
     display: flex;
