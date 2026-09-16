@@ -1436,12 +1436,19 @@ header {
    declares border-top: 0 and takes this one instead. That is what keeps the
    rule at the BAND'S foot: the table's own top scrolls away, and the band
    still ends in a line. Deleting it opened the table on three sides. */
+/* NO BOTTOM BORDER, BECAUSE THE LIST OWNS ITS OWN TOP EDGE NOW. That line
+   used to live here, and it made the box's top corners belong to nothing:
+   "i don't see a 4px radius here", pointing at the top right. A rule spanning
+   the content width cannot be rounded. Moved onto .table-wrap, it is the same
+   line in the same place and the corner is now the list's to draw.
+
+   The card view draws no list box at all and states its own rule for this,
+   a few hundred lines below. */
 .filters {
   display: flex;
   align-items: center;
   gap: var(--space-lg);
   padding: var(--space-md) 0;
-  border-bottom: 1px solid var(--line);
 }
 
 /* THE PAIR IS A CONTAINER, BECAUSE FLEX CANNOT GIVE ONE GAP ITS OWN VALUE.
@@ -1911,10 +1918,12 @@ header {
    this box's top edge, and a rule spanning the content width has no corners
    to round. So the sides start square against that rule and close at 8. */
 .table-wrap {
-  border: 1px solid var(--line);
-  border-top: 0;
-  border-end-start-radius: var(--radius-sm);
-  border-end-end-radius: var(--radius-sm);
+  /* The mask reads this too, so the guarded hairline and the drawn one cannot
+     disagree. The card view draws no box and sets it to zero. */
+  --list-edge: 1px;
+
+  border: var(--list-edge) solid var(--line);
+  border-radius: var(--radius-sm);
   min-height: 260px;
 }
 
@@ -2051,28 +2060,53 @@ header {
 .table-wrap { --mask-top: var(--scrolled-top) }
 
 .table-wrap {
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    #0000 0,
-    #0006 calc(var(--mask-top) * 0.38),
-    #000d calc(var(--mask-top) * 0.72),
-    #000 var(--mask-top),
-    #000 calc(100% - var(--scrolled-end)),
-    #000d calc(100% - var(--scrolled-end) * 0.72),
-    #0006 calc(100% - var(--scrolled-end) * 0.38),
-    #0000 100%
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    #0000 0,
-    #0006 calc(var(--mask-top) * 0.38),
-    #000d calc(var(--mask-top) * 0.72),
-    #000 var(--mask-top),
-    #000 calc(100% - var(--scrolled-end)),
-    #000d calc(100% - var(--scrolled-end) * 0.72),
-    #0006 calc(100% - var(--scrolled-end) * 0.38),
-    #0000 100%
-  );
+  /* TWO LAYERS, AND THE DEFAULT COMPOSITE IS `add`, SO THIS IS THEIR UNION.
+
+     A MASK ERASES THE BOX'S OWN EDGE, WHICH IS WHAT THEY SAW: "you've cut off
+     the bottom edge of the table here". A mask applies to everything the
+     element paints, its border included, so a fade at the foot took the frame
+     with it. The first layer is the frame: opaque on the hairline at each
+     side, transparent between them. The second is the fade, held opaque for
+     that same hairline at the top and the foot.
+
+     So the box keeps a whole ring and the rows fade inside it. --list-edge is
+     the width the border is drawn at, read by both, so the guarded hairline
+     and the painted one cannot disagree. The card view draws no box and sets
+     it to zero, which leaves no opaque sliver where there is no frame.
+
+     Proven at 1:1 on three probes: the fade alone loses the border at the top
+     and the foot AND thins the sides, the two layers keep the whole frame,
+     and the unmasked twin is the reference. */
+  -webkit-mask-image:
+    linear-gradient(to right, #000 0 var(--list-edge), #0000 var(--list-edge) calc(100% - var(--list-edge)), #000 calc(100% - var(--list-edge))),
+    linear-gradient(
+      to bottom,
+      #000 0 var(--list-edge),
+      #0000 var(--list-edge),
+      #0006 calc(var(--list-edge) + var(--mask-top) * 0.38),
+      #000d calc(var(--list-edge) + var(--mask-top) * 0.72),
+      #000 calc(var(--list-edge) + var(--mask-top)),
+      #000 calc(100% - var(--list-edge) - var(--scrolled-end)),
+      #000d calc(100% - var(--list-edge) - var(--scrolled-end) * 0.72),
+      #0006 calc(100% - var(--list-edge) - var(--scrolled-end) * 0.38),
+      #0000 calc(100% - var(--list-edge)),
+      #000 calc(100% - var(--list-edge))
+    );
+  mask-image:
+    linear-gradient(to right, #000 0 var(--list-edge), #0000 var(--list-edge) calc(100% - var(--list-edge)), #000 calc(100% - var(--list-edge))),
+    linear-gradient(
+      to bottom,
+      #000 0 var(--list-edge),
+      #0000 var(--list-edge),
+      #0006 calc(var(--list-edge) + var(--mask-top) * 0.38),
+      #000d calc(var(--list-edge) + var(--mask-top) * 0.72),
+      #000 calc(var(--list-edge) + var(--mask-top)),
+      #000 calc(100% - var(--list-edge) - var(--scrolled-end)),
+      #000d calc(100% - var(--list-edge) - var(--scrolled-end) * 0.72),
+      #0006 calc(100% - var(--list-edge) - var(--scrolled-end) * 0.38),
+      #0000 calc(100% - var(--list-edge)),
+      #000 calc(100% - var(--list-edge))
+    );
 }
 
 /* THE TAIL MIRRORS THE MASK'S RAMP, reversed. The mask reaches nothing at the
@@ -3228,7 +3262,7 @@ dialog menu {
 
   /* The card view draws no box, so there are no corners to round. Left on, a
      radius on a scroller clips whatever reaches its foot. */
-  .table-wrap { overflow-x: visible; border: 0; border-radius: 0; min-height: 0 }
+  .table-wrap { overflow-x: visible; --list-edge: 0px; border: 0; border-radius: 0; min-height: 0 }
   /* THE COLUMNS GO, OR THE TABLE KEEPS A WIDTH NO ROW USES. The rows here
      are grid cards and render none of the eight columns, but the colgroup
      still declares them and fixed layout still honours the sum. Measured at
