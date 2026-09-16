@@ -1951,7 +1951,68 @@ header {
     z-index: var(--layer-raised);
     background: var(--bg);
   }
+
 }
+
+/* ==========================================================================
+   The top of the list fades, in the card view alone
+
+   A HARD CUT AT THE TOP OF A SCROLLER READS AS A BROKEN ROW. Their
+   instruction, 17 September 2026:
+
+     can you add a little fading-to-black gradient near the top so that it
+     doesn't cut off so harshly? 16-32px height ought to do it
+
+   24 is the step on the grid between the two figures they gave.
+
+   THE CARD VIEW ONLY, WHICH IS THEIR SECOND INSTRUCTION THE SAME DAY:
+
+     i think the gradient is only needed in reduced-width responsive mode,
+     tablet view and mobile view, not in desktop mode
+
+   The table view has a sticky heading row that paints the page colour over
+   the same band, so nothing is cut there. This used to sit in the shared
+   block and was covered rather than absent. Covered and absent look the same
+   and are not the same, because a rule nobody can see is a rule that outlives
+   its reason.
+
+   THE QUERY IS THE LOCK'S OWN NARROW CLAUSE, word for word. Below 700px wide
+   the app does not lock, so the page scrolls as one document and the list has
+   no top edge to cut against.
+
+   A STICKY PSEUDO-ELEMENT WITH A NEGATIVE MARGIN, so it pins to the
+   scroller's top edge and costs no layout. `z-index: 1` orders it against its
+   own siblings and never joins the published scale.
+
+   AND IT ARRIVES WITH THE SCROLL. A band that is always on washes the first
+   card's own top edge at rest, which is a cost for a cut that is not there
+   yet. It is opacity alone, so nothing travels.
+   ========================================================================== */
+
+@media (max-width: 1120px) and (min-width: 700px) and (min-height: 950px) {
+  .table-wrap::before {
+    content: "";
+    position: sticky;
+    z-index: 1;
+    inset-block-start: 0;
+    display: block;
+    height: var(--space-xl);
+    margin-block-end: calc(var(--space-xl) * -1);
+    background: linear-gradient(var(--bg), transparent);
+    pointer-events: none;
+  }
+
+  @supports (animation-timeline: scroll()) {
+    .table-wrap::before {
+      opacity: 0;
+      animation: list-top-fade linear both;
+      animation-timeline: scroll(nearest block);
+      animation-range: 0 var(--space-xl);
+    }
+  }
+}
+
+@keyframes list-top-fade { to { opacity: 1 } }
 
 /* ==========================================================================
    The scrollbar
