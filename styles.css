@@ -3287,6 +3287,10 @@ dialog menu {
   /* The tags are a different kind of thing from the three fact lines, so
      they stand clear of them. Padding rather than a margin, because the row
      gap is one writer already and a padding cannot be consumed. */
+  /* TWO WRITERS FOR ONE DISTANCE, AND THE SUM IS STATED HERE. The card's own
+     row gap is 12 and this adds 8, so the chips sit 20 below the date. A grid
+     gap cannot vary by row, so the cell is the only place the extra can come
+     from. Anyone changing either number has to read this one. */
   .cell-tags { padding-block-start: var(--space-sm) }
 
   /* The names exist for a screen reader only. `display: grid` on the row
