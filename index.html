@@ -271,6 +271,74 @@
     </div>
   </section>
 
+
+  <!-- The card stack replaces the header row at narrow widths, so sorting
+       needs a control of its own. It writes the same state the column
+       headers write. -->
+  <!-- ONE MENU, TWO DECISIONS, AND A RULE BETWEEN THEM. The direction had its
+       own dropdown beside this one. An hr inside a select is real HTML and
+       renders as a separator, so the two groups read apart without an
+       optgroup heading claiming they are different kinds of thing.
+
+       A DIRECTION OPTION IS AN ACTION, NOT A VALUE. A select shows whichever
+       option was picked last, so picking "Descending" would leave the trigger
+       reading "Descending" and the sort key invisible. The handler applies it
+       and puts the value back on the key, and the key's own label carries the
+       arrow, so the collapsed trigger still says both.
+
+       The arrow is a character because an option element cannot hold an svg.
+       It is the one place the icon-set rule has no mechanism to offer. -->
+  <div class="sort-bar">
+    <label class="sort-field">
+      <span class="filters-label">SORT BY</span>
+      <!-- The keys come from the same column spec the header row is built
+           from, so a list cannot offer a sort it has no column for. -->
+      <select id="sortKey" class="select-field"></select>
+    </label>
+
+    <!-- THE CARD VIEW HAS NO COLUMN HEADERS, so the select-all box in the
+         table's header cell is unreachable here. This one writes the same
+         state and render() paints both, so they cannot disagree.
+
+         A CHECKBOX RATHER THAN A BUTTON. The state is three-way: none, some,
+         all. A button can say two of those and would lie about the third,
+         which is the case a reader most needs to see.
+
+         It carries a visible label. The positional exceptions are a table
+         row, a header cell, a card and a matrix cell, and a control bar is
+         none of them. -->
+    <label class="sort-all">
+      <input id="allCheckBar" class="checkbox" type="checkbox" />
+      <span>Select All</span>
+    </label>
+
+    <!-- THE FILTER ROW COSTS 236px OF A 812px PHONE, and it is the tallest
+         thing on that screen after the list itself. This folds it behind one
+         control.
+
+         IT SITS WITH THE OTHER LIST CONTROLS, not on the title's row. Their
+         instruction, 17 September 2026: to the right of the Select All
+         checkbox, in the tablet and narrower views. This bar exists at
+         exactly the widths the control does, so one is never without the
+         other.
+
+         IT WAS NOT IN THE LIVE REGION EITHER. .list-words carries
+         role="status", and a control inside one is announced again on every
+         count change. -->
+    <button class="btn btn-icon filter-toggle" id="filterToggle" type="button"
+            aria-expanded="false" aria-controls="filterPanel"
+            title="Show filters" aria-label="Show filters">
+      <svg class="icon" aria-hidden="true"><use href="#i-filter"/></svg>
+    </button>
+  </div>
+
+  <!-- IT OPENS UNDER THE CONTROL THAT OPENS IT. The funnel moved into the
+       sort bar, and with this panel above that bar a press pushed the
+       button 236px down at 375, which is this panel's own height. The
+       button left the finger that pressed it.
+
+       SO THE STICKY STACK READS IN THIS ORDER TOO: stackSticky() names the
+       rows in document order, and the two `top` tokens follow it. -->
   <section class="filters" id="filterPanel">
     <!-- A LABEL AND WHAT IT NAMES ARE ONE GROUP, so they are one element.
          Flex cannot give one pair its own gap, and the row's comment has
@@ -352,66 +420,6 @@
       <span class="btn-label">Clear Filters</span>
     </button>
   </section>
-
-  <!-- The card stack replaces the header row at narrow widths, so sorting
-       needs a control of its own. It writes the same state the column
-       headers write. -->
-  <!-- ONE MENU, TWO DECISIONS, AND A RULE BETWEEN THEM. The direction had its
-       own dropdown beside this one. An hr inside a select is real HTML and
-       renders as a separator, so the two groups read apart without an
-       optgroup heading claiming they are different kinds of thing.
-
-       A DIRECTION OPTION IS AN ACTION, NOT A VALUE. A select shows whichever
-       option was picked last, so picking "Descending" would leave the trigger
-       reading "Descending" and the sort key invisible. The handler applies it
-       and puts the value back on the key, and the key's own label carries the
-       arrow, so the collapsed trigger still says both.
-
-       The arrow is a character because an option element cannot hold an svg.
-       It is the one place the icon-set rule has no mechanism to offer. -->
-  <div class="sort-bar">
-    <label class="sort-field">
-      <span class="filters-label">SORT BY</span>
-      <!-- The keys come from the same column spec the header row is built
-           from, so a list cannot offer a sort it has no column for. -->
-      <select id="sortKey" class="select-field"></select>
-    </label>
-
-    <!-- THE CARD VIEW HAS NO COLUMN HEADERS, so the select-all box in the
-         table's header cell is unreachable here. This one writes the same
-         state and render() paints both, so they cannot disagree.
-
-         A CHECKBOX RATHER THAN A BUTTON. The state is three-way: none, some,
-         all. A button can say two of those and would lie about the third,
-         which is the case a reader most needs to see.
-
-         It carries a visible label. The positional exceptions are a table
-         row, a header cell, a card and a matrix cell, and a control bar is
-         none of them. -->
-    <label class="sort-all">
-      <input id="allCheckBar" class="checkbox" type="checkbox" />
-      <span>Select All</span>
-    </label>
-
-    <!-- THE FILTER ROW COSTS 236px OF A 812px PHONE, and it is the tallest
-         thing on that screen after the list itself. This folds it behind one
-         control.
-
-         IT SITS WITH THE OTHER LIST CONTROLS, not on the title's row. Their
-         instruction, 17 September 2026: to the right of the Select All
-         checkbox, in the tablet and narrower views. This bar exists at
-         exactly the widths the control does, so one is never without the
-         other.
-
-         IT WAS NOT IN THE LIVE REGION EITHER. .list-words carries
-         role="status", and a control inside one is announced again on every
-         count change. -->
-    <button class="btn btn-icon filter-toggle" id="filterToggle" type="button"
-            aria-expanded="false" aria-controls="filterPanel"
-            title="Show filters" aria-label="Show filters">
-      <svg class="icon" aria-hidden="true"><use href="#i-filter"/></svg>
-    </button>
-  </div>
 
   <section class="table-wrap">
     <table>

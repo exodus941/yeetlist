@@ -2524,7 +2524,9 @@ $('#sortKey').addEventListener('change', (event) => {
    the sort row drops out of the sum on a desktop rather than reserving 44px
    of nothing under the filters. */
 function stackSticky() {
-  const rows = ['.add-card', '.filters', '.sort-bar'].map((q) => $(q));
+  /* DOCUMENT ORDER, because each offset is the running sum of the rows above
+     it. The filter panel sits below the sort bar now, so it sticks last. */
+  const rows = ['.add-card', '.sort-bar', '.filters'].map((q) => $(q));
 
   /* THE CHAIN STARTS AT THE GAP, NOT AT ZERO. The first row stops short of
      the viewport edge by the page's own top padding, so every offset below it

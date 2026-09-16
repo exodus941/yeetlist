@@ -1799,18 +1799,24 @@ header {
 .filters,
 .sort-bar {
   position: sticky;
-  z-index: var(--layer-sticky);
 }
 
-/* A PANEL OPENS DOWNWARD, SO THE STACK PAINTS IN REVERSE DOM ORDER. A sticky
+.sort-bar {
+  position: sticky;
+}
+
+/* THE FILTER PANEL PAINTS OVER THE SORT BAR, WHATEVER THE DOM ORDER. A sticky
    element carrying a z-index makes a stacking context, so the filter menu's
    own --layer-dropdown is trapped inside .filters and cannot reach past it.
-   At one z-index for all three, DOM order decides, and DOM order is exactly
-   backwards here: the sort bar came later, so it won.
+   At one z-index for all three, DOM order decides.
 
-   Measured: the open tag menu ran from y 302 to 487 and the sort bar's select
-   answered elementFromPoint at the middle option's own centre. The reader
-   could see the option and not press it.
+   Measured when the panel sat ABOVE the bar: the open tag menu ran from y 302
+   to 487 and the sort bar's select answered elementFromPoint at the middle
+   option's own centre. The reader could see the option and not press it.
+
+   The panel sits BELOW the bar now, so DOM order happens to agree. These
+   numbers stay anyway, because the menu can open upward when the room below
+   runs out, and then the order is backwards again.
 
    These are offsets inside the sticky band, not new layers. Nothing here can
    reach 300, which is where a dropdown starts.
@@ -1820,6 +1826,7 @@ header {
    nothing else moved when they swapped. */
 .add-card { z-index: calc(var(--layer-sticky) + 3) }
 .filters { z-index: calc(var(--layer-sticky) + 1) }
+.sort-bar { z-index: var(--layer-sticky) }
 
 /* IT STOPS SHORT OF THE VIEWPORT EDGE, by the same distance the page holds
    at rest. Stuck at 0 the card sat flush against the browser chrome. */
@@ -1881,8 +1888,8 @@ header {
 
 .shell[data-stuck]::before { height: calc(var(--page-pad) + var(--radius-sm)) }
 
-.filters { top: var(--stick-1, 0px) }
-.sort-bar { top: var(--stick-2, 0px) }
+.sort-bar { top: var(--stick-1, 0px) }
+.filters { top: var(--stick-2, 0px) }
 
 /* AN OPAQUE FILL IS NOT OPTIONAL. A sticky element stays in flow, so the list
    scrolls UNDER it. The card already paints --surface. These two paint
@@ -3233,11 +3240,6 @@ dialog menu {
      up its foot and the bar owns both distances. 12 above and 12 below, at
      rest and stuck alike.
 
-     AND THE SORT BAR IS LAST HERE, so it draws the band's foot and the
-     filters give up their bottom border. There is no table border in this
-     view for that border to be the top of, and inside one band it would mark
-     a boundary nobody needs.
-
      16px, THE SAME STEP THE FILTERS WRAP AT. The band is one group of list
      controls, so every line in it sits the same distance from the next. At
      12 the sort row sat closer to the buttons than the filter rows sit to
@@ -3246,6 +3248,26 @@ dialog menu {
     padding-block-end: 0;
     border-bottom: 0;
   }
+
+  /* THE LAST VISIBLE ROW OF THE BAND CARRIES ITS FOOT, and which row that is
+     depends on the fold. The panel moved below the sort bar, so folded the
+     bar is last and open the panel is. Left alone the panel ended flush
+     against the first card, measured at 0px, and the rule sat inside the band
+     rather than under it.
+
+     THE PADDING IS THE HALF THAT MATTERS, and it asks only about the fold.
+     The RULE needs to know what follows, which is what :has can answer. A
+     browser without it draws a second line between the two rows, 152px from
+     the first, which is a divider rather than a fault. */
+  .filters:not([hidden]) {
+    padding-block-end: calc(var(--space-md) * 2 + 1px);
+    background:
+      linear-gradient(var(--line), var(--line)) 0 calc(100% - var(--space-md)) /
+        100% 1px no-repeat,
+      var(--bg);
+  }
+
+  .sort-bar:has(+ .filters:not([hidden])) { background: var(--bg) }
 
   .sort-bar {
     display: flex;
