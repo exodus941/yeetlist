@@ -1543,8 +1543,25 @@ header {
    padding, so a padded grid item never reaches zero however small the track
    gets. Measured with the padding here: 37px at 0fr. Both declarations are
    needed, or a grid item refuses to go under its own content. */
+/* `clip`, NEVER `hidden`, BECAUSE THE PANEL FOCUSES ITS SEARCH FIELD. A box
+   at `overflow: hidden` is still a scroll container, so the browser scrolls it
+   to bring the focused field into view. Nobody can reach that scroller and
+   nothing in this file asks for it.
+
+   Measured at 760, mid-fold with the track forced to 100px: scrollTop 22 on a
+   189px content box, so the row sat 22px above its own clipper and exactly
+   half the 44px field was cut. The browser re-scrolls it on every frame of the
+   500ms run, then hands it back at full height, which is the second movement.
+
+   Their three reports were all this one fault: "half of the search bar is
+   obscured", "it freezes when it's pulling out", and the slide arriving in two
+   steps. It outlived the height rewrite because it was never the height.
+
+   `clip` is not a scroll container, so there is nothing left to scroll.
+   min-height: 0 stays, because a grid item still refuses to go under its own
+   content without it. */
 .filters-fold {
-  overflow: hidden;
+  overflow: clip;
   min-height: 0;
 }
 
@@ -3348,7 +3365,18 @@ dialog menu {
      12 the sort row sat closer to the buttons than the filter rows sit to
      each other. */
   .filters { border-bottom: 0 }
-  .filters-row { padding-block-end: 0 }
+
+  /* AND ITS HEAD TOO, WHICH WAS THE WRITER NOBODY TOOK AWAY. The bar owns
+     both distances, so the row keeping a 12px head made the panel pay twice.
+     Measured open at 760: the sort control's foot to the search field read 37
+     where the folded list's first card reads 25, against 16 between every
+     other pair in the row.
+
+     IT ALSO PUT 37px OF NOTHING AT THE HEAD OF THE SLIDE. The first 90ms of a
+     500ms fold revealed empty band, so the panel appeared to stall and then
+     start. Their words: "it freezes when it's pulling out", and "half of the
+     search bar is obscured", which is that field emerging through the gap. */
+  .filters-row { padding-block: 0 }
 
   /* THE LAST VISIBLE ROW OF THE BAND CARRIES ITS FOOT, and which row that is
      depends on the fold. The panel moved below the sort bar, so folded the
