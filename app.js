@@ -87,9 +87,9 @@ const LISTS = {
     noun: ['Video', 'Videos'],
     head: 'Saved',
     runtime: true,
-    placeholder: 'Paste a YouTube link…',
-    fieldName: 'Add a video by YouTube link',
-    add: 'Add to Watchlist',
+    placeholder: 'Paste a link…',
+    fieldName: 'Add a video or bookmark by link',
+    add: 'Add to List',
     search: 'Search titles, channels, or tags',
     empty: {
       title: 'Your Watchlist Is Clear',
@@ -112,9 +112,9 @@ const LISTS = {
     noun: ['Bookmark', 'Bookmarks'],
     head: '',
     runtime: false,
-    placeholder: 'Paste any link…',
-    fieldName: 'Add a bookmark by link',
-    add: 'Add to Bookmarks',
+    placeholder: 'Paste a link…',
+    fieldName: 'Add a video or bookmark by link',
+    add: 'Add to List',
     search: 'Search names, addresses, or tags',
     empty: {
       title: 'No Bookmarks Yet',
@@ -518,10 +518,6 @@ function fitTags() {
   let content = 0;
   $$('#rows .cell-tags .tags').forEach((box) => {
     gap = parseFloat(getComputedStyle(box).columnGap) || gap;
-    box.querySelectorAll('.dead-chip').forEach((chip) => {
-      content = Math.max(content, chip.getBoundingClientRect().width);
-    });
-
     const chips = [...box.querySelectorAll('.tag-chip')].map((c) => c.getBoundingClientRect().width);
     for (let i = 0; i < chips.length; i += 2) {
       const pair = chips[i] + (chips[i + 1] === undefined ? 0 : gap + chips[i + 1]);
@@ -674,7 +670,6 @@ const CELLS = {
 
   tags: (v) => `<td class="cell-tags">
     <div class="tags">
-      ${v.dead ? `<span class="dead-chip">${icon('alert')}Unavailable</span>` : ''}
       ${(v.tags || []).map((t) => `<span class="tag-chip">
         <span>${escape(hashed(t))}</span>
         ${t === DEAD_TAG ? '' : `<button class="tag-remove" type="button" data-id="${escape(v.id)}" data-tag="${escape(t)}"
@@ -1283,22 +1278,40 @@ const isYouTube = (value) => {
   } catch { return false; }
 };
 
+/* THE SCHEME IS THE APP'S TO ADD, AND IT IS ADDED BEFORE ANYTHING IS ASKED.
+   A reader pastes what they copied, and `youtube.com/watch?v=x` is a thing
+   people copy. `new URL` throws on it, so the router read every bare host as
+   "not YouTube" and the bookmark branch then added the scheme too late to
+   change where the row went.
+
+   Their report: "posting links without https:// in the link field doesn't
+   work." One writer, at the top, so the router and both branches see the
+   same address. */
+const withScheme = (raw) => (/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : 'https://' + raw);
+
+/* ONE FIELD, AND THE LINK DECIDES THE LIST. Their instruction: the button
+   says Add to List, a YouTube link is sorted into the YouTube list, and every
+   other link goes to Other Bookmarks.
+
+   It used to refuse a mismatch and name the other tab, which made the reader
+   do the routing the address already answers. */
 async function addVideo() {
-  const url = $('#videoUrl').value.trim();
-  if (!url) return;
+  const typed = $('#videoUrl').value.trim();
+  if (!typed) return;
+  const url = withScheme(typed);
 
   $('#addBtn').disabled = true;
 
   try {
-    if (tab === 'links' && isYouTube(url)) {
-      throw new Error('That is a YouTube link. Add it from the YouTube tab.');
-    }
-    if (tab === 'youtube' && !isYouTube(url)) {
-      throw new Error('That is not a YouTube link. Add it from the Other Bookmarks tab.');
-    }
-    await (tab === 'links' ? addLink(url) : addYouTube(url));
+    const target = isYouTube(url) ? 'youtube' : 'links';
+    await (target === 'youtube' ? addYouTube(url) : addLink(url));
     $('#videoUrl').value = '';
-    dissolve();
+
+    /* THE READER IS TAKEN TO THE ROW THEY JUST MADE. Adding a bookmark from
+       the YouTube list otherwise reports success over a list the row is not
+       in. showTab carries its own dissolve, so only the same-list case needs
+       one here. */
+    if (target === tab) dissolve(); else showTab(target);
   } catch (error) {
     say(error.message || 'Could not add that link.');
   } finally {
@@ -1333,10 +1346,9 @@ const linkId = (value) => {
   return url.toString().replace(/\/$/, '');
 };
 
-async function addLink(raw) {
-  /* A reader pastes what they copied, and a bare host is a thing people
-     copy. Naming the scheme is the app's job rather than theirs. */
-  const url = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
+/* THE ADDRESS ARRIVES WITH ITS SCHEME. withScheme runs before the router, so
+   a second writer here would be one rule in two places. */
+async function addLink(url) {
   let id;
   try { id = linkId(url); } catch { throw new Error('That is not a link this can read.'); }
   if (videos.some((v) => v.id === id)) throw new Error('That link is already bookmarked.');

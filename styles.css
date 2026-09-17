@@ -2853,24 +2853,11 @@ th.amount { text-align: end }
 .row-dead .video-link { text-decoration: line-through }
 .row-dead .video-link:hover { color: var(--danger-quiet) }
 
-/* NOT A TAG, AND IT SITS WHERE TAGS SIT. The tags cell is the only flexible
-   one, so the marker goes there and wraps with them. Its own outline and the
-   alert mark are what tell it apart from the grey pills beside it. A reader
-   who cannot separate two hues still sees a different shape. */
-.dead-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2xs);
-  min-height: var(--control-sm);
-  padding-inline: var(--space-sm);
-  border: 1px solid var(--danger-line);
-  border-radius: var(--radius-pill);
-  color: var(--danger-quiet);
-  font-size: var(--text-xs);
-  white-space: nowrap;
-}
-
-.dead-chip .icon { width: var(--mark); height: var(--mark) }
+/* THE #removed TAG IS THE WHOLE TREATMENT. A chip saying Unavailable used to
+   sit beside it, so a dead row carried the same fact twice, in two shapes. It
+   also wrapped into the tag run and read as a tag that cannot be removed.
+   Their instruction: "if a video is unavailable, it doesn't need the
+   'unavailable' badge, just add the #removed tag and be done with it." */
 
 /* A chip is a LABEL, so it never reads the touch floor. Given the floor it
    grew to 44px on a phone and read as a giant pill beside its own row.
