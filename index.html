@@ -292,12 +292,33 @@
        The arrow is a character because an option element cannot hold an svg.
        It is the one place the icon-set rule has no mechanism to offer. -->
   <div class="sort-bar">
-    <label class="sort-field">
+    <!-- THE SAME DROPDOWN THE TAG FILTER USES, NOT A NATIVE SELECT. Their
+         report: the menu animation is "nice and smooth in desktop view,
+         absent everywhere else", then "i mean the SORT BY menu", then "in
+         fact the sort by menu also looks very different".
+
+         A NATIVE SELECT'S LIST IS DRAWN BY THE OPERATING SYSTEM. It takes
+         none of this file's colours, none of its type and none of its
+         transitions, so no CSS could have given it the fade. Two controls
+         sat side by side in this bar, one the platform's and one the app's.
+
+         A DIV RATHER THAN A LABEL, because a label holding a button is
+         invalid and would forward its own press. The trigger carries the
+         name the script writes. -->
+    <div class="sort-field">
       <span class="filters-label">SORT BY</span>
       <!-- The keys come from the same column spec the header row is built
            from, so a list cannot offer a sort it has no column for. -->
-      <select id="sortKey" class="select-field"></select>
-    </label>
+      <div class="multi sort-multi">
+        <button class="multi-trigger" id="sortTrigger" type="button"
+                aria-expanded="false" aria-haspopup="menu" aria-controls="sortList">
+          <span class="multi-value" id="sortValue"></span>
+          <svg class="icon multi-chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+        </button>
+        <ul class="multi-panel" id="sortList" role="menu" aria-label="Sort by"
+            tabindex="-1" hidden></ul>
+      </div>
+    </div>
 
     <!-- THE CARD VIEW HAS NO COLUMN HEADERS, so the select-all box in the
          table's header cell is unreachable here. This one writes the same

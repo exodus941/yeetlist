@@ -581,12 +581,23 @@ function renderChrome(spec) {
     </th>`;
   }).join('')}</tr>`;
 
-  /* A DIRECTION OPTION IS AN ACTION, and the hr between the two groups is
-     real HTML rather than an optgroup claiming they are different kinds. */
-  $('#sortKey').innerHTML =
-    keys.map((c) => `<option value="${escape(c.sort)}">${escape(c.menu || title(c.label))}</option>`).join('')
-    + '<hr />'
-    + '<option value="dir:1">Ascending</option><option value="dir:-1">Descending</option>';
+  /* TWO GROUPS OF RADIOS, NOT A LIST WITH TWO ACTIONS IN IT. The native
+     select could hold one value, so a direction had to arrive as an option
+     pretending to be one. A menu can say what this is: one pick among the
+     keys, and one among the two directions.
+
+     The separator is a real item with no role, so nothing announces it. */
+  const item = (value, label) => `<li class="multi-option" role="menuitemradio"
+      tabindex="-1" aria-checked="false" data-value="${escape(value)}">
+      <span class="multi-box">${icon('check')}</span>
+      <span>${escape(label)}</span>
+    </li>`;
+
+  $('#sortList').innerHTML =
+    keys.map((c) => item(c.sort, c.menu || title(c.label))).join('')
+    + '<li class="multi-sep" aria-hidden="true"></li>'
+    + item('dir:1', 'Ascending')
+    + item('dir:-1', 'Descending');
 
   $('#videoUrl').placeholder = spec.placeholder;
   $('#videoUrl').setAttribute('aria-label', spec.fieldName);
@@ -847,21 +858,21 @@ function renderSortState() {
     else th.removeAttribute('aria-sort');
   });
 
-  /* THE KEY OPTION CARRIES THE ARROW, so the collapsed trigger says both the
-     key and the direction. Every other key is left plain, or the menu reads
-     as five directions rather than one. */
-  const key = $('#sortKey');
-  const arrow = sort.dir === 1 ? ' ↑' : ' ↓';
-  [...key.options].forEach((o) => {
-    if (o.value.startsWith('dir:')) return;
-    o.textContent = o.dataset.label || (o.dataset.label = o.textContent);
-    if (o.value === sort.key) o.textContent += arrow;
+  /* THE TRIGGER CARRIES THE ARROW, so the collapsed control says both the key
+     and the direction. The items stay plain, or the menu reads as five
+     directions rather than one. */
+  const picked = `dir:${sort.dir}`;
+  let name = sort.key;
+  $$('#sortList .multi-option').forEach((option) => {
+    const value = option.dataset.value;
+    const on = value === sort.key || value === picked;
+    option.setAttribute('aria-checked', String(on));
+    if (value === sort.key) name = option.querySelector('span:last-child').textContent;
   });
-  key.value = sort.key;
 
-  key.setAttribute('aria-label',
-    'Sort by ' + (key.selectedOptions[0]?.dataset.label || sort.key)
-    + ', ' + (sort.dir === 1 ? 'ascending' : 'descending'));
+  $('#sortValue').textContent = name + (sort.dir === 1 ? ' ↑' : ' ↓');
+  $('#sortTrigger').setAttribute('aria-label',
+    'Sort by ' + name + ', ' + (sort.dir === 1 ? 'ascending' : 'descending'));
 }
 
 /* ==========================================================================
@@ -2567,6 +2578,8 @@ addEventListener('pointerdown', (event) => {
 
   if (!$('#exportMenu').hidden && !event.target.closest('.export-menu')) openExport(false);
 
+  if (!$('#sortList').hidden && !event.target.closest('.sort-multi')) openSort(false);
+
   /* The suggestion list is appended to the BODY so it can escape the panel's
      clipping, so it is outside #tagBulk. */
   if (bulkOpen && !event.target.closest('#tagBulk') && !event.target.closest('#tagSuggest')) {
@@ -2587,20 +2600,66 @@ $('thead').addEventListener('click', (event) => {
   dissolve();
 });
 
-$('#sortKey').addEventListener('change', (event) => {
-  const picked = event.target.value;
-
-  /* A DIRECTION IS AN ACTION. Applying it and returning the value to the key
-     is what keeps the trigger showing the key. Without this the menu would
-     read "Descending" and the sort key would be invisible. */
-  if (picked.startsWith('dir:')) {
-    sort.dir = Number(picked.slice(4));
-    dissolve();
-    return;
+/* ONE OPEN STATE, WRITTEN IN ONE PLACE, which is the export menu's own
+   pattern. The attribute on the trigger is what the chevron and a screen
+   reader both read, so the two cannot disagree. */
+function openSort(open) {
+  const menu = $('#sortList');
+  menu.hidden = !open;
+  $('#sortTrigger').setAttribute('aria-expanded', String(open));
+  if (open) {
+    (menu.querySelector('[aria-checked="true"]') || menu.querySelector('.multi-option'))?.focus();
   }
+}
 
-  sort.key = picked;
+const sortItems = () => $$('#sortList .multi-option');
+
+$('#sortTrigger').addEventListener('click', () => openSort($('#sortList').hidden));
+
+$('#sortList').addEventListener('click', (event) => {
+  const option = event.target.closest('.multi-option');
+  if (!option) return;
+  const value = option.dataset.value;
+
+  openSort(false);
+  $('#sortTrigger').focus();
+
+  /* A DIRECTION IS ITS OWN PICK. Applying it without touching the key is
+     what keeps the trigger showing both. */
+  if (value.startsWith('dir:')) sort.dir = Number(value.slice(4));
+  else sort.key = value;
   dissolve();
+});
+
+/* ARROWS MOVE, ENTER AND SPACE PRESS, ESCAPE LEAVES. A menu is one tab stop,
+   so the items carry tabindex -1 and this moves the focus between them. The
+   separator is not an item, so it is never in the ring. */
+$('#sortList').addEventListener('keydown', (event) => {
+  const items = sortItems();
+  const at = items.indexOf(document.activeElement);
+
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    openSort(false);
+    return $('#sortTrigger').focus();
+  }
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    const step = event.key === 'ArrowDown' ? 1 : -1;
+    return items[(at + step + items.length) % items.length]?.focus();
+  }
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    document.activeElement?.click();
+  }
+});
+
+$('#sortTrigger').addEventListener('keydown', (event) => {
+  if ((event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ')
+      && $('#sortList').hidden) {
+    event.preventDefault();
+    openSort(true);
+  }
 });
 
 /* ---- the sticky stack ---------------------------------------------------- */

@@ -391,7 +391,7 @@
    for at a width nobody stops at. */
 #listRuntime, #searchClear, #state, #tagSuggest, #tagBulkPanel,
 #addStatusDismiss, #typedConfirm, #importPanel, #driveConnect,
-#driveGroup, #driveAlert, #tagFilterList, #exportMenu, #filterPanel {
+#driveGroup, #driveAlert, #tagFilterList, #sortList, #exportMenu, #filterPanel {
   transition:
     opacity var(--duration) var(--ease),
     display var(--duration) allow-discrete;
@@ -400,7 +400,7 @@
 #listRuntime[hidden], #searchClear[hidden], #state[hidden], #tagSuggest[hidden],
 #tagBulkPanel[hidden], #addStatusDismiss[hidden], #typedConfirm[hidden],
 #importPanel[hidden], #driveConnect[hidden], #driveGroup[hidden],
-#driveAlert[hidden], #tagFilterList[hidden], #exportMenu[hidden],
+#driveAlert[hidden], #tagFilterList[hidden], #sortList[hidden], #exportMenu[hidden],
 #filterPanel[hidden] {
   opacity: 0;
 }
@@ -411,7 +411,7 @@
   #addStatusDismiss:not([hidden]), #typedConfirm:not([hidden]),
   #importPanel:not([hidden]), #driveConnect:not([hidden]),
   #driveGroup:not([hidden]), #driveAlert:not([hidden]),
-  #tagFilterList:not([hidden]), #exportMenu:not([hidden]),
+  #tagFilterList:not([hidden]), #sortList:not([hidden]), #exportMenu:not([hidden]),
   #filterPanel:not([hidden]) {
     opacity: 0;
   }
@@ -940,64 +940,18 @@ header {
 .input:focus { border-color: #777 }
 
 /* ==========================================================================
-   Select field
+   The select field is gone, and the rule set with it
 
-   A native select keeps the UA's own chrome, so .input alone gave it an
-   authored background under a browser-drawn face. Beside the tag dropdown,
-   which is a button styled by this file, the two read as different kinds of
-   control. appearance:none hands the whole face over.
+   A native select's option list is drawn by the operating system. It takes
+   none of this file's colours, none of its type and none of its transitions,
+   so no rule here could give it the fade every other menu has. Their report:
+   the menu animation is "nice and smooth in desktop view, absent everywhere
+   else", then "in fact the sort by menu also looks very different".
 
-   A native select also ignores line-height on its value, so the text is
-   centred by the BOX and never by the leading.
-
-   NOT called .select, and the name cost a real fault. `.select` already
-   means "this row is selected" on the row checkbox, and app.js reads that
-   class to know which box changed. Taking the name put a 32px chevron inset
-   on every checkbox: they measured 46x16 instead of 16x16. Grep the
-   stylesheet for a class name before taking it.
+   The sort control is the tag filter's own dropdown now, so nothing carries
+   .select-field and every rule that named it reached no element.
    ========================================================================== */
 
-.select-field {
-  appearance: none;
-  -webkit-appearance: none;
-  height: max(var(--control-md), var(--control-floor));
-  padding-block: 0;
-  padding-inline: var(--space-md) var(--space-2xl);
-  border: 1px solid #444;
-  border-radius: var(--radius-sm);
-  background-color: var(--surface-sunken);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--text-xs);
-  cursor: pointer;
-  outline: 0;
-  transition: border-color var(--duration) var(--ease);
-
-  /* The chevron matches #i-chevron-down. Its stroke is the one literal in
-     this file that cannot read a token: a data URI has no access to a custom
-     property. It is --text-muted, and the two move together by hand. */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a8a8a8' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right var(--space-md) center;
-  background-size: var(--mark) var(--mark);
-}
-
-.select-field:hover, .select-field:focus { border-color: #777 }
-
-/* The option list is drawn by the operating system, so it takes the page
-   colours rather than this file's. Naming them is all CSS can do. */
-.select-field option { background: var(--surface-raised); color: var(--text) }
-
-/* Forced colors drops a background-image, which would take the chevron with
-   it. Hand the whole control back to the UA there. */
-@media (forced-colors: active) {
-  .select-field {
-    appearance: auto;
-    -webkit-appearance: auto;
-    background-image: none;
-    padding-inline-end: var(--space-md);
-  }
-}
 
 /* ==========================================================================
    Add card
@@ -1722,7 +1676,11 @@ header {
   overflow-y: auto;
   list-style: none;
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
+  /* Their instruction, 17 September 2026: "give the menus 4px corner
+     radius." It read the large step, which is the card's. A menu is a
+     control's own surface rather than a page section, so it takes the
+     control corner the trigger under it already uses. */
+  border-radius: var(--radius-sm);
   background: var(--surface-raised);
   box-shadow: 0 8px 24px #000000a8;
 }
@@ -1756,14 +1714,19 @@ header {
   background: var(--surface-sunken);
 }
 
-.multi-option[aria-selected="true"] .multi-box {
+/* ONE RULE FOR BOTH SHAPES. The tag list is a listbox and states
+   aria-selected. The sort list is a menu of radios and states
+   aria-checked. The mark they paint is the same mark. */
+.multi-option[aria-selected="true"] .multi-box,
+.multi-option[aria-checked="true"] .multi-box {
   border-color: var(--accent);
   background: var(--accent);
   color: var(--accent-ink);
 }
 
 .multi-option .multi-box .icon { width: var(--space-md); height: var(--space-md); opacity: 0 }
-.multi-option[aria-selected="true"] .multi-box .icon { opacity: 1 }
+.multi-option[aria-selected="true"] .multi-box .icon,
+.multi-option[aria-checked="true"] .multi-box .icon { opacity: 1 }
 
 /* Untagged is not one of the tags above it, so a rule says where the list
    ends. It sits INSIDE the gap, 4px each side, so the run of options keeps
@@ -1784,7 +1747,8 @@ header {
 
 @media (forced-colors: active) {
   .multi-option.active { outline: 2px solid Highlight; outline-offset: -2px }
-  .multi-option[aria-selected="true"] .multi-box { outline: 2px solid Highlight }
+  .multi-option[aria-selected="true"] .multi-box,
+  .multi-option[aria-checked="true"] .multi-box { outline: 2px solid Highlight }
 
   /* Forced colors drops a background, so the separator would have no marker
      at all. A border replaces it and the box gives up its height to pay for
@@ -1918,9 +1882,24 @@ header {
   min-width: 0;
 }
 
-.sort-field { flex: 1 }
-.sort-field select { flex: 1; min-width: 0 }
-.sort-bar select { cursor: pointer }
+/* THE SORT CONTROL IS THE SAME DROPDOWN THE TAG FILTER USES. Their
+   instruction: "it needs to look like the filter by tag menu."
+
+   IT IS A DIV NOW, SO IT RESTATES THE ROW `.sort-bar label` GAVE IT. A label
+   holding a button is invalid and would forward its own press.
+
+   THE TAG CONTROL STATES 160px AND THIS ONE DOES NOT. That one is sized to
+   its own widest label, because the search field beside it takes the slack.
+   This one IS its row's flexible thing. */
+.sort-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  flex: 1;
+}
+
+.sort-field .multi { flex: 1; width: auto }
 
 /* ==========================================================================
    The controls stay while the list scrolls
@@ -1984,6 +1963,17 @@ header {
 .add-card { z-index: calc(var(--layer-sticky) + 3) }
 .filters { z-index: calc(var(--layer-sticky) + 1) }
 .sort-bar { z-index: var(--layer-sticky) }
+
+/* AND THE BAR LIFTS WHILE ITS OWN MENU IS OPEN. The filter panel sits one
+   layer above this bar, on purpose, so the tag menu can reach past it. A
+   sticky element carrying a z-index makes a stacking context, so the sort
+   menu's own --layer-dropdown is trapped inside the bar and the panel below
+   swallowed it. Measured at 768: 215px of menu with only its first and last
+   rows visible, the middle behind the search field and the filter rows.
+
+   It lifts ONLY while the menu is open, so the two keep their usual order
+   the rest of the time. +2 is free: the add card holds +3. */
+.sort-bar:has(#sortList:not([hidden])) { z-index: calc(var(--layer-sticky) + 2) }
 
 /* IT STOPS SHORT OF THE VIEWPORT EDGE, by the same distance the page holds
    at rest. Stuck at 0 the card sat flush against the browser chrome. */
