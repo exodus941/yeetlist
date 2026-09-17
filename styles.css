@@ -2857,7 +2857,25 @@ th.amount { text-align: end }
    sit beside it, so a dead row carried the same fact twice, in two shapes. It
    also wrapped into the tag run and read as a tag that cannot be removed.
    Their instruction: "if a video is unavailable, it doesn't need the
-   'unavailable' badge, just add the #removed tag and be done with it." */
+   'unavailable' badge, just add the #removed tag and be done with it."
+
+   IT KEEPS THE RETIRED BADGE'S MARK AND ITS COLOUR. Their instruction:
+   "add the warning icon from the retired 'unavailable' badge to the left of
+   the #removed text and make it red, while fixing the padding."
+
+   AND THE PADDING IS THE HALF THEY SAW FIRST. A tag chip states 8px at the
+   start and 2px at the end, because a remove button follows and carries its
+   own box. This chip has no such button, so that 2px left its word against
+   the pill's own edge. It takes the same 8px at both ends.
+
+   THE MARK IS A SHAPE, WHICH IS WHAT SEPARATES IT. A reader who cannot tell
+   two hues apart still sees one chip carrying a triangle. */
+.tag-chip[data-dead] {
+  padding-inline: var(--space-sm);
+  color: var(--danger-quiet);
+}
+
+.tag-chip[data-dead] .icon { width: var(--mark); height: var(--mark) }
 
 /* A chip is a LABEL, so it never reads the touch floor. Given the floor it
    grew to 44px on a phone and read as a giant pill beside its own row.

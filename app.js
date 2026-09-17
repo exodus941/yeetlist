@@ -670,8 +670,8 @@ const CELLS = {
 
   tags: (v) => `<td class="cell-tags">
     <div class="tags">
-      ${(v.tags || []).map((t) => `<span class="tag-chip">
-        <span>${escape(hashed(t))}</span>
+      ${(v.tags || []).map((t) => `<span class="tag-chip"${t === DEAD_TAG ? ' data-dead' : ''}>
+        ${t === DEAD_TAG ? icon('alert') : ''}<span>${escape(hashed(t))}</span>
         ${t === DEAD_TAG ? '' : `<button class="tag-remove" type="button" data-id="${escape(v.id)}" data-tag="${escape(t)}"
                 aria-label="Remove ${escape(hashed(t))} from ${escape(v.title)}">${icon('x')}</button>`}
       </span>`).join('')}
