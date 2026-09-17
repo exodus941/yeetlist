@@ -288,15 +288,22 @@
   --layer-toast: 800;
 
   /* ---- motion ---------------------------------------------------------- */
-  /* ONE DURATION, WHICH IS THEIRS. 125ms for every fade in the interface. They
-     tried 250 and came back: 125 is the number.
+  /* ONE DURATION, WHICH IS THEIRS. 250ms for every fade in the interface.
+     Their instruction, 17 September 2026: "please raise all the 125ms
+     animations to 250ms, let's give them some eye candy."
+
+     IT WAS 125 AND THE OLD NUMBER IS NOT KEPT HERE. This comment used to say
+     they tried 250 and came back, which is the reading their own instruction
+     reverses. A rule stating the value it no longer holds is worse than one
+     stating nothing.
+
      Three tokens held 120, 200 and 250, so a hover, a panel and a mark each
      moved at their own speed and nothing in the app said why. A reader
      cannot name the axis that separates them.
 
      The three names are gone rather than aliased to one number. Three names
      for one value is how they drift apart again. */
-  --duration: 125ms;
+  --duration: 250ms;
   /* IT EASES IN AS WELL AS OUT. The old curve started at almost full speed:
      9.6% of the distance in the first 10% of the run, and 44.8% by a quarter
      of it. Only the landing was soft. Measured on the replacement: 2.6% and
@@ -313,7 +320,7 @@
      run leaves at full speed and only the landing is soft: 33.6% of the
      distance in the first tenth, 68.9% by a quarter, 99.0% at nine tenths.
 
-     125ms STAYS FOR EVERYTHING ELSE. A hover, a chevron and a chip have no
+     250ms STAYS FOR EVERYTHING ELSE. A hover, a chevron and a chip have no
      distance to cover, and 500ms on those reads as lag rather than motion. */
   --duration-fold: 500ms;
   --ease-out: cubic-bezier(0, 0, .2, 1);
