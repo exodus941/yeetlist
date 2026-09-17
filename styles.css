@@ -2389,7 +2389,7 @@ thead th::after { height: 0 }
 .table-wrap { scrollbar-gutter: stable }
 
 @supports not selector(::-webkit-scrollbar) {
-  html, .table-wrap {
+  html, .table-wrap, .multi-panel {
     scrollbar-width: thin;
     scrollbar-color: var(--scroll-rest) transparent;
   }
@@ -2416,6 +2416,31 @@ html::-webkit-scrollbar-thumb:hover,
 
 html::-webkit-scrollbar-thumb:active,
 .table-wrap::-webkit-scrollbar-thumb:active { background-color: var(--scroll-held) }
+
+/* A 4px HANDLE IN A 12px TRACK, WHICH IS THEIR NUMBER FOR THE MENUS. The same
+   arithmetic the list's bar uses: a transparent border plus
+   `background-clip: padding-box` insets the handle with no second element.
+   12 - 4 - 4 = 4.
+
+   THE TRACK IS 12 SO THE GAPS MATCH THE PANEL'S OWN. It pads its options by
+   4px on every other side, and a 4px border each side of the handle gives the
+   same 4px between the handle and the panel's inner edge.
+
+   The two standard properties are in the block above, never here. Declared
+   where Blink can see them, they disable every rule in this section. */
+.multi-panel::-webkit-scrollbar { width: var(--space-md) }
+
+.multi-panel::-webkit-scrollbar-track { background: transparent }
+
+.multi-panel::-webkit-scrollbar-thumb {
+  border: var(--space-xs) solid transparent;
+  border-radius: var(--radius-pill);
+  background-color: var(--scroll-rest);
+  background-clip: padding-box;
+}
+
+.multi-panel::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-hover) }
+.multi-panel::-webkit-scrollbar-thumb:active { background-color: var(--scroll-held) }
 
 /* FIXED LAYOUT, SO THE TABLE IS EXACTLY ITS CONTAINER AT EVERY WIDTH.
 
