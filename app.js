@@ -2438,7 +2438,9 @@ function markFolding(panel) {
 
 $('#filterToggle').addEventListener('click', () => {
   filtersOpen = !filtersOpen;
-  if (!filtersOpen) markFolding($('#filterPanel'));
+  /* BOTH DIRECTIONS, because the clipper reads the same marker now. It clips
+     only while the fold travels, so the tag menu can leave the box at rest. */
+  markFolding($('#filterPanel'));
   renderFilterToggle();
   if (filtersOpen) $('#search').focus();
 });

@@ -1576,9 +1576,24 @@ header {
    min-height: 0 stays, because a grid item still refuses to go under its own
    content without it. */
 .filters-fold {
-  overflow: clip;
   min-height: 0;
 }
+
+/* AND IT CLIPS ONLY WHILE THE FOLD IS IN FLIGHT. At rest the track IS the
+   content height, so there is nothing to clip and the clip only costs.
+
+   Their report: "filter menu is opening behind the list". The tag menu is
+   absolutely placed against its own trigger, which sits inside this box, so a
+   clipper here cuts it at the panel's foot. Measured at 1035 with the menu
+   open: the menu ran 482 to 641 and the list started at 555, and a hit test
+   answered the menu at its top and a table row 86px lower.
+
+   A DROPDOWN CANNOT ESCAPE A CLIPPED ANCESTOR, whichever value clips it. So
+   the clip is the thing that goes, rather than the menu that moves. `hidden`
+   covers the collapse from the press and the marker covers both runs, so a
+   missing marker costs one spill rather than a cut menu at rest. */
+#filterPanel[hidden] .filters-fold,
+#filterPanel[data-folding] .filters-fold { overflow: clip }
 
 .filters-row {
   display: flex;
@@ -2113,7 +2128,35 @@ header {
     height: 100dvh;
   }
 
-  .add-card, .filters, .sort-bar { position: static }
+  .add-card, .sort-bar { position: static }
+
+  /* THE FILTERS BAND TAKES `relative` RATHER THAN `static`, BECAUSE ITS OWN
+     RULE IS PLACED AGAINST THIS BOX. That rule is an absolutely placed
+     pseudo-element at 100% minus a step, so a static ancestor sends the
+     percentage to the initial containing block instead.
+
+     Measured at 768x1024: inset-block-start computed 1012px against a 165px
+     panel, and the width read the viewport's 768, so the line was drawn at
+     the foot of the window. At 375x812 the page scrolls, the band IS sticky,
+     and the same rule read 237px against a 249px panel.
+
+     Their report: the line "vanishes in width-limited responsive mode", then
+     "also in tablet mode", then "works fine only in mobile view". Mobile is
+     the one size short enough to leave the band sticky.
+
+     `relative` and `static` are the same layout here, because nothing in a
+     locked app scrolls past this box. Only the two boxes with no such rule
+     stay static. */
+  .filters {
+    position: relative;
+
+    /* AND ITS STICKY OFFSET IS CLEARED WITH IT. `top` does nothing under
+       `static` and offsets the box under `relative`, so the band read
+       --stick-2 as an instruction. Measured at 1462x1248 before this line:
+       the panel's top sat at 388 against a table starting at 338, so it had
+       dropped 247px onto the list. */
+    top: auto;
+  }
 
   /* It painted the gap the stuck card scrolled through. Nothing scrolls. */
   .shell::before { content: none }
