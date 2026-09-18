@@ -169,6 +169,10 @@ let activeTags = new Set();
    have not sorted yet", which is the same widening every other option does. */
 let untaggedOnly = false;
 let searchTerm = '';
+/* THE MENU'S OWN QUERY, NOT THE LIST'S. It narrows which tags the dropdown
+   offers and never touches which videos are shown, so it is cleared on every
+   open and on every close. */
+let tagQuery = '';
 let deletion = null;
 let listState = 'ready';
 let stateMessage = '';
@@ -306,6 +310,14 @@ function render() {
      video and the option goes, so the filter would sit on with nothing on
      screen to show it or clear it. The tags already retire this way. */
   if (untaggedOnly && !bareOffered()) untaggedOnly = false;
+
+  /* THE SAME RULE FOR A TAG, AND IT BELONGS HERE RATHER THAN AT EACH DOOR.
+     Their report: they filtered by #removed, deleted every row carrying it,
+     and the list read 0 with no way back. The tag had retired, so the menu
+     had dropped the only control that could turn it off. Every mutation
+     renders, so one writer covers the deletes, the untags and the imports. */
+  const live = new Set(allTags());
+  [...activeTags].forEach((t) => { if (!live.has(t)) activeTags.delete(t); });
 
   /* An edit cannot outlive its row. Deleting the record being renamed, or
      switching to a list it is not in, would leave a field open over nothing
@@ -812,12 +824,31 @@ function renderTagFilter() {
      hashed. Hashing the key would break every lookup against `videos`. */
   const items = [];
 
+  /* A QUERY NARROWS THE TAGS AND HIDES THE TWO OPTIONS THAT ARE NOT TAGS.
+     All and Untagged match no search anybody is typing, and a reader who has
+     typed three letters is looking for a tag. */
+  const query = tagQuery.trim().toLowerCase();
+  const shown = query ? tags.filter((t) => t.toLowerCase().includes(query)) : tags;
+
+  /* ALL IS FIRST, AND IT IS THE WAY OUT. Their report: with every matching
+     row deleted the menu had nothing to turn the filter off with. It reads
+     as chosen when nothing else is, so the menu always states its own
+     state. */
+  if (!query) {
+    items.push(`<li class="multi-option" role="option" id="tagOptAll"
+        data-all="true" aria-selected="${chosen === 0 ? 'true' : 'false'}">
+        <span class="multi-box">${icon('check')}</span>
+        <span>All</span>
+        <span class="multi-count">${held.length}</span>
+      </li>`);
+  }
+
   /* UNTAGGED LEADS, ABOVE THE RULE. It is the one option that is not a tag,
      and a reader reaching for it does not have to walk a list of fifty first.
      THE SEPARATOR IS PRESENTATIONAL: a listbox takes option and group
      children, so role="separator" among them is not a child the role allows.
      The option's own words say what it is. */
-  if (bareOffered()) {
+  if (bareOffered() && !query) {
     items.push(`<li class="multi-option" role="option" id="tagOptUntagged"
         data-untagged="true" aria-selected="${untaggedOnly ? 'true' : 'false'}">
         <span class="multi-box">${icon('check')}</span>
@@ -827,16 +858,19 @@ function renderTagFilter() {
     items.push(`<li class="multi-sep" role="presentation"></li>`);
   }
 
-  items.push(...tags.map((tag, i) => `<li class="multi-option" role="option" id="tagOpt-${i}"
+  items.push(...shown.map((tag, i) => `<li class="multi-option" role="option" id="tagOpt-${i}"
         data-tag="${escape(tag)}" aria-selected="${activeTags.has(tag) ? 'true' : 'false'}">
         <span class="multi-box">${icon('check')}</span>
         <span>${escape(hashed(tag))}</span>
         <span class="multi-count">${counts.get(tag)}</span>
       </li>`));
 
+  /* AN EMPTY RUN HAS TWO CAUSES AND A READER HAS TO KNOW WHICH. No tags at
+     all is a library that has none yet. No matches is a query that found
+     none, and the field above still holds it. */
   $('#tagFilterList').innerHTML = items.length
     ? items.join('')
-    : `<li class="multi-option" aria-disabled="true">No Tags Yet</li>`;
+    : `<li class="multi-option" aria-disabled="true">${query ? 'No Matching Tags' : 'No Tags Yet'}</li>`;
 
   /* An option removed while the panel is open must not leave the active
      index pointing past the end of the list. Count the OPTIONS, not the
@@ -1030,16 +1064,13 @@ function accept(tag) {
    ========================================================================== */
 
 /* Dropping the last video carrying a tag retires that tag, so an active
-   filter on it must go too. Left behind, the multiselect would keep offering
-   a tag that matches nothing and the list would read as empty for no visible
-   reason. */
+   filter on it must go too. render() does that for every door at once. */
 function removeTag(id, tag) {
   const video = videos.find((v) => v.id === id);
   if (!video) return;
 
   video.tags = (video.tags || []).filter((t) => t !== tag);
   save();
-  if (!allTags().includes(tag)) activeTags.delete(tag);
   dissolve();
 }
 
@@ -1102,11 +1133,6 @@ function clearSelectedTags() {
      flag, so ordered() puts it straight back on a video that is still gone. */
   videos = videos.map((v) => (ids.has(v.id) ? ordered({ ...v, tags: [] }) : v));
   save();
-
-  /* A tag whose last video just lost it is retired, so a filter on it must go
-     too. Left behind, the list reads as empty for no visible reason. */
-  const live = new Set(allTags());
-  [...activeTags].forEach((t) => { if (!live.has(t)) activeTags.delete(t); });
 
   closeBulk({ refocus: true });
   dissolve();
@@ -1383,12 +1409,20 @@ async function addLink(url) {
   say(`Bookmarked ${name}.`);
 }
 
+/* THE COUNT IS THE KEY. Their instruction, 19 September 2026: deleting five
+   rows asks for "5" rather than "delete 5 videos". The number is the one
+   thing a reader has to read before agreeing, and a sentence they copy word
+   for word buries it.
+
+   ONE WRITER, because the label and the gate are the same string. They were
+   two literals and either could have moved alone. */
+const deleteKey = () => String(deletion?.length ?? 0);
+
 function openDelete(ids) {
   deletion = [...ids];
   if (!deletion.length) return;
 
   const many = deletion.length !== 1;
-  const required = `delete ${deletion.length} videos`;
 
   $('#confirmTitle').textContent = many ? `Delete ${deletion.length} Videos?` : 'Remove This Video?';
   $('#confirmText').textContent = many
@@ -1397,7 +1431,7 @@ function openDelete(ids) {
   $('#typedConfirm').hidden = !many;
   $('#confirmInput').value = '';
   $('#confirmDelete').disabled = many;
-  if (many) $('#requiredText').textContent = required;
+  if (many) $('#requiredText').textContent = deleteKey();
   $('#confirm').showModal();
 }
 
@@ -2493,19 +2527,26 @@ const multiOptions = () => $$('#tagFilterList [role=option]');
 function openMulti() {
   if (multi.open) return;
   multi.open = true;
-  $('#tagFilterList').hidden = false;
+  tagQuery = '';
+  $('#tagSearch').value = '';
+  renderTagFilter();
+  $('#tagFilterPanel').hidden = false;
   $('#tagFilterTrigger').setAttribute('aria-expanded', 'true');
+  $('#tagSearch').focus();
 }
 
 function closeMulti({ refocus = false } = {}) {
   if (!multi.open) return;
   multi.open = false;
   multi.index = -1;
-  $('#tagFilterList').hidden = true;
+  tagQuery = '';
+  $('#tagFilterPanel').hidden = true;
+  $('#tagSearch').value = '';
+  $('#tagSearch').removeAttribute('aria-activedescendant');
   const trigger = $('#tagFilterTrigger');
   trigger.setAttribute('aria-expanded', 'false');
-  trigger.removeAttribute('aria-activedescendant');
   multiOptions().forEach((o) => o.classList.remove('active'));
+  renderTagFilter();
   if (refocus) trigger.focus();
 }
 
@@ -2515,13 +2556,14 @@ function moveMulti(step) {
   multi.index = (multi.index + step + options.length) % options.length;
   options.forEach((o, i) => o.classList.toggle('active', i === multi.index));
   options[multi.index].scrollIntoView({ block: 'nearest' });
-  $('#tagFilterTrigger').setAttribute('aria-activedescendant', options[multi.index].id);
+  $('#tagSearch').setAttribute('aria-activedescendant', options[multi.index].id);
 }
 
 /* It takes the OPTION, not a tag string, because one option in the list is
    not a tag and has no key to pass. */
 function toggleOption(option) {
-  if (option.dataset.untagged) untaggedOnly = !untaggedOnly;
+  if (option.dataset.all) { activeTags.clear(); untaggedOnly = false; }
+  else if (option.dataset.untagged) untaggedOnly = !untaggedOnly;
   else if (activeTags.has(option.dataset.tag)) activeTags.delete(option.dataset.tag);
   else activeTags.add(option.dataset.tag);
 
@@ -2543,18 +2585,56 @@ $('#tagFilterList').addEventListener('click', (event) => {
   if (option) toggleOption(option);
 });
 
+/* THE TRIGGER ONLY OPENS IT NOW. Focus goes to the field, so the field is
+   where the arrows, Enter and Escape are answered. */
 $('#tagFilterTrigger').addEventListener('keydown', (event) => {
+  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+  event.preventDefault();
+  if (!multi.open) openMulti();
+  moveMulti(event.key === 'ArrowDown' ? 1 : -1);
+});
+
+/* A REBUILT LIST CANNOT KEEP AN INDEX. Typing narrows the options, so the
+   mark starts again rather than pointing at whatever now sits in that slot. */
+$('#tagSearch').addEventListener('input', (event) => {
+  tagQuery = event.target.value;
+  multi.index = -1;
+  $('#tagSearch').removeAttribute('aria-activedescendant');
+  renderTagFilter();
+});
+
+$('#tagSearch').addEventListener('keydown', (event) => {
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
     event.preventDefault();
-    if (!multi.open) { openMulti(); moveMulti(event.key === 'ArrowDown' ? 1 : -1); }
-    else moveMulti(event.key === 'ArrowDown' ? 1 : -1);
+    moveMulti(event.key === 'ArrowDown' ? 1 : -1);
     return;
   }
-  if (event.key === 'Escape' && multi.open) { event.preventDefault(); closeMulti(); return; }
-  if ((event.key === 'Enter' || event.key === ' ') && multi.open && multi.index >= 0) {
+
+  /* ESCAPE CLEARS THE QUERY FIRST, because a reader who typed something is
+     undoing that rather than leaving the menu. An empty field closes it. */
+  if (event.key === 'Escape') {
     event.preventDefault();
-    toggleOption(multiOptions()[multi.index]);
+    if (tagQuery) {
+      tagQuery = '';
+      event.target.value = '';
+      multi.index = -1;
+      renderTagFilter();
+      return;
+    }
+    closeMulti({ refocus: true });
+    return;
   }
+
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+
+  /* ONE MATCH NEEDS NO ARROW. Typing a tag name and pressing Enter is the
+     whole point of the field, and walking down to a list of one is work the
+     reader should not have to do. */
+  const options = multiOptions();
+  const target = multi.index >= 0 ? options[multi.index]
+    : options.length === 1 ? options[0] : null;
+  if (target) toggleOption(target);
 });
 
 /* A click anywhere else closes it. Pointerdown, so a click that lands on
@@ -2865,8 +2945,7 @@ $('#tagBulkPanel').addEventListener('keydown', (event) => {
 });
 
 $('#confirmInput').addEventListener('input', (event) => {
-  $('#confirmDelete').disabled =
-    event.target.value.trim().toLowerCase() !== `delete ${deletion?.length ?? 0} videos`;
+  $('#confirmDelete').disabled = event.target.value.trim() !== deleteKey();
 });
 
 $('#confirm').addEventListener('close', () => {
