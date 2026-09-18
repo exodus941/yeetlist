@@ -390,7 +390,7 @@
    rearranges, on each breakpoint a drag crosses. That is work nobody asked
    for at a width nobody stops at. */
 #listRuntime, #searchClear, #state, #tagSuggest, #tagBulkPanel,
-#addStatusDismiss, #typedConfirm, #importPanel, #driveConnect,
+#typedConfirm, #importPanel, #driveConnect,
 #driveGroup, #driveAlert, #tagFilterPanel, #sortList, #exportMenu, #filterPanel {
   transition:
     opacity var(--duration) var(--ease),
@@ -398,7 +398,7 @@
 }
 
 #listRuntime[hidden], #searchClear[hidden], #state[hidden], #tagSuggest[hidden],
-#tagBulkPanel[hidden], #addStatusDismiss[hidden], #typedConfirm[hidden],
+#tagBulkPanel[hidden], #typedConfirm[hidden],
 #importPanel[hidden], #driveConnect[hidden], #driveGroup[hidden],
 #driveAlert[hidden], #tagFilterPanel[hidden], #sortList[hidden], #exportMenu[hidden],
 #filterPanel[hidden] {
@@ -408,7 +408,7 @@
 @starting-style {
   #listRuntime:not([hidden]), #searchClear:not([hidden]), #state:not([hidden]),
   #tagSuggest:not([hidden]), #tagBulkPanel:not([hidden]),
-  #addStatusDismiss:not([hidden]), #typedConfirm:not([hidden]),
+  #typedConfirm:not([hidden]),
   #importPanel:not([hidden]), #driveConnect:not([hidden]),
   #driveGroup:not([hidden]), #driveAlert:not([hidden]),
   #tagFilterPanel:not([hidden]), #sortList:not([hidden]), #exportMenu:not([hidden]),
@@ -977,29 +977,64 @@ header {
   font-size: var(--text-xs);
 }
 
-/* AN EMPTY BLOCK STILL CHARGES ITS MARGIN. The add card's status line holds
-   nothing until something happens, and the 12px would sit under the button
-   as a gap nobody asked for. */
-.hint:empty { margin: 0 }
 
-/* THE ROW CARRIES THE MESSAGE'S TYPE, or the cap band below is computed from
-   the wrong size. The mark's lift is stated in em, and em resolves against
-   the element carrying the transform. */
+/* THE MESSAGE ARRIVES AND LEAVES ON A GRID TRACK, so the card grows and
+   shrinks around it. Their instruction, 19 September 2026: the notification
+   fades out over 250ms while the card's height shrinks back, and the card
+   grows as it fades in.
+
+   A HEIGHT WOULD HAVE TO BE MEASURED AND A TRACK DOES NOT. 1fr IS the
+   message's natural height, whatever it wraps to, so a two-line message needs
+   no second number. */
 .status-line {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin-block-start: var(--space-md);
+  transition:
+    grid-template-rows var(--duration) var(--ease),
+    margin-block-start var(--duration) var(--ease);
+}
+
+/* THE DISTANCE TRAVELS WITH THE HEIGHT, AND IT IS A MARGIN. Written as
+   padding inside this box the two siblings would still meet at 0.00px, which
+   is the fault a bare block between two others always is. A margin sits
+   BETWEEN them, so the add row stands 12px clear while the message is up and
+   nothing at all when it is away. */
+.status-line:not([data-shown]) { grid-template-rows: 0fr; margin-block-start: 0 }
+
+/* THE FADE GOES ON THE CLIPPER, NEVER ON THE GRID BOX. Opacity applies to
+   everything an element paints, so fading the outer box would fade the row's
+   own distance with it and leave nothing to travel.
+
+   `overflow: clip` rather than hidden: a hidden box is still a scroll
+   container, and the dismiss control inside it can be focused.
+   `min-height: 0` or a grid item refuses to go under its own content. */
+.status-clip {
+  min-height: 0;
+  overflow: clip;
+  transition: opacity var(--duration) var(--ease);
+}
+
+.status-line:not([data-shown]) .status-clip { opacity: 0 }
+
+/* THE ROW CARRIES NO PADDING, because the distance above it is the outer
+   box's margin. A padded clipper could not reach zero either:
+   `box-sizing: border-box` floors a box at its own padding, so the last 12px
+   of the travel would be a jump.
+
+   THE ROW CARRIES THE MESSAGE'S TYPE, or the mark's cap band is computed from
+   the wrong size. The lift is stated in em, and em resolves against the
+   element carrying the transform. */
+.status-row {
   display: flex;
   align-items: baseline;
   gap: var(--space-sm);
-  margin-top: var(--space-md);
   font-size: var(--text-xs);
 }
 
 /* THE ROW OWNS THE DISTANCE, NOT ITS CHILD. Left on the message, the wrapper
    met the add row at 0.00px and the 12px was written one level too deep. */
-.status-line .hint { flex: 1; min-width: 0; margin: 0 }
-
-/* A row with nothing in it owns no distance. :has() takes the weight of its
-   argument, so this beats the rule above whatever the order. */
-.status-line:has(.hint:empty) { margin-top: 0 }
+.status-row .hint { flex: 1; min-width: 0; margin: 0 }
 
 /* AN ICON-ONLY CONTROL IS SQUARE, AND IT IS DRAWN AT THE MARK SIZE. The touch
    floor is a REACH, not a size: written as a height it would put a 44px box

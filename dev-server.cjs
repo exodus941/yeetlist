@@ -84,6 +84,18 @@ http.createServer(async (req, res) => {
     }
     catch { res.writeHead(422, {'Content-Type':'application/json'}); return res.end(JSON.stringify({error:'That video could not be read.'})); }
   }
+  // Same route as /api/link below: the real module, imported. A playlist is
+  // read once and its ids go through /api/videos, so a second implementation
+  // here would be the one place the preview could disagree.
+  if (requestUrl.pathname === '/api/playlist') {
+    try {
+      const { default: handler } = await import('./api/playlist.js');
+      return handler({ query: { url: requestUrl.searchParams.get('url') || '' } }, vercelShim(res));
+    } catch (error) {
+      res.writeHead(500, {'Content-Type':'application/json'});
+      return res.end(JSON.stringify({error:String(error && error.message || error)}));
+    }
+  }
   // api/link.js is ESM and this file is CommonJS, so it arrives through a
   // dynamic import rather than being restated here. One implementation, so
   // the preview cannot answer differently from production.

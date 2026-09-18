@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260919-2';
+const VERSION = '260919-3';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -1296,17 +1296,41 @@ async function refreshMetadata() {
 
 const STATUS_LIFE = 15000;
 let statusTimer = 0;
+let statusClear = 0;
 
+/* THE MESSAGE STAYS WHILE IT LEAVES. Their instruction, 19 September 2026:
+   the notification fades out while the card's height shrinks back. Clearing
+   the text on the press would empty the box before either could happen, so
+   the words are cleared at the far end of the travel instead.
+
+   THE DURATION IS READ, NEVER TYPED. Under reduced motion the stylesheet may
+   answer with a shorter one, and a hard-coded wait would hold an empty box
+   open for a quarter of a second with nothing moving. */
 function say(text, markup = false) {
   const line = $('#addStatus');
-  if (markup) line.innerHTML = text; else line.textContent = text;
-
-  /* The control is hidden rather than absent, so there is nothing to build
-     and nothing to wire on each message. */
-  $('#addStatusDismiss').hidden = !text;
+  const box = line.closest('.status-line');
 
   clearTimeout(statusTimer);
-  statusTimer = text ? setTimeout(() => say(''), STATUS_LIFE) : 0;
+  clearTimeout(statusClear);
+
+  if (text) {
+    if (markup) line.innerHTML = text; else line.textContent = text;
+    /* The control is hidden rather than absent, so there is nothing to build
+       and nothing to wire on each message. */
+    $('#addStatusDismiss').hidden = false;
+    box.dataset.shown = '';
+    statusTimer = setTimeout(() => say(''), STATUS_LIFE);
+    return;
+  }
+
+  if (!('shown' in box.dataset)) return;
+  delete box.dataset.shown;
+
+  const ms = parseFloat(getComputedStyle(box).transitionDuration) * 1000 || 0;
+  statusClear = setTimeout(() => {
+    line.textContent = '';
+    $('#addStatusDismiss').hidden = true;
+  }, ms);
 }
 
 /* THE TAB DECIDES WHERE A LINK GOES, never the link itself. Routing on the
@@ -1337,6 +1361,35 @@ const withScheme = (raw) => (/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : 'https://'
 
    It used to refuse a mismatch and name the other tab, which made the reader
    do the routing the address already answers. */
+/* A PLAYLIST IS A SET OF VIDEOS AND A CHANNEL IS ONE PAGE. Their instruction,
+   19 September 2026: a playlist adds every video in it, and a channel link
+   goes into Other Bookmarks.
+
+   A WATCH LINK CARRYING A LIST IS STILL ONE VIDEO. Opening a video from a
+   playlist gives an address with both, and the video is the thing the reader
+   was looking at. So the list only decides where there is no video id. */
+/* The same reading as api/video.js. A YouTube address that names no video is
+   a channel, a playlist or the front page, and none of those is a row in the
+   watchlist. */
+const videoIdOf = (value) => {
+  try {
+    const url = new URL(value);
+    if (url.hostname === 'youtu.be') return url.pathname.slice(1) || null;
+    return url.searchParams.get('v')
+      || url.pathname.match(/\/(?:shorts|embed|live)\/([^/?]+)/)?.[1]
+      || null;
+  } catch { return null; }
+};
+
+const playlistOf = (url) => {
+  try {
+    const parsed = new URL(url);
+    if (!isYouTube(url)) return null;
+    if (videoIdOf(url)) return null;
+    return parsed.searchParams.get('list');
+  } catch { return null; }
+};
+
 async function addVideo() {
   const typed = $('#videoUrl').value.trim();
   if (!typed) return;
@@ -1345,7 +1398,16 @@ async function addVideo() {
   $('#addBtn').disabled = true;
 
   try {
-    const target = isYouTube(url) ? 'youtube' : 'links';
+    if (playlistOf(url)) {
+      const added = await addPlaylist(url);
+      $('#videoUrl').value = '';
+      if (added && tab !== 'youtube') showTab('youtube');
+      return;
+    }
+
+    /* A YOUTUBE ADDRESS WITH NO VIDEO IN IT IS A BOOKMARK. A channel page is
+       the commonest one, and /api/video can only answer about a video. */
+    const target = videoIdOf(url) ? 'youtube' : 'links';
     await (target === 'youtube' ? addYouTube(url) : addLink(url));
     $('#videoUrl').value = '';
 
@@ -1359,6 +1421,37 @@ async function addVideo() {
   } finally {
     $('#addBtn').disabled = false;
   }
+}
+
+/* A PLAYLIST IS READ ONCE FOR ITS IDS, and the ids then take the file
+   import's own path. Their instruction: add all the videos on the playlist
+   sequentially.
+
+   SEQUENTIALLY MEANS IN THE PLAYLIST'S ORDER. The ids arrive in that order
+   and the run keeps it, so a series added this way sorts by Added in the
+   order somebody meant to watch it. */
+async function addPlaylist(url) {
+  say('Reading the playlist…');
+
+  const response = await fetch(`/api/playlist?url=${encodeURIComponent(url)}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error);
+  if (!data.ids.length) throw new Error('That playlist holds no videos.');
+
+  say(`${data.ids.length} video${data.ids.length === 1 ? '' : 's'} in ${data.name}. Adding…`);
+
+  /* The map's VALUE is the title a bookmarks file would have carried. A
+     playlist has none to give, and /api/videos answers with the real one. */
+  const added = await runImport(new Map(data.ids.map((id) => [id, null])), new Map(), data.name);
+
+  /* THE TOAST CARRIES THE RESULT, so the line goes rather than holding
+     "Adding…" over a run that has finished. Left up, it reads as still
+     working, and a playlist whose videos were all already saved showed it for
+     the full fifteen seconds. */
+  say(data.truncated
+    ? `${data.name} is longer than 500 videos. The first 500 were read.`
+    : '');
+  return added;
 }
 
 async function addYouTube(url) {
@@ -1390,6 +1483,18 @@ const linkId = (value) => {
 
 /* THE ADDRESS ARRIVES WITH ITS SCHEME. withScheme runs before the router, so
    a second writer here would be one rule in two places. */
+/* The four shapes a channel address takes. Anything else on the host is a
+   page like any other, and the hostname names it. */
+const channelName = (url) => {
+  try {
+    if (!isYouTube(url)) return '';
+    const parts = new URL(url).pathname.split('/').filter(Boolean);
+    const who = parts[0]?.startsWith('@') ? parts[0]
+      : ['channel', 'c', 'user'].includes(parts[0]) ? parts[1] : '';
+    return who ? `${who} on YouTube` : '';
+  } catch { return ''; }
+};
+
 async function addLink(url) {
   let id;
   try { id = linkId(url); } catch { throw new Error('That is not a link this can read.'); }
@@ -1405,8 +1510,13 @@ async function addLink(url) {
 
   /* THE HOST IS THE FALLBACK, NOT AN ERROR. Plenty of pages refuse a server
      that is not a browser, and a bookmark with no name is worse than one
-     named after its own site. */
-  if (!name) name = new URL(url).hostname.replace(/^www\./, '');
+     named after its own site.
+
+     A CHANNEL IS THE CASE WHERE THE HOST SAYS NOTHING. YouTube answers a
+     server with a shell holding no title, so every channel bookmarked this
+     way used to read "youtube.com". The address carries the handle, so the
+     row can name the channel without a second request. */
+  if (!name) name = channelName(url) || new URL(url).hostname.replace(/^www\./, '');
 
   videos.push({ id, kind: 'link', title: name, url, addedAt: new Date().toISOString(), tags: [] });
   tombstones = tombstones.filter((t) => t.id !== id);
@@ -1914,22 +2024,34 @@ async function importLinks(text, isHtml) {
   if (importRun.active) return;
 
   const { clips, pages } = linksIn(text, isHtml);
-  const total = clips.size + pages.size;
-  if (total === 0) {
+  if (clips.size + pages.size === 0) {
     return toast('warn', 'No links in that file.',
       'It was read successfully. A video link counts anywhere in the file, and'
       + ' a bookmark has to be a list entry or a line of its own.');
   }
 
+  return runImport(clips, pages);
+}
+
+/* ONE RUN FOR EVERY SET OF LINKS. A playlist is a set of video ids, which is
+   what a bookmarks file resolves to as well, so it takes this whole path:
+   the chunks of 50, the progress panel, the per-chunk save and the report.
+   A second adder would be a second place for the quota, the duplicates and
+   the failures to be handled differently. */
+async function runImport(clips, pages, from = '') {
+  if (importRun.active) return 0;
+
+  const total = clips.size + pages.size;
   const known = new Set(videos.map((v) => v.id));
   const fresh = [...clips.keys()].filter((id) => !known.has(id));
   const freshPages = [...pages.keys()].filter((id) => !known.has(id));
   const counts = { added: 0, duplicate: total - fresh.length - freshPages.length, failed: 0 };
 
   if (fresh.length + freshPages.length === 0) {
-    return toast('warn', 'Nothing new to import.', total === 1
+    toast('warn', 'Nothing new to import.', total === 1
       ? 'That link was already saved.'
       : `All ${total} links were already saved.`);
+    return 0;
   }
 
   importRun.active = true;
@@ -2005,13 +2127,14 @@ async function importLinks(text, isHtml) {
   }
 
   dissolve();
-  reportImport(counts, total, importRun.cancelled, freshPages.length);
+  reportImport(counts, total, importRun.cancelled, freshPages.length, from);
   importRun.error = null;
+  return counts.added;
 }
 
 /* THE REPORT SAYS WHICH LIST GOT WHAT. One file now fills two, and "Imported
    58 videos" would be wrong about the half that are not. */
-function reportImport(counts, total, cancelled, bookmarks) {
+function reportImport(counts, total, cancelled, bookmarks, from = '') {
   const detail = [
     counts.duplicate ? `${counts.duplicate} already saved` : null,
     counts.failed ? `${counts.failed} could not be read` : null,
@@ -2032,7 +2155,8 @@ function reportImport(counts, total, cancelled, bookmarks) {
   if (counts.added === 0) {
     return toast('error', 'Nothing was imported.', detail || 'None of the links could be read.');
   }
-  toast(counts.failed || importRun.error ? 'warn' : 'ok', `Imported ${what}.`, detail);
+  toast(counts.failed || importRun.error ? 'warn' : 'ok',
+    `Imported ${what}${from ? ' from ' + from : ''}.`, detail);
 }
 
 /* ==========================================================================

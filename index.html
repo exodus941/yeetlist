@@ -182,12 +182,21 @@
 
          THE BUTTON SITS OUTSIDE THE REGION. Inside it, a screen reader would
          announce "Dismiss this message" as part of every message. -->
+    <!-- THREE BOXES, BECAUSE THE FOLD NEEDS THEM. The outer one is a grid
+         whose single row travels from 1fr to 0fr, so the card around it
+         grows and shrinks. The clipper carries the fade, since opacity on
+         the outer box would take the row's own distance with it. The inner
+         row holds the padding, or a padded clipper could never reach 0. -->
     <div class="status-line">
-      <p id="addStatus" class="hint" role="status"></p>
-      <button id="addStatusDismiss" class="status-x" type="button" hidden
-              aria-label="Dismiss this message">
-        <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
-      </button>
+      <div class="status-clip">
+        <div class="status-row">
+          <p id="addStatus" class="hint" role="status"></p>
+          <button id="addStatusDismiss" class="status-x" type="button" hidden
+                  aria-label="Dismiss this message">
+            <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+          </button>
+        </div>
+      </div>
     </div>
   </section>
 
