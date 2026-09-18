@@ -13,10 +13,15 @@
 
 const API = 'https://www.googleapis.com/youtube/v3';
 
-/* 500 IS A LIMIT WITH A REASON. playlistItems answers 50 per call, and a list
-   of 4000 would otherwise spend 80 calls and empty the day's quota on one
-   paste. The answer says it was cut. */
-const MAX_PAGES = 10;
+/* THERE IS NO CAP ON THE LIST, BECAUSE THE QUOTA WAS NEVER THE REASON.
+   playlistItems costs ONE unit per call whatever it returns, against a daily
+   10,000, so a 4,000-video list spends 80 of them. A 500 ceiling was my own
+   invention and it silently dropped whatever sat past it.
+
+   WHAT DOES BIND IS THE FUNCTION'S OWN CLOCK. So this pages until its budget
+   runs out and hands the next token back. The caller asks again with that
+   token, so the list is read in full across as many calls as it takes. */
+const BUDGET_MS = 8000;
 
 /* A LIST ID THE API CANNOT READ. A radio list is generated per viewer, and
    Watch Later and Liked belong to one account. */
@@ -48,13 +53,13 @@ export default async function handler(req, res) {
   if (!named.items?.[0]) return res.status(404).json({ error: 'That playlist could not be found.' });
 
   const ids = [];
-  let page = '';
-  let truncated = false;
+  let page = String(req.query.page || '');
+  const started = Date.now();
 
-  for (let at = 0; at < MAX_PAGES; at += 1) {
+  do {
     const json = await ask(
       `playlistItems?part=contentDetails&maxResults=50&playlistId=${encodeURIComponent(list)}`
-      + (page ? `&pageToken=${page}` : ''),
+      + (page ? `&pageToken=${encodeURIComponent(page)}` : ''),
     );
     if (json.error) return res.status(502).json({ error: json.error.message });
 
@@ -64,9 +69,9 @@ export default async function handler(req, res) {
     });
 
     page = json.nextPageToken || '';
-    if (!page) break;
-    if (at === MAX_PAGES - 1) truncated = true;
-  }
+  } while (page && Date.now() - started < BUDGET_MS);
 
-  return res.status(200).json({ name: named.items[0].snippet.title, ids, truncated });
+  /* `next` is empty when the list is finished. Anything else is a token the
+     caller passes straight back, so nothing is ever dropped. */
+  return res.status(200).json({ name: named.items[0].snippet.title, ids, next: page });
 }

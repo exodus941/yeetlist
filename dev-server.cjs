@@ -90,7 +90,10 @@ http.createServer(async (req, res) => {
   if (requestUrl.pathname === '/api/playlist') {
     try {
       const { default: handler } = await import('./api/playlist.js');
-      return handler({ query: { url: requestUrl.searchParams.get('url') || '' } }, vercelShim(res));
+      return handler({ query: {
+        url: requestUrl.searchParams.get('url') || '',
+        page: requestUrl.searchParams.get('page') || '',
+      } }, vercelShim(res));
     } catch (error) {
       res.writeHead(500, {'Content-Type':'application/json'});
       return res.end(JSON.stringify({error:String(error && error.message || error)}));

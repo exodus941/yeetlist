@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260919-3';
+const VERSION = '260919-4';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -1361,13 +1361,6 @@ const withScheme = (raw) => (/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : 'https://'
 
    It used to refuse a mismatch and name the other tab, which made the reader
    do the routing the address already answers. */
-/* A PLAYLIST IS A SET OF VIDEOS AND A CHANNEL IS ONE PAGE. Their instruction,
-   19 September 2026: a playlist adds every video in it, and a channel link
-   goes into Other Bookmarks.
-
-   A WATCH LINK CARRYING A LIST IS STILL ONE VIDEO. Opening a video from a
-   playlist gives an address with both, and the video is the thing the reader
-   was looking at. So the list only decides where there is no video id. */
 /* The same reading as api/video.js. A YouTube address that names no video is
    a channel, a playlist or the front page, and none of those is a row in the
    watchlist. */
@@ -1381,12 +1374,19 @@ const videoIdOf = (value) => {
   } catch { return null; }
 };
 
+/* A PLAYLIST IS A SET OF VIDEOS AND A CHANNEL IS ONE PAGE. Their instruction,
+   19 September 2026: a playlist adds every video in it, and a channel link
+   goes into Other Bookmarks.
+
+   A LIST IN THE ADDRESS IS THE WHOLE LIST, EVEN BESIDE A VIDEO ID. Their
+   instruction: "a watch link carrying &list= should add the whole list." I had
+   made the video win that case, which the address does not support. Copying a
+   link from inside a playlist gives both parts, and the list is the part a
+   reader cannot reach any other way. */
 const playlistOf = (url) => {
   try {
-    const parsed = new URL(url);
     if (!isYouTube(url)) return null;
-    if (videoIdOf(url)) return null;
-    return parsed.searchParams.get('list');
+    return new URL(url).searchParams.get('list');
   } catch { return null; }
 };
 
@@ -1433,24 +1433,38 @@ async function addVideo() {
 async function addPlaylist(url) {
   say('Reading the playlist…');
 
-  const response = await fetch(`/api/playlist?url=${encodeURIComponent(url)}`);
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error);
-  if (!data.ids.length) throw new Error('That playlist holds no videos.');
+  /* THE WHOLE LIST, HOWEVER LONG. The endpoint pages until its own clock runs
+     out and returns the next token, so this asks again until there is none.
+     No cap: a list of any length is read across as many calls as it takes. */
+  const ids = [];
+  let name = '';
+  let page = '';
 
-  say(`${data.ids.length} video${data.ids.length === 1 ? '' : 's'} in ${data.name}. Adding…`);
+  do {
+    const response = await fetch(`/api/playlist?url=${encodeURIComponent(url)}`
+      + (page ? `&page=${encodeURIComponent(page)}` : ''));
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error);
+
+    name = data.name;
+    ids.push(...data.ids);
+    page = data.next || '';
+    if (page) say(`${ids.length} videos read from ${name}…`);
+  } while (page);
+
+  if (!ids.length) throw new Error('That playlist holds no videos.');
+
+  say(`${ids.length} video${ids.length === 1 ? '' : 's'} in ${name}. Adding…`);
 
   /* The map's VALUE is the title a bookmarks file would have carried. A
      playlist has none to give, and /api/videos answers with the real one. */
-  const added = await runImport(new Map(data.ids.map((id) => [id, null])), new Map(), data.name);
+  const added = await runImport(new Map(ids.map((id) => [id, null])), new Map(), name);
 
   /* THE TOAST CARRIES THE RESULT, so the line goes rather than holding
      "Adding…" over a run that has finished. Left up, it reads as still
      working, and a playlist whose videos were all already saved showed it for
      the full fifteen seconds. */
-  say(data.truncated
-    ? `${data.name} is longer than 500 videos. The first 500 were read.`
-    : '');
+  say('');
   return added;
 }
 
