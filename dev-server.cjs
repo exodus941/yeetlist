@@ -118,5 +118,14 @@ http.createServer(async (req, res) => {
   const relative = requestUrl.pathname === '/' ? 'index.html' : requestUrl.pathname.slice(1);
   const file = path.resolve(root, relative);
   if (!file.startsWith(root) || !fs.existsSync(file)) { res.writeHead(404); return res.end('Not found'); }
-  res.writeHead(200, {'Content-Type': types[path.extname(file)] || 'application/octet-stream'}); fs.createReadStream(file).pipe(res);
+  // NO-STORE, OR A MEASUREMENT IS TAKEN AGAINST BYTES NOBODY SHIPPED. This
+  // server sent no cache headers, so Chrome cached heuristically: the pane
+  // parsed a styles.css with the previous commit's rules while curl on the
+  // same path returned the new ones. Two instruments disagreeing about one
+  // file, and the page wins every argument about what is on screen.
+  res.writeHead(200, {
+    'Content-Type': types[path.extname(file)] || 'application/octet-stream',
+    'Cache-Control': 'no-store, must-revalidate',
+  });
+  fs.createReadStream(file).pipe(res);
 }).listen(3000, () => console.log('YeeTlist running at http://localhost:3000'));

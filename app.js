@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260919-5';
+const VERSION = '260919-6';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -1319,6 +1319,7 @@ function say(text, markup = false) {
        and nothing to wire on each message. */
     $('#addStatusDismiss').hidden = false;
     box.dataset.shown = '';
+    travelling(parseFloat(getComputedStyle(box).transitionDuration) * 1000 || 0);
     statusTimer = setTimeout(() => say(''), STATUS_LIFE);
     return;
   }
@@ -1327,6 +1328,7 @@ function say(text, markup = false) {
   delete box.dataset.shown;
 
   const ms = parseFloat(getComputedStyle(box).transitionDuration) * 1000 || 0;
+  travelling(ms);
   statusClear = setTimeout(() => {
     line.textContent = '';
     $('#addStatusDismiss').hidden = true;
@@ -2634,6 +2636,36 @@ function markFolding(panel) {
   panel.dataset.folding = '';
   const ms = parseFloat(seen.transitionDuration) * 1000 || 0;
   foldMark = setTimeout(() => delete panel.dataset.folding, ms);
+  travelling(ms);
+}
+
+/* ==========================================================================
+   A TRAVELLING FOLD MARKS THE ROOT, SO THE EXPENSIVE PAINT CAN STAND DOWN
+
+   Their report: the folds still hitch on a phone after the containment, which
+   here made them "slightly smoother". Measured on the device's own profiler,
+   400 rows at 375px, three runs a row: as shipped 90.8 fps with 12 hitches,
+   and with the list's mask off 102.7 with 4. Containment removed is 68.7 with
+   30, so both halves count.
+
+   A MASK MAKES THE BROWSER RASTER THE WHOLE BOX EVERY FRAME ITS GEOMETRY
+   MOVES, and that cost scales with the screen. Nine gradient stops over a
+   viewport-tall scroller is cheap at 1x and is not at 3x, which is why this
+   machine could not see it.
+
+   So the ramps stand down for the length of the travel and come back at rest.
+   They exist to soften a CUT EDGE, and a reader watching the list move is not
+   reading that edge.
+   ========================================================================== */
+let travelMark = null;
+
+function travelling(ms) {
+  if (!ms) return;
+  const list = $('.table-wrap');
+  if (!list) return;
+  clearTimeout(travelMark);
+  list.dataset.travelling = '';
+  travelMark = setTimeout(() => { delete list.dataset.travelling; }, ms);
 }
 
 $('#filterToggle').addEventListener('click', () => {
@@ -3462,4 +3494,19 @@ if (DRIVE.connected()) {
        it became, or a failed resume leaves the busy words up for good. */
     renderDrive();
   });
+}
+
+/* ==========================================================================
+   The fold profiler loads for ?perf and never otherwise
+
+   Their report: the folds hitch on a phone, and the containment that took a
+   400-row fold from 60.5 fps to 97.9 here only made it "slightly smoother"
+   there. This machine renders at 1x and a phone at 3x, so a cost that scales
+   with the screen cannot be seen from here at all.
+
+   So the measurement moves to the device. One dynamic import, nothing on the
+   wire for anybody who does not ask for it.
+   ========================================================================== */
+if (/(?:^|[?&])perf(?:&|=|$)/.test(location.search)) {
+  import('./perf.js').catch((error) => say('Profiler failed: ' + error.message));
 }

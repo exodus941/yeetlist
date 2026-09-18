@@ -2354,6 +2354,22 @@ header {
    opaque already sits at that edge and a tail does the work instead. */
 .table-wrap { --mask-top: var(--scrolled-top) }
 
+/* THE RAMPS STAND DOWN WHILE A FOLD TRAVELS. Measured on the device's own
+   profiler, 400 rows at 375px, three runs a row: 90.8 fps with 12 hitches as
+   shipped, and 102.7 with 4 once this mask is off. Containment removed reads
+   68.7 with 30, so both halves count.
+
+   A MASK MAKES THE BROWSER RASTER THE WHOLE BOX EVERY FRAME ITS GEOMETRY
+   MOVES, and that cost scales with the screen. Nine gradient stops over a
+   viewport-tall scroller is cheap at 1x and is not at 3x.
+
+   The ramps soften a CUT EDGE, and a reader watching the list travel is not
+   reading that edge. app.js marks this element for the length of the fold. */
+.table-wrap[data-travelling] {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
 .table-wrap {
   /* TWO LAYERS, AND THE DEFAULT COMPOSITE IS `add`, SO THIS IS THEIR UNION.
 
