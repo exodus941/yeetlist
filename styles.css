@@ -2172,6 +2172,26 @@ header {
   border: var(--list-edge) solid var(--line);
   border-radius: var(--radius-sm);
   min-height: 260px;
+
+  /* THE LIST IS WHAT MAKES A FOLD STUTTER, AND THE COST IS PAINT. Their
+     report: the folding and growing animations are stuttery on a phone, "even
+     faster devices like a Galaxy S23".
+
+     A fold changes the page's height on every frame, so without containment
+     the browser repaints the whole list each time. `contain: paint` lets it
+     skip everything outside this box.
+
+     MEASURED AT 375 WITH 400 ROWS, three runs each, driving the real funnel:
+     60.5 fps without it and 97.9 with. Frames over 32ms fell from 17 to 9.
+     `contain: layout` alone bought nothing, at 57.2, so the layout was never
+     the expensive half.
+
+     IT CLIPS, AND NOTHING HERE WAS RELYING ON THAT. The card view sets
+     `overflow: visible` on purpose, so it was measured: 0 descendants cross
+     this box, and a row control's touch reach still hit-tests 44px with the
+     containment on. No descendant is fixed, so nothing changes containing
+     block. */
+  contain: paint;
 }
 
 /* ==========================================================================

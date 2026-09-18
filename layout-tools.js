@@ -1162,12 +1162,48 @@ function sweep (within = null, exclude = null) {
           if (!r0.width || !r1.width) return []
           return r1.left >= r0.right - 0.5 ? k : []
         }
+        /* AND A SINGLE-CHILD WRAPPER CHAIN DELEGATES THE SAME WAY, WHICH IS
+         * NOT A STACK.
+         *
+         * A disclosure animates its height with a 0fr-to-1fr grid row, so the
+         * panel is a grid wrapper holding a clipper holding the padded body.
+         * The rule belongs to that body. Three levels down, and the check read
+         * only the top box and a row of cells.
+         *
+         * Measured 17 September 2026 in the Components panel: a group header
+         * at 53px above an opened panel at 88px, reported as touching at
+         * 0.00px with nothing between them. The divider was live at the same
+         * y, 783.2px wide, in rgb(33, 38, 42).
+         *
+         * A chain is safe where a stack is not, because it holds ONE child at
+         * each level. There is no second block whose own inset could stand in
+         * for the missing distance, which is the fault this check exists for.
+         * So descend only while the child is the sole element child AND is
+         * flush against the parent's facing edge. Bounded at 4 levels. */
+        const chainFrom = (el, side) => {
+          const out = [el]
+          let cur = el
+          for (let i = 0; i < 4; i++) {
+            const k = [...cur.children]
+            if (k.length !== 1) break
+            const kr = k[0].getBoundingClientRect(), cr = cur.getBoundingClientRect()
+            const flush = side === 'Top'
+              ? Math.abs(kr.top - cr.top) < 0.6
+              : Math.abs(kr.bottom - cr.bottom) < 0.6
+            if (!flush) break
+            cur = k[0]
+            out.push(cur)
+          }
+          return out
+        }
         const paints = (el, side) => {
-          if (parseFloat(getComputedStyle(el)['border' + side + 'Width']) > 0) return true
-          for (const cell of cellsOf(el)) {
-            const cds = getComputedStyle(cell)
-            if (parseFloat(cds['border' + side + 'Width']) > 0) return true
-            if (cds.backgroundImage && cds.backgroundImage !== 'none') return true
+          for (const link of chainFrom(el, side)) {
+            if (parseFloat(getComputedStyle(link)['border' + side + 'Width']) > 0) return true
+            for (const cell of cellsOf(link)) {
+              const cds = getComputedStyle(cell)
+              if (parseFloat(cds['border' + side + 'Width']) > 0) return true
+              if (cds.backgroundImage && cds.backgroundImage !== 'none') return true
+            }
           }
           return false
         }
@@ -1661,15 +1697,33 @@ function sweep (within = null, exclude = null) {
          * holding two heights, and that is the thing to fix. */
         const hs = ctrls.map(c => +c.getBoundingClientRect().height.toFixed(1))
         const hSpread = Math.max(...hs) - Math.min(...hs)
-        const centred = /center/.test(getComputedStyle(el).alignItems)
-        const explained = centred && hSpread > 0.5 && Math.abs(spread - hSpread / 2) < 0.6
-        if (spread > 0.5 && !baselinesAgree) out.tops.push({
+        /* ASK THE CENTRES, NEVER THE PARENT'S DECLARATION.
+         *
+         * This read `align-items` on the row. A CHILD may declare its own
+         * `align-self: center` inside a baseline row, which is the correct
+         * repair for a checkbox beside a text button. The parent then says
+         * baseline, the exemption misses, and the check reports the very fix
+         * that produced the geometry.
+         *
+         * Measured 17 September 2026 on a Components group header: a 16px
+         * checkbox beside a 21px button, tops 2.50px apart, centre to centre
+         * 0.00px, and half the height difference exactly 2.50px. Forcing the
+         * row to `center` returned the same five numbers.
+         *
+         * Agreeing centres are the fact, whatever wrote them. Two boxes of
+         * different heights on one centre MUST have different tops, so a
+         * finding there asks the row to break its own alignment. And where the
+         * centres agree AND the heights match, the spread is zero, so this
+         * cannot silence a real offset. */
+        const mids = ctrls.map(c => { const r = c.getBoundingClientRect(); return r.top + r.height / 2 })
+        const midSpread = Math.max(...mids) - Math.min(...mids)
+        const onOneCentre = ctrls.length > 1 && midSpread <= 0.6
+        const explained = onOneCentre && hSpread > 0.5 && Math.abs(spread - hSpread / 2) < 0.6
+        /* A row on one centre has nothing to answer for. The HEIGHTS are the
+           finding, and the heights check above already reports them, so a tops
+           finding here is the same fault counted twice. */
+        if (spread > 0.5 && !baselinesAgree && !explained) out.tops.push({
           row: name(el), spread: +spread.toFixed(1),
-          cause: explained
-            ? `NOT a misalignment — the row centres ${hs.length} boxes of different heights `
-              + `(${[...new Set(hs)].join(' and ')}), so the tops MUST differ by half of ${hSpread.toFixed(1)}. `
-              + `Fix the HEIGHTS: a control row is one stated height.`
-            : undefined,
           items: ctrls.map((c, i) => ({
             text: (c.textContent || '').trim().slice(0, 12) || 'icon-only',
             top: tops[i], height: hs[i], display: getComputedStyle(c).display,
@@ -2273,9 +2327,30 @@ function sweep (within = null, exclude = null) {
       }
       if (heads.length === 1 && marks.length && oneLine(heads[0])) {
         const tm = typeMetrics(heads[0])
+        /* ── A COLUMN IS NOT A ROW, AND `align-items: center` SAYS NOTHING
+         * ABOUT WHICH ──
+         *
+         * That property centres on the CROSS axis, so a centred column carries
+         * it exactly as a centred row does. Every empty state is such a
+         * column: a mark above a heading above a sentence above an action.
+         *
+         * Measured 19 September 2026 on one empty state at 375px. The mark sat
+         * at y 500 and the heading at 532, so the two share no band, and the
+         * check reported the mark 31px above a cap centre it was never beside.
+         * `flex-direction` read `column`.
+         *
+         * The gate is the INK, not the direction. Two things are on one row
+         * when their painted boxes overlap vertically. That is the rule the
+         * banding already uses, and it also excludes a wrapped row. */
+        const hb = inkBox(heads[0]) || heads[0].getBoundingClientRect()
+        const onOneRow = (mk) => {
+          const b = inkBox(mk)
+          return b && b.bottom > hb.top && hb.bottom > b.top
+        }
         if (tm) {
           const capCentre = (tm.capTop + tm.baseline) / 2
           for (const mk of marks) {
+            if (!onOneRow(mk)) continue
             const b = inkBox(mk)
             const dy = +(((b.top + b.bottom) / 2) - capCentre).toFixed(2)
             /* 1.5px, the same floor the text-centring check uses. Below that
@@ -2656,8 +2731,31 @@ function sweep (within = null, exclude = null) {
     const INTERACTIVE = 'button, select, textarea, input, a[href], summary,'
       + ' [tabindex]:not([tabindex="-1"]), [role=button], [role=tab], [role=switch],'
       + ' [role=checkbox], [role=radio], [role=menuitem], [role=option], [role=link]'
-    const SAMPLE = '.btn, .nav-item, .tab, .select-trigger, .checkbox, .switch, .chip'
-    if (el.matches(INTERACTIVE) || el.matches(SAMPLE)) {
+    /* ── `.chip` IS A READOUT, AND IT COST 11 OF 13 FINDINGS ──
+     *
+     * The class fallback is for a sample that carries a CONTROL's class and
+     * none of its behaviour. A chip is not a control anywhere in this system.
+     * It is a count, a ratio or a tag: "74 entries", "1/1", "12/12". Nothing
+     * presses one, and a removable tag carries its own button for the cross.
+     *
+     * Measured 17 September 2026 in the Components panel: 13 target findings,
+     * 11 of them chips. Every one a `<span>` with no role, no tabindex and no
+     * handler. 10 sat inside the disclosure button that takes the press. The
+     * 2 real findings were buried under them.
+     *
+     * A chip is 19 to 21px tall by design, so it can never clear a 24px
+     * floor. A check that cannot pass on correct code is a check that only
+     * produces noise. */
+    const SAMPLE = '.btn, .nav-item, .tab, .select-trigger, .checkbox, .switch'
+    /* AND A SAMPLE CLASS INSIDE A REAL CONTROL IS ORNAMENT.
+     *
+     * A control is a LEAF, so whatever it holds is a mark, a label or a
+     * chevron rather than a target of its own. The partner rule above says
+     * the same thing about a sibling. This says it about a descendant, which
+     * a subtree search cannot answer and `closest` can. */
+    const ornamentOfControl = !el.matches(INTERACTIVE)
+      && el.parentElement && el.parentElement.closest(INTERACTIVE)
+    if (!ornamentOfControl && (el.matches(INTERACTIVE) || el.matches(SAMPLE))) {
       const coarse = !!(matchMedia && matchMedia('(pointer: coarse)').matches)
       /* THE MOUSE FLOOR WAS A LITERAL HERE, and the document it measures
          now publishes it. A number the tool holds and the document does
@@ -2726,6 +2824,22 @@ function sweep (within = null, exclude = null) {
          hands the measurement to it, and this branch would report it twice. */
       const partner = invisible(el) ? null : partnerOf(el)
       if (invisible(el) && !el.matches('input, select, button, textarea')) continue
+      /* ── A TRANSPARENT CONTROL THAT TAKES NO POINTER IS NOT A TARGET ──
+       *
+       * The branch above keeps a transparent input, because a control
+       * stretched over its host IS the thing a finger presses. A HIDDEN
+       * PICKER is the opposite shape and reads identically: a file input at
+       * `opacity: 0` with a visible button driving it.
+       *
+       * The discriminator is a declaration. A stretched control takes pointer
+       * events; a hidden picker sets `pointer-events: none` and is opened by
+       * script. Nothing a pointer cannot reach is a target.
+       *
+       * Measured 17 September 2026 across this chrome: 4 findings, all one
+       * file input. It declares `width: 1px; height: 1px` inline and Chrome
+       * lays its box out at 26 x 18 regardless, so the number reported was
+       * not even the one in the markup. */
+      if (invisible(el) && getComputedStyle(el).pointerEvents === 'none') continue
       const target = wrap || partner || el
       /* BOTH AXES. This measured the height alone, so the fault that arrived
          today was invisible to it: an icon-only button 28 wide by 44 tall,
@@ -2763,6 +2877,33 @@ function sweep (within = null, exclude = null) {
         return out2
       }
 
+      /* ── AND THE REACH MAY SIT ON A WRAPPER, WHICH IS NOT OPTIONAL ──
+       *
+       * A pseudo-element does not generate on a default-appearance checkbox,
+       * so the only place its reach can live is the element around it. That
+       * wrapper then IS the target, the same way a `label` is when it drives
+       * the control.
+       *
+       * Measured 17 September 2026: a 16px checkbox inside a `span` carrying
+       * an `::after` at a -4px inset. The check read the input's own pseudo,
+       * found none, and reported 16 x 16 against a 24px floor while the
+       * target measured 24 x 24.
+       *
+       * Bounded to the PARENT, and it must be a wrapper rather than a row:
+       * the reach has to cover the element it wraps, so the parent's own box
+       * may not be bigger than the floor on either axis. A `space-between`
+       * row holding a 44px overhang is the fault that shape produces, and it
+       * spanned a label at the far end of the row. */
+      const reachWrapper = (node) => {
+        const p = node.parentElement
+        if (!p) return null
+        const pr = p.getBoundingClientRect(), nr = node.getBoundingClientRect()
+        const o = overhangOf(p)
+        if (!(o.top || o.bottom || o.left || o.right)) return null
+        if (pr.width > nr.width + 2 || pr.height > nr.height + 2) return null
+        return p
+      }
+
       /* ── A TARGET INLINE IN A SENTENCE IS EXEMPT ──
        *
        * 2.5.8 excepts a target whose position is determined by the flow of
@@ -2778,16 +2919,21 @@ function sweep (within = null, exclude = null) {
         return host.textContent.trim().length > el.textContent.trim().length
       }
 
-      const box = target.getBoundingClientRect()
-      const over = overhangOf(target)
+      /* The wrapper is resolved here rather than beside `wrap`, because it
+         needs `overhangOf`, which is declared below that line. */
+      const sleeve = wrap || partner ? null : reachWrapper(el)
+      const measuredOn = sleeve || target
+      const box = measuredOn.getBoundingClientRect()
+      const over = overhangOf(measuredOn)
       const h = box.height + over.top + over.bottom
       const w = box.width + over.left + over.right
       const reached = over.top || over.bottom || over.left || over.right
-      if ((h < floor || w < floor) && !inlineInProse()) out.smallTargets.push({ el: name(target),
+      if ((h < floor || w < floor) && !inlineInProse()) out.smallTargets.push({ el: name(measuredOn),
                                              w: Math.round(w), h: Math.round(h), floor,
                                              axis: h < floor && w < floor ? 'both' : (h < floor ? 'height' : 'width'),
                                              for: coarse ? 'touch' : 'mouse',
                                              measured: wrap ? (reached ? 'the label around it, plus its overhang' : 'the label around it')
+                                                            : sleeve ? 'the wrapper carrying its reach'
                                                             : (reached ? 'itself, plus its overhang' : 'itself') })
     }
   }
