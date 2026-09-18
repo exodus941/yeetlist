@@ -3,3 +3,4 @@
 # exactly like a pass, because a failing run prints nothing of its own.
 set -e
 node tools/syntax-guard.mjs .
+node tools/version-guard.mjs

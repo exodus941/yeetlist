@@ -9,16 +9,21 @@ const PAYLOAD_VERSION = 2;
    YYMMDD, then the number of the push that day. 260915-8 is the eighth push
    of 15 September 2026.
 
-   IT IS BUMPED ON EVERY PUSH, AND TWO WENT UP WITHOUT IT. The build read
-   260915-1 while origin held three commits from that date, so the number
-   beside the wordmark named the wrong build. Count `git log origin/main`
-   for today before writing it.
+   IT IS BUMPED ON EVERY COMMIT, AND WRITING THAT DOWN DID NOT WORK. This
+   comment used to say so and the stamp still sat at 260917-1 through thirteen
+   pushes, so the wordmark named a build nobody was running. The reader saw it
+   on the deployed site, which is the only place it shows.
+
+   `tools/version-guard.mjs` asks it in the pre-commit hook now. It counts the
+   commits on HEAD carrying today's date and requires the next number. HEAD,
+   never origin: the stamp travels with the commit, and origin can be several
+   pushes behind. This comment said origin, which is how the count drifted.
 
    There is no bundler here, so nothing can inject this at compile time and
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260917-1';
+const VERSION = '260919-2';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
