@@ -2960,7 +2960,10 @@ th.amount { text-align: end }
   inset-inline-start: 0;
   width: var(--rate, 0%);
   overflow: clip;
-  color: var(--accent);
+  /* WHITE, WHICH IS THEIR CHOICE. A row's rating is not a status, and the
+     accent means one thing here: the control a reader is about to act on.
+     Measured on the four row planes: 15.72, 14.43, 12.71 and 11.35. */
+  color: var(--text);
 }
 
 .stars-on .icon { fill: currentColor }
@@ -2983,13 +2986,12 @@ th.amount { text-align: end }
    whether it paints. */
 @media (pointer: fine) {
   /* THE PREVIEW IS MUTED GREY, WHICH THEY PICKED FROM SEVEN CANDIDATES
-     RENDERED AT ACTUAL SIZE. A red preview says the rating is already given.
-     Grey says it is not, and the accent then means one thing on this control.
+     RENDERED AT ACTUAL SIZE. It sits between the outline and the committed
+     white, so the three states are a ladder rather than two colours.
 
-     Measured on all four row planes: 7.47, 6.85, 6.04 and 5.39 against their
-     own grounds, so it clears 4.5 wherever the row is. The outline it covers
-     reads 5.49 down to 3.96, so the preview is the louder of the two at every
-     plane.
+     Measured on all four row planes. Outline 5.49 down to 3.96, preview 7.47
+     down to 5.39, committed 15.72 down to 11.35. The order holds at every
+     plane, and the preview clears 4.5 wherever the row is.
 
      ONE WRITER FOR THE HOVER. The outline used to lift to this same grey,
      which left the preview and the outline one colour apart by their fill
