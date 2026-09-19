@@ -1866,6 +1866,22 @@ header {
    The label gives up its end inset while the control is there. */
 .filters-row { flex-wrap: nowrap }
 
+.filters-break { display: none }
+
+/* THE RATING MENU COST THE ROW ITS SECOND LINE BACK. Measured with it in:
+   the row needs 1265.8px, which is a 1373px window once the shell's padding
+   and the section's own inset are paid. The card stack does not take over
+   until 1120, so between those two the row had nowhere to give: the search
+   field was already at its 280px floor and everything else states a width.
+   It ran 11px past the section at 1265 and further below that.
+
+   So the actions drop to a line of their own, and the break element says
+   where rather than leaving it to whichever item happens not to fit. */
+@media (min-width: 1121px) and (max-width: 1372px) {
+  .filters-row { flex-wrap: wrap }
+  .filters-break { display: block; flex: 0 0 100%; height: 0 }
+}
+
 .search {
   display: flex;
   align-items: center;
@@ -2614,6 +2630,12 @@ table {
      neither the token nor the measurement. */
   --col-tags: 60px;
 
+  /* THE RUN AND ITS COLUMN ARE ONE SUM, so a change to the mark size cannot
+     leave the column behind. Five marks, four gaps between them, and the
+     cell's own two paddings. */
+  --star-gap: var(--space-2xs); /* half-step: inside one control */
+  --col-rate: calc(var(--mark) * 5 + var(--star-gap) * 4 + var(--col-pad));
+
   width: 100%;
   table-layout: fixed;
   border-collapse: collapse;
@@ -2625,6 +2647,7 @@ table {
 .col-dur { width: var(--col-dur) }
 .col-up, .col-added { width: var(--col-date) }
 .col-tags { width: var(--col-tags) }
+.col-rate { width: var(--col-rate) }
 .col-remove, .col-edit { width: var(--col-remove) }
 
 /* NAME IS THE SINGLE AUTO COLUMN IN BOTH TABLES, so it takes the whole
@@ -2899,6 +2922,58 @@ th.amount { text-align: end }
    it, and the measurement would then chase itself down. The column is never
    narrower than the widest chip, so nothing here can overflow. */
 .cell-tags .tag-chip { flex: 0 0 auto }
+
+/* ==========================================================================
+   Rating
+
+   TWO RUNS OVER ONE PATH. The lower run draws the outlines and the upper run
+   is the same five marks filled, clipped to the value. So a half star costs a
+   clip rather than a second drawing, and 2.5 needs no case of its own.
+   ========================================================================== */
+
+.stars {
+  position: relative;
+  display: inline-flex;
+  gap: var(--star-gap);
+  color: var(--text-quiet);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.stars-off, .stars-on {
+  display: flex;
+  gap: var(--star-gap);
+}
+
+/* THE FILLED RUN SITS OVER THE OUTLINE ONE AND CLIPS, so it is out of flow
+   and the outline run alone states the width. `overflow: clip` rather than
+   hidden: a scroll container here would scroll itself the moment the control
+   takes focus. */
+.stars-on {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--rate, 0%);
+  overflow: clip;
+  color: var(--accent);
+}
+
+.stars-on .icon { fill: currentColor }
+
+/* A TARGET IS A REACH, NEVER A SIZE. The run is 14px tall, so a finger has
+   nothing to press without this. Out of flow, so it moves no row, and `min`
+   against zero keeps a control already past the floor where it is. */
+.stars::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2));
+}
+
+/* The focus ring comes from the reset, which already names [tabindex]. A
+   second one here would be a second writer for one mark. */
+
+/* A RUN UNDER THE POINTER SHOWS WHERE THE UNFILLED HALF IS. */
+.stars:hover { color: var(--text-muted) }
 
 /* ==========================================================================
    Tagging a selection
@@ -3843,7 +3918,12 @@ dialog menu {
   .cell-dur   { grid-column: 2; grid-row: 2; justify-self: end }
   .cell-up    { grid-column: 2; grid-row: 3; justify-self: start }
   .cell-added { grid-column: 2; grid-row: 3; justify-self: end }
-  .cell-tags  { grid-column: 2; grid-row: 4 }
+  /* THE RATING IS ITS OWN LINE, NOT A THIRD FACT ON THE DATE ROW. It is a
+     control rather than a fact, and a pressable run of five marks beside two
+     dates reads as a third readout. Its line is under the facts and above
+     the tags, which is where the table puts the column too. */
+  .cell-rate  { grid-column: 2; grid-row: 4; justify-self: start }
+  .cell-tags  { grid-column: 2; grid-row: 5 }
 
   /* A BOOKMARK CARD HAS ONE FACT ON ROW 2 AND ONE ON ROW 3, so the address
      takes the whole of its line rather than the start half of a pair that

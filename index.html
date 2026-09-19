@@ -48,6 +48,10 @@
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14" vector-effect="non-scaling-stroke"/><path d="M5 12h14" vector-effect="non-scaling-stroke"/></symbol>
+  <!-- ONE PATH FOR BOTH LAYERS. The outline takes the stroke and the filled
+       copy above it takes the fill, so a half star is a clip rather than a
+       second drawing. -->
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.4-5.8-3-5.8 3 1.1-6.4L2.6 9.4l6.5-.9z" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-filter" viewBox="0 0 24 24"><path d="M22 3H2l8 9.46V19l4 2v-8.54z" vector-effect="non-scaling-stroke"/></symbol>
   <!-- The same funnel under the slash every -off mark in this set would use,
        so the pair reads as one control in two states rather than two marks. -->
@@ -423,6 +427,25 @@
           </div>
         </div>
 
+        <!-- ONE PICK, SO A MENU RATHER THAN THE TAG CONTROL'S LISTBOX. Its
+             parts are the sort menu's, which is the other single-choice menu
+             on this row. Half steps are what a reader gives a video, not what
+             they search by: "4 and up" is the question, and offering 4.5 as
+             well doubles the list to say the same thing. -->
+        <div class="filters-group">
+          <span class="filters-label">RATING</span>
+          <div class="multi">
+            <button class="multi-trigger" id="rateTrigger" type="button"
+                    aria-expanded="false" aria-haspopup="menu" aria-controls="rateList">
+              <svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>
+              <span class="multi-value" id="rateValue">Any rating</span>
+              <svg class="icon multi-chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+            </button>
+            <ul class="multi-panel multi-list" id="rateList" role="menu"
+                aria-label="Filter by rating" tabindex="-1" hidden></ul>
+          </div>
+        </div>
+
         <!-- THE LABEL WRAPS THE FIELD, NOT THE WHOLE BOX. A button is a labelable
              element, so a label holding one that it does not label is invalid,
              and the label's activation would forward the press to the input as
@@ -438,6 +461,14 @@
             <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
           </button>
         </div>
+
+        <!-- A ROW COLLAPSES BY RULE, NEVER BY FLEX-WRAP. This says where the
+             break goes: the two filter menus and the field stay together and
+             the actions take the line below. Left to wrap on its own the row
+             put Clear Filters alone on a second line with 1100px of window
+             still there, which is the fault this element exists to stop.
+             It generates no box until the band that needs it. -->
+        <span class="filters-break" aria-hidden="true"></span>
 
         <!-- THE PANEL IS THE ROW'S TAG EDITOR, NOT A SECOND ONE. It carries the
              same .tags, .tag-chip and .tag-add markup, so the chips, the

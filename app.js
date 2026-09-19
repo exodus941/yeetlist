@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260919-6';
+const VERSION = '260919-7';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -109,6 +109,7 @@ const LISTS = {
       { key: 'dur', label: 'DURATION', sort: 'duration', amount: true },
       { key: 'up', label: 'UPLOADED', sort: 'uploadedAt' },
       { key: 'added', label: 'ADDED', sort: 'addedAt' },
+      { key: 'rate', label: 'RATING', sort: 'rating' },
       { key: 'tags', label: 'TAGS' },
       { key: 'remove' },
     ],
@@ -134,6 +135,7 @@ const LISTS = {
          where the header's caps would mangle them. */
       { key: 'url', label: 'URL', menu: 'URL', sort: 'url' },
       { key: 'added', label: 'ADDED', sort: 'addedAt' },
+      { key: 'rate', label: 'RATING', sort: 'rating' },
       { key: 'tags', label: 'TAGS' },
       /* A SITE NAMES ITSELF AND OFTEN NAMES ITSELF BADLY. A video's title is
          YouTube's to state, so only this list can be renamed. */
@@ -178,6 +180,11 @@ let searchTerm = '';
    offers and never touches which videos are shown, so it is cleared on every
    open and on every close. */
 let tagQuery = '';
+
+/* ONE FIELD FOR ONE DECISION. 'any' is no filter, 'none' is the unrated, and
+   a number is that rating and up. Two fields would let both be set, and the
+   menu offers one pick. */
+let ratingFilter = 'any';
 let deletion = null;
 let listState = 'ready';
 let stateMessage = '';
@@ -275,7 +282,7 @@ const bareOffered = () => bareCount() > 0 && allTags().length > 0;
 /* ONE READER FOR "SOMETHING IS FILTERING". Four things ask it: the count's
    wording, the empty state, the Clear button, and the funnel's own mark.
    It was an expression inside render(), so the funnel could not see it. */
-const filtering = () => activeTags.size > 0 || untaggedOnly || Boolean(searchTerm);
+const filtering = () => activeTags.size > 0 || untaggedOnly || ratingFilter !== 'any' || Boolean(searchTerm);
 
 /* A tag is stored bare and shown with a hash. Keeping the hash out of storage
    means no migration, no chance of a double hash, and an export whose JSON
@@ -285,6 +292,32 @@ const filtering = () => activeTags.size > 0 || untaggedOnly || Boolean(searchTer
    title holds that literal, while a bare "vfx" still matches titles, channels
    and tags alike. */
 const hashed = (tag) => '#' + tag;
+
+/* ==========================================================================
+   Rating
+
+   HALF STARS, SO THE VALUE IS A NUMBER AND NOT A COUNT. Stored as 0.5 to 5
+   on the record, absent when nobody has rated it. Absent is not zero: zero
+   is a rating somebody gave, and the two sort and filter differently.
+   ========================================================================== */
+
+const RATING_MAX = 5;
+
+/* One reader for "has a rating", because three things ask it: the filter,
+   the sort and the cell. A stored 0 from an early build reads as unrated,
+   which is what clearing writes now. */
+const rateOf = (v) => (typeof v.rating === 'number' && v.rating > 0 ? v.rating : 0);
+
+/* A ROUNDING WRITER, so no door can store a value off the half step. The
+   pointer computes a fraction of a star's box and the keyboard adds 0.5,
+   and both come through here. */
+const snapRating = (n) => Math.min(RATING_MAX, Math.max(0, Math.round(n * 2) / 2));
+
+const rated = (v) => {
+  if (ratingFilter === 'any') return true;
+  if (ratingFilter === 'none') return rateOf(v) === 0;
+  return rateOf(v) >= ratingFilter;
+};
 
 function filteredVideos() {
   return inTab()
@@ -296,12 +329,17 @@ function filteredVideos() {
       const tagged = (activeTags.size === 0 && !untaggedOnly)
         || (v.tags || []).some((t) => activeTags.has(t))
         || (untaggedOnly && bare(v));
-      return tagged && haystack.toLowerCase().includes(searchTerm);
+      return tagged && rated(v) && haystack.toLowerCase().includes(searchTerm);
     })
     .sort((a, b) => {
       let x = a[sort.key] ?? '';
       let y = b[sort.key] ?? '';
       if (sort.key === 'duration') { x = seconds(x); y = seconds(y); }
+      /* AN UNRATED ROW IS NOT A ZERO-STAR ROW, so it sorts below one. The
+         default here is '' rather than a number, and a string compared
+         against a number returns NaN, which leaves the list in whatever
+         order it arrived in. */
+      if (sort.key === 'rating') { x = rateOf(a) || -1; y = rateOf(b) || -1; }
       return (typeof x === 'string' ? x.localeCompare(y) : x - y) * sort.dir;
     });
 }
@@ -359,6 +397,7 @@ function render() {
 
   renderState(filtered.length, filtering());
   renderTagFilter();
+  renderRatingFilter();
   renderSortState();
 
   renderSelection();
@@ -696,6 +735,30 @@ const CELLS = {
     <span class="date-full">${date(v.addedAt)}</span><span class="date-day">${dateOnly(v.addedAt)}</span>
   </td>`,
 
+  /* ONE TAB STOP AND ONE VALUE, WHICH IS WHAT A SLIDER IS. Five buttons
+     would be five stops per row, and a radio group needs ten radios to hold
+     the halves. The role gives the arrows their meaning for free, and the
+     halves come from where the pointer lands inside a star.
+
+     TWO LAYERS OVER ONE PATH. The lower run is the outline and the upper run
+     is filled, clipped to the value, so a half star is a clip rather than a
+     second drawing and 2.5 needs no special case. */
+  rate: (v) => {
+    const value = rateOf(v);
+    const text = value ? `${value} of ${RATING_MAX} stars` : 'Not rated';
+    const run = (cls) => `<span class="${cls}" aria-hidden="true">${
+      Array.from({ length: RATING_MAX }, () => icon('star')).join('')}</span>`;
+    return `<td class="cell-rate">
+      <span class="cell-name">Rating</span>
+      <span class="stars" role="slider" tabindex="0" data-id="${escape(v.id)}"
+            style="--rate: ${(value / RATING_MAX) * 100}%"
+            aria-valuemin="0" aria-valuemax="${RATING_MAX}" aria-valuenow="${value}"
+            aria-valuetext="${text}" aria-label="Rate ${escape(v.title)}">
+        ${run('stars-off')}${run('stars-on')}
+      </span>
+    </td>`;
+  },
+
   tags: (v) => `<td class="cell-tags">
     <div class="tags">
       ${(v.tags || []).map((t) => `<span class="tag-chip"${t === DEAD_TAG ? ' data-dead' : ''}>
@@ -808,6 +871,34 @@ function renderState(shown, filtering) {
 
 /* The trigger states what is chosen, because a control that cannot show its
    own value is broken. One tag reads as its name, several as a count. */
+/* THE OPTIONS ARE A LIST, NOT MARKUP IN THE PAGE, so the trigger's wording
+   and the menu's can never disagree about what is picked. */
+const RATE_OPTIONS = [
+  { value: 'any', label: 'Any rating' },
+  { value: 5, label: '5 stars' },
+  { value: 4, label: '4 and up' },
+  { value: 3, label: '3 and up' },
+  { value: 2, label: '2 and up' },
+  { value: 1, label: '1 and up' },
+  { value: 'none', label: 'Not rated' },
+];
+
+const rateKey = (value) => (typeof value === 'number' ? String(value) : value);
+
+function renderRatingFilter() {
+  const picked = RATE_OPTIONS.find((o) => rateKey(o.value) === rateKey(ratingFilter))
+    || RATE_OPTIONS[0];
+
+  $('#rateList').innerHTML = RATE_OPTIONS.map((o) => `<li class="multi-option" role="menuitemradio"
+      tabindex="-1" aria-checked="${o === picked}" data-value="${rateKey(o.value)}">
+      <span class="multi-box">${icon('check')}</span>
+      <span>${escape(o.label)}</span>
+    </li>`).join('');
+
+  $('#rateValue').textContent = picked.label;
+  $('#rateTrigger').setAttribute('aria-label', 'Filter by rating: ' + picked.label);
+}
+
 function renderTagFilter() {
   const tags = allTags();
   const chosen = activeTags.size + (untaggedOnly ? 1 : 0);
@@ -2492,6 +2583,7 @@ function showTab(next) {
   sort = sorts[tab];
   activeTags.clear();
   untaggedOnly = false;
+  ratingFilter = 'any';
   selected.clear();
   closeBulk();
   searchTerm = '';
@@ -2531,6 +2623,7 @@ $('#search').addEventListener('keydown', (event) => {
 const clearFilters = () => {
   activeTags.clear();
   untaggedOnly = false;
+  ratingFilter = 'any';
   searchTerm = '';
   $('#search').value = '';
   dissolve();
@@ -2834,6 +2927,7 @@ addEventListener('pointerdown', (event) => {
   if (!$('#exportMenu').hidden && !event.target.closest('.export-menu')) openExport(false);
 
   if (!$('#sortList').hidden && !event.target.closest('.sort-multi')) openSort(false);
+  if (!$('#rateList').hidden && !event.target.closest('#rateTrigger') && !event.target.closest('#rateList')) openRate(false);
 
   /* The suggestion list is appended to the BODY so it can escape the panel's
      clipping, so it is outside #tagBulk. */
@@ -2915,6 +3009,122 @@ $('#sortTrigger').addEventListener('keydown', (event) => {
     event.preventDefault();
     openSort(true);
   }
+});
+
+/* ---- rating -------------------------------------------------------------- */
+
+/* ONE PICK, SO THE SAME MENU THE SORT CONTROL USES. Its parts are that
+   control's, rather than the tag listbox's, because a listbox announces a
+   multiple selection and this holds one value. */
+function openRate(open) {
+  const menu = $('#rateList');
+  menu.hidden = !open;
+  $('#rateTrigger').setAttribute('aria-expanded', String(open));
+  if (open) {
+    (menu.querySelector('[aria-checked="true"]') || menu.querySelector('.multi-option'))?.focus();
+  }
+}
+
+$('#rateTrigger').addEventListener('click', () => openRate($('#rateList').hidden));
+
+$('#rateList').addEventListener('click', (event) => {
+  const option = event.target.closest('.multi-option');
+  if (!option) return;
+  const value = option.dataset.value;
+
+  openRate(false);
+  $('#rateTrigger').focus();
+  ratingFilter = /^[0-9]+$/.test(value) ? Number(value) : value;
+  dissolve();
+});
+
+$('#rateList').addEventListener('keydown', (event) => {
+  const items = $$('#rateList .multi-option');
+  const at = items.indexOf(document.activeElement);
+
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    openRate(false);
+    return $('#rateTrigger').focus();
+  }
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    const step = event.key === 'ArrowDown' ? 1 : -1;
+    return items[(at + step + items.length) % items.length]?.focus();
+  }
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    document.activeElement?.click();
+  }
+});
+
+$('#rateTrigger').addEventListener('keydown', (event) => {
+  if ((event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ')
+      && $('#rateList').hidden) {
+    event.preventDefault();
+    openRate(true);
+  }
+});
+
+/* ONE WRITER FOR THE VALUE. The pointer and the keys both land here, so the
+   half step, the store and the repaint cannot be done one way in one place
+   and another way in the other. */
+function setRating(id, value) {
+  const item = videos.find((v) => v.id === id);
+  if (!item) return;
+  const next = snapRating(value);
+  if (next === rateOf(item)) return;
+  item.rating = next;
+  save();
+  render();
+  /* The row was rebuilt, so the held element is detached. Re-find the
+     control by its id or the focus lands on the body. */
+  $(`.stars[data-id="${CSS.escape(id)}"]`)?.focus();
+}
+
+/* WHICH HALF OF WHICH STAR. The run is five equal boxes, so the pointer's
+   share of the whole run gives the value directly, and rounding it to the
+   half step is the snapping writer's job.
+
+   Read the RUN's box rather than a star's, because the gaps between them
+   belong to neither star and a per-star hit test drops the pointer in one. */
+/* A CEILING, NOT A ROUNDING. Every pixel inside a star has to give that
+   star: the left half is the half step and the right half is the whole one.
+   Rounding instead makes the first star's leftmost quarter mean zero, so a
+   press aimed at half a star clears the rating. Measured at 5% of the run:
+   0.19 of a star, which rounds to 0 and ceils to 0.5. */
+function rateAt(el, clientX) {
+  const box = el.getBoundingClientRect();
+  if (!box.width) return 0;
+  const raw = ((clientX - box.left) / box.width) * RATING_MAX;
+  return Math.min(RATING_MAX, Math.max(0.5, Math.ceil(raw * 2) / 2));
+}
+
+$('#rows').addEventListener('click', (event) => {
+  const stars = event.target.closest('.stars');
+  if (!stars) return;
+  const id = stars.dataset.id;
+  const now = rateOf(videos.find((v) => v.id === id) || {});
+  const next = rateAt(stars, event.clientX);
+  /* PRESSING THE VALUE IT ALREADY HOLDS CLEARS IT. There is no other room on
+     the control for a clear, and a rating nobody can take back is worse than
+     one that takes two presses to set. */
+  setRating(id, next === now ? 0 : next);
+});
+
+/* A SLIDER'S OWN KEYS. Arrows move by the half step, Home and End reach the
+   two ends, and a digit sets that many whole stars. */
+$('#rows').addEventListener('keydown', (event) => {
+  const stars = event.target.closest('.stars');
+  if (!stars) return;
+  const id = stars.dataset.id;
+  const now = rateOf(videos.find((v) => v.id === id) || {});
+
+  if (event.key === 'ArrowRight' || event.key === 'ArrowUp') { event.preventDefault(); return setRating(id, now + 0.5); }
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') { event.preventDefault(); return setRating(id, now - 0.5); }
+  if (event.key === 'Home') { event.preventDefault(); return setRating(id, 0); }
+  if (event.key === 'End') { event.preventDefault(); return setRating(id, RATING_MAX); }
+  if (/^[0-5]$/.test(event.key)) { event.preventDefault(); return setRating(id, Number(event.key)); }
 });
 
 /* ---- the sticky stack ---------------------------------------------------- */

@@ -2666,7 +2666,18 @@ function sweep (within = null, exclude = null) {
  * `setTimeout` after the transition, and `getAnimations` never reports a
  * timeout — so a settled reading still lands inside the collapse. */
       const collapsed = el.clientHeight < 1 || el.clientWidth < 1
-      if (!truncates && !collapsed) {
+      /* A SUBTREE MARKED aria-hidden CARRIES NO CONTENT TO REACH. This check
+       * is about content a reader cannot get to, and that attribute says the
+       * reader was never offered it. A star rating draws its value by laying
+       * a filled copy of the five marks over the outlines and clipping it to
+       * the value, so the clip IS the reading. Three findings on one correct
+       * control, each naming an icon that is a duplicate of the one painted
+       * under it.
+       *
+       * Read the attribute, never a class: it is the declaration that a
+       * layer is decoration, and it is what the accessibility tree obeys. */
+      const decorative = el.closest('[aria-hidden="true"]') !== null
+      if (!truncates && !collapsed && !decorative) {
         const box = el.getBoundingClientRect()
         const padL = box.left + parseFloat(cs.borderLeftWidth || 0)
         const padT = box.top + parseFloat(cs.borderTopWidth || 0)
