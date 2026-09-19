@@ -2972,8 +2972,18 @@ th.amount { text-align: end }
 /* The focus ring comes from the reset, which already names [tabindex]. A
    second one here would be a second writer for one mark. */
 
-/* A RUN UNDER THE POINTER SHOWS WHERE THE UNFILLED HALF IS. */
-.stars:hover { color: var(--text-muted) }
+/* EACH STAR SHOWS WHAT PRESSING IT WOULD GIVE, AND ONLY A MOUSE CAN.
+   A finger has no hover, so the preview would paint on the press and read as
+   a value that did not take. The script writes the width and this decides
+   whether it paints. */
+@media (pointer: fine) {
+  .stars:hover { color: var(--text-muted) }
+
+  /* THE PREVIEW PAINTS IN THE ACCENT, NOT A SECOND COLOUR. A quieter tint
+     would need a token nothing else reads, and the preview is told apart by
+     leaving the control rather than by its hue. */
+  .stars[data-peek] .stars-on { width: var(--peek, 0%) }
+}
 
 /* ==========================================================================
    Tagging a selection
@@ -3918,12 +3928,37 @@ dialog menu {
   .cell-dur   { grid-column: 2; grid-row: 2; justify-self: end }
   .cell-up    { grid-column: 2; grid-row: 3; justify-self: start }
   .cell-added { grid-column: 2; grid-row: 3; justify-self: end }
-  /* THE RATING IS ITS OWN LINE, NOT A THIRD FACT ON THE DATE ROW. It is a
-     control rather than a fact, and a pressable run of five marks beside two
-     dates reads as a third readout. Its line is under the facts and above
-     the tags, which is where the table puts the column too. */
-  .cell-rate  { grid-column: 2; grid-row: 4; justify-self: start }
-  .cell-tags  { grid-column: 2; grid-row: 5 }
+  /* THE RATING SHARES THE TAGS LINE, AT THE END OF IT. Their instruction,
+     19 September 2026. On its own line it cost the card a fifth row for one
+     14px run. Centred on the FIRST chip rather than on the block: the tags
+     wrap and the rating belongs to the top of them.
+
+     The offset is the cell's own head padding plus half the difference
+     between a chip and a mark, so it follows both tokens. */
+  .cell-tags  { grid-column: 2; grid-row: 4 }
+
+  /* A FLEX BOX, BECAUSE A LINE BOX ADDS ITS OWN LEADING. The run is
+     inline-flex, so the cell's line box put it 2.00px below the cell's own
+     top and the mark missed the chip's centre by exactly that. */
+  .cell-rate {
+    display: flex;
+    grid-column: 2;
+    grid-row: 4;
+    justify-self: end;
+    align-self: start;
+    margin-block-start: calc(
+      var(--space-sm) + (var(--control-sm) - var(--mark)) / 2
+    );
+  }
+
+  /* THE CHIPS CLEAR THE RUN, NEVER THE BOX. The stars are 78px of marks and
+     the remove button on a chip carries its own reach, so the reservation is
+     the run plus one step. */
+  .cell-tags {
+    padding-inline-end: calc(
+      var(--mark) * 5 + var(--star-gap) * 4 + var(--space-md)
+    );
+  }
 
   /* A BOOKMARK CARD HAS ONE FACT ON ROW 2 AND ONE ON ROW 3, so the address
      takes the whole of its line rather than the start half of a pair that

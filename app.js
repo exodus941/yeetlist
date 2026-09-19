@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260919-7';
+const VERSION = '260919-8';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -3099,6 +3099,29 @@ function rateAt(el, clientX) {
   const raw = ((clientX - box.left) / box.width) * RATING_MAX;
   return Math.min(RATING_MAX, Math.max(0.5, Math.ceil(raw * 2) / 2));
 }
+
+/* ASK THE POINTER, NEVER THE WIDTH. A narrow window on a desktop still has a
+   mouse, and a finger has no hover at all: the preview would then paint on the
+   press and read as a value that did not take. */
+const finePointer = () => matchMedia('(pointer: fine)').matches;
+
+/* THE SCRIPT WRITES THE WIDTH AND THE STYLESHEET DECIDES WHETHER IT PAINTS.
+   One reader for the value, and the media query stays in one place. */
+$('#rows').addEventListener('pointermove', (event) => {
+  const stars = event.target.closest('.stars');
+  if (!stars || !finePointer()) return;
+  stars.dataset.peek = '';
+  stars.style.setProperty('--peek', `${(rateAt(stars, event.clientX) / RATING_MAX) * 100}%`);
+});
+
+/* `pointerleave` does not bubble, so the delegate listens for `pointerout`
+   and ignores a move INTO the control's own children. */
+$('#rows').addEventListener('pointerout', (event) => {
+  const stars = event.target.closest('.stars');
+  if (!stars || stars.contains(event.relatedTarget)) return;
+  delete stars.dataset.peek;
+  stars.style.removeProperty('--peek');
+});
 
 $('#rows').addEventListener('click', (event) => {
   const stars = event.target.closest('.stars');
