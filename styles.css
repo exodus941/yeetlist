@@ -165,6 +165,11 @@
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 12px;
+
+  /* The rating run's own gap. On the component rather than on the table: a
+     token declared on one container is absent everywhere else, and the run
+     read 70px instead of 78 the first time it rendered outside one. */
+  --star-gap: var(--space-2xs); /* half-step: inside one control */
   --space-lg: 16px;
   --space-xl: 24px;
   --space-2xl: 32px;
@@ -2632,8 +2637,8 @@ table {
 
   /* THE RUN AND ITS COLUMN ARE ONE SUM, so a change to the mark size cannot
      leave the column behind. Five marks, four gaps between them, and the
-     cell's own two paddings. */
-  --star-gap: var(--space-2xs); /* half-step: inside one control */
+     cell's own two paddings. The gap itself is declared at the root, because
+     the control renders outside this table too. */
   --col-rate: calc(var(--mark) * 5 + var(--star-gap) * 4 + var(--col-pad));
 
   width: 100%;
@@ -2977,12 +2982,22 @@ th.amount { text-align: end }
    a value that did not take. The script writes the width and this decides
    whether it paints. */
 @media (pointer: fine) {
-  .stars:hover { color: var(--text-muted) }
+  /* THE PREVIEW IS MUTED GREY, WHICH THEY PICKED FROM SEVEN CANDIDATES
+     RENDERED AT ACTUAL SIZE. A red preview says the rating is already given.
+     Grey says it is not, and the accent then means one thing on this control.
 
-  /* THE PREVIEW PAINTS IN THE ACCENT, NOT A SECOND COLOUR. A quieter tint
-     would need a token nothing else reads, and the preview is told apart by
-     leaving the control rather than by its hue. */
-  .stars[data-peek] .stars-on { width: var(--peek, 0%) }
+     Measured on all four row planes: 7.47, 6.85, 6.04 and 5.39 against their
+     own grounds, so it clears 4.5 wherever the row is. The outline it covers
+     reads 5.49 down to 3.96, so the preview is the louder of the two at every
+     plane.
+
+     ONE WRITER FOR THE HOVER. The outline used to lift to this same grey,
+     which left the preview and the outline one colour apart by their fill
+     alone. The outline stays at rest and the fill is the only change. */
+  .stars[data-peek] .stars-on {
+    width: var(--peek, 0%);
+    color: var(--text-muted);
+  }
 }
 
 /* ==========================================================================
