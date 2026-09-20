@@ -2990,6 +2990,23 @@ th.amount { text-align: end }
   color: var(--text);
 }
 
+/* THE FILL TRAVELS WHEN THE VALUE CHANGES, AND NOT WHILE PREVIEWING. A press
+   moved the width in one frame, because the global transition list carries no
+   length. A preview follows the pointer, so the same 250ms there would drag
+   the fill behind it.
+
+   BOTH PROPERTIES ARE NAMED, BECAUSE A SHORTHAND REPLACES THE WHOLE LIST. The
+   colour comes from the `:where(*)` rule, so declaring the width alone here
+   would take the preview's own fade away. The peek state drops the width and
+   keeps the colour. */
+.stars-on {
+  transition:
+    color var(--duration) var(--ease),
+    width var(--duration) var(--ease);
+}
+
+.stars[data-peek] .stars-on { transition: color var(--duration) var(--ease) }
+
 .stars-on .icon { fill: currentColor }
 
 /* A TARGET IS A REACH, NEVER A SIZE. The run is 14px tall, so a finger has
@@ -3298,9 +3315,34 @@ th.amount { text-align: end }
 }
 
 /* One of the two shows at a time. The wrapper carries the state, so neither
-   half has to know about the other. */
-.tag-add[data-expanded] .tag-add-btn { display: none }
-.tag-add:not([data-expanded]) .tag-input-hit { display: none }
+   half has to know about the other.
+
+   AND THE SWAP CROSS-FADES, BECAUSE IT WAS THE LAST STATE CHANGE IN THIS APP
+   THAT DID NOT. Measured by asking the document what was animating one frame
+   after the press: zero. Every panel, menu and dialog here fades, so a plus
+   that becomes a field in one frame is the one control that pops.
+
+   The mechanism is the panels' own: opacity with `display` at the far end,
+   and `@starting-style` to give the entering half a value to come from. */
+.tag-add-btn,
+.tag-input-hit {
+  transition:
+    opacity var(--duration) var(--ease),
+    display var(--duration) allow-discrete;
+}
+
+.tag-add[data-expanded] .tag-add-btn,
+.tag-add:not([data-expanded]) .tag-input-hit {
+  display: none;
+  opacity: 0;
+}
+
+@starting-style {
+  .tag-add[data-expanded] .tag-input-hit,
+  .tag-add:not([data-expanded]) .tag-add-btn {
+    opacity: 0;
+  }
+}
 
 /* The label is the target and the field is what a reader sees, the same
    shape the checkbox uses.

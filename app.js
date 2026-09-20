@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260920-1';
+const VERSION = '260920-2';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -312,6 +312,10 @@ const rateOf = (v) => (typeof v.rating === 'number' && v.rating > 0 ? v.rating :
    pointer computes a fraction of a star's box and the keyboard adds 0.5,
    and both come through here. */
 const snapRating = (n) => Math.min(RATING_MAX, Math.max(0, Math.round(n * 2) / 2));
+
+/* ONE WRITER FOR THE WORDING, because the cell renderer and the in-place
+   paint both state it. Two copies drift the first time either is edited. */
+const rateText = (value) => (value ? `${value} of ${RATING_MAX} stars` : 'Not rated');
 
 const rated = (v) => {
   if (ratingFilter === 'any') return true;
@@ -745,7 +749,7 @@ const CELLS = {
      second drawing and 2.5 needs no special case. */
   rate: (v) => {
     const value = rateOf(v);
-    const text = value ? `${value} of ${RATING_MAX} stars` : 'Not rated';
+    const text = rateText(value);
     const run = (cls) => `<span class="${cls}" aria-hidden="true">${
       Array.from({ length: RATING_MAX }, () => icon('star')).join('')}</span>`;
     return `<td class="cell-rate">
@@ -3069,6 +3073,14 @@ $('#rateTrigger').addEventListener('keydown', (event) => {
 /* ONE WRITER FOR THE VALUE. The pointer and the keys both land here, so the
    half step, the store and the repaint cannot be done one way in one place
    and another way in the other. */
+/* ONE WRITER FOR WHAT THE CONTROL SAYS, so the in-place paint and the cell
+   renderer cannot disagree about the width or the wording. */
+function paintRating(el, value) {
+  el.style.setProperty('--rate', `${(value / RATING_MAX) * 100}%`);
+  el.setAttribute('aria-valuenow', String(value));
+  el.setAttribute('aria-valuetext', rateText(value));
+}
+
 function setRating(id, value) {
   const item = videos.find((v) => v.id === id);
   if (!item) return;
@@ -3076,6 +3088,21 @@ function setRating(id, value) {
   if (next === rateOf(item)) return;
   item.rating = next;
   save();
+
+  /* A RE-RENDER REPLACES THE ELEMENT, AND A FRESH ONE HAS NO VALUE TO TRAVEL
+     FROM. The fill measured 70.2px on the first frame after a press and never
+     moved, with the transition live in the sheet. So the row is painted in
+     place, which is also the only reading where the focus stays put.
+
+     A RENDER IS STILL NEEDED WHERE THE ROW MOVES. Sorted by rating, or with a
+     rating filter on, the change reorders or removes the row, and painting it
+     in place would leave the list stating something false. */
+  const moves = sort.key === 'rating' || ratingFilter !== 'any';
+  if (!moves) {
+    const el = $(`.stars[data-id="${CSS.escape(id)}"]`);
+    if (el) return paintRating(el, next);
+  }
+
   render();
   /* The row was rebuilt, so the held element is detached. Re-find the
      control by its id or the focus lands on the body. */
