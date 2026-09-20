@@ -195,8 +195,11 @@
       <div class="status-clip">
         <div class="status-row">
           <p id="addStatus" class="hint" role="status"></p>
+          <!-- THE CLIPPER ABOVE ALREADY FADES THIS. A fade of its own is a
+               second writer for one visual, and it outlived the fold by
+               106ms. The marker says so, and the fade guard reads it. -->
           <button id="addStatusDismiss" class="status-x" type="button" hidden
-                  aria-label="Dismiss this message">
+                  data-fade="parent" aria-label="Dismiss this message">
             <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
           </button>
         </div>

@@ -385,17 +385,39 @@
    important declaration does not stop it.
 
    THIS IS A LIST, AND A LIST APPROVES WHATEVER NOBODY THOUGHT OF. It is the
-   set of elements `app.js` writes `hidden` on, which is a question about the
-   script rather than about the DOM, so no selector can ask it. Grep
-   `.hidden =` in app.js before adding a panel: there are fourteen here and
-   the grep must return the same set.
+   set of elements the script writes `hidden` on, which is a question about
+   the script rather than about the DOM, so no selector can ask it.
+
+   THE GREP THIS COMMENT PRESCRIBED WAS NOT ENOUGH, AND TWO PANELS PROVED IT.
+   It asked for `$('#x').hidden =`, and half the writes here go through a
+   local: `menu.hidden`, `box.hidden`, `list.hidden`. So a rating menu and a
+   notification's own cross shipped with no fade, and the reader reported both.
+
+   `tools/fade-guard.mjs` asks the markup instead. Every element carrying a
+   `hidden` attribute in index.html is something the script shows, because a
+   permanently hidden one would not be in the page. Two shapes are exempt by
+   declaration rather than by name: an `<svg>` sprite and a file picker.
+
+   A CHILD OF A FADING BOX IS NOT IN THIS SET. The notification's own cross
+   sits inside the clipper that fades with the fold, so a second fade on the
+   cross is a second writer for one visual. Measured with it in the list: the
+   fold finished at 273ms and the cross was still fading at 379, which reads
+   as a straggler. It carries `data-fade="parent"` in the markup instead, and
+   the guard counts that rather than approving a name.
+
+   AND THE SET IS WRITTEN THREE TIMES, WHICH THE FIRST GUARD COULD NOT SEE.
+   The transition, the resting `opacity: 0` and the `@starting-style` entry
+   are three lists that must hold the same ids. Adding a panel to the first
+   alone flips `display` at the far end and never moves the opacity: measured
+   on the rating menu, display block through 236ms and none at 283, with
+   opacity 1 the whole way. The guard compares all three.
 
    NOT A GLOBAL RULE. Putting display in the transition every element gets
    would fade every label a media query drops and every cell the card view
    rearranges, on each breakpoint a drag crosses. That is work nobody asked
    for at a width nobody stops at. */
 #listRuntime, #searchClear, #state, #tagSuggest, #tagBulkPanel,
-#typedConfirm, #importPanel, #driveConnect,
+#typedConfirm, #importPanel, #driveConnect, #rateList,
 #driveGroup, #driveAlert, #tagFilterPanel, #sortList, #exportMenu, #filterPanel {
   transition:
     opacity var(--duration) var(--ease),
@@ -406,6 +428,7 @@
 #tagBulkPanel[hidden], #typedConfirm[hidden],
 #importPanel[hidden], #driveConnect[hidden], #driveGroup[hidden],
 #driveAlert[hidden], #tagFilterPanel[hidden], #sortList[hidden], #exportMenu[hidden],
+#rateList[hidden],
 #filterPanel[hidden] {
   opacity: 0;
 }
@@ -417,6 +440,7 @@
   #importPanel:not([hidden]), #driveConnect:not([hidden]),
   #driveGroup:not([hidden]), #driveAlert:not([hidden]),
   #tagFilterPanel:not([hidden]), #sortList:not([hidden]), #exportMenu:not([hidden]),
+  #rateList:not([hidden]),
   #filterPanel:not([hidden]) {
     opacity: 0;
   }
