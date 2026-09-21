@@ -476,7 +476,9 @@ body[data-note-open] { overflow: hidden }
 }
 
 .note-title::placeholder { color: var(--text-quiet) }
-.note-title:hover { border-color: var(--line) }
+@media (hover: hover) {
+  .note-title:hover { border-color: var(--line) }
+}
 .note-title:focus { border-color: #777; background: var(--surface-sunken) }
 
 /* A READOUT, NOT A CONTROL, so it takes its own content and no slack. It
@@ -1290,7 +1292,9 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
     color var(--duration) var(--ease);
 }
 
-.btn:hover { background: #2a2a2a }
+@media (hover: hover) {
+  .btn:hover { background: #2a2a2a }
+}
 
 /* One size fixes the box AND the label. The pairing is published, so two
    sizes can never share a label size and drift apart:
@@ -1312,25 +1316,35 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   color: var(--accent-ink);
   border-color: var(--accent-fill);
 }
-.btn-primary:hover { background: var(--accent-fill-hover); border-color: var(--accent-fill-hover) }
+@media (hover: hover) {
+  .btn-primary:hover { background: var(--accent-fill-hover); border-color: var(--accent-fill-hover) }
+}
 
 .btn-danger-outline {
   background: transparent;
   border-color: var(--danger-line);
   color: var(--danger-quiet);
 }
-.btn-danger-outline:hover { background: #2a1414 }
+@media (hover: hover) {
+  .btn-danger-outline:hover { background: #2a1414 }
+}
 
 .btn-danger {
   background: var(--danger-fill);
   color: var(--accent-ink);
   border-color: var(--danger-fill);
 }
-.btn-danger:hover { background: var(--danger-fill-hover); border-color: var(--danger-fill-hover) }
+@media (hover: hover) {
+  .btn-danger:hover { background: var(--danger-fill-hover); border-color: var(--danger-fill-hover) }
+}
 
 .btn:disabled { opacity: .4; cursor: not-allowed }
-.btn:disabled:hover { background: var(--surface-raised) }
-.btn-danger-outline:disabled:hover { background: transparent }
+@media (hover: hover) {
+  .btn:disabled:hover { background: var(--surface-raised) }
+}
+@media (hover: hover) {
+  .btn-danger-outline:disabled:hover { background: transparent }
+}
 
 /* An icon-only control is SQUARE at every size step. State no width at all:
    a stated width defeats the ratio, and a touch promotion then moves one
@@ -1359,7 +1373,9 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   transition: color var(--duration) var(--ease);
 }
 
-.btn-text:hover { color: var(--text) }
+@media (hover: hover) {
+  .btn-text:hover { color: var(--text) }
+}
 .btn-text:disabled { opacity: .4; cursor: not-allowed }
 
 /* ==========================================================================
@@ -1520,7 +1536,9 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2));
 }
 
-.status-x:hover { color: var(--text) }
+@media (hover: hover) {
+  .status-x:hover { color: var(--text) }
+}
 
 .hint a { color: var(--tag-ink) }
 
@@ -1796,7 +1814,9 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
     background-color var(--duration) var(--ease);
 }
 
-.tab:hover { color: var(--text); background: var(--row-hover) }
+@media (hover: hover) {
+  .tab:hover { color: var(--text); background: var(--row-hover) }
+}
 
 /* PAINT IS NOT A STATE, so the mark is aria-selected and the rule reads it.
    THE INDICATOR IS A BAR ON THE RULE, not a fill. It paints over the band's
@@ -2096,7 +2116,9 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   transition: border-color var(--duration) var(--ease);
 }
 
-.multi-trigger:hover { border-color: #777 }
+@media (hover: hover) {
+  .multi-trigger:hover { border-color: #777 }
+}
 .multi-trigger[aria-expanded="true"] { border-color: #777 }
 
 .multi-value {
@@ -2222,7 +2244,9 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   cursor: pointer;
 }
 
-.multi-option:hover { background: var(--option-hover) }
+@media (hover: hover) {
+  .multi-option:hover { background: var(--option-hover) }
+}
 .multi-option.active { background: var(--option-selected); color: var(--text) }
 
 /* The tick is the mark that says chosen. A fill alone would leave a reader
@@ -2396,7 +2420,9 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2));
 }
 
-.search-clear:hover { color: var(--text) }
+@media (hover: hover) {
+  .search-clear:hover { color: var(--text) }
+}
 
 .search input {
   width: 100%;
@@ -3014,8 +3040,10 @@ html::-webkit-scrollbar-thumb,
 
 /* A PSEUDO-ELEMENT SCROLLBAR TAKES NO TRANSITION, so these two snap. The
    duration token reaches every other control and cannot reach this one. */
-html::-webkit-scrollbar-thumb:hover,
-.table-wrap::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-hover) }
+@media (hover: hover) {
+  html::-webkit-scrollbar-thumb:hover,
+  .table-wrap::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-hover) }
+}
 
 html::-webkit-scrollbar-thumb:active,
 .table-wrap::-webkit-scrollbar-thumb:active { background-color: var(--scroll-held) }
@@ -3042,7 +3070,9 @@ html::-webkit-scrollbar-thumb:active,
   background-clip: padding-box;
 }
 
-.multi-list::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-hover) }
+@media (hover: hover) {
+  .multi-list::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-hover) }
+}
 .multi-list::-webkit-scrollbar-thumb:active { background-color: var(--scroll-held) }
 
 /* FIXED LAYOUT, SO THE TABLE IS EXACTLY ITS CONTAINER AT EVERY WIDTH.
@@ -3181,7 +3211,9 @@ tbody tr:last-child td { border-bottom: 0 }
   transition: color var(--duration) var(--ease);
 }
 
-.th-sort:hover { color: var(--text) }
+@media (hover: hover) {
+  .th-sort:hover { color: var(--text) }
+}
 .th-sort .icon { width: var(--text-xs); height: var(--text-xs); color: var(--text-quiet) }
 [aria-sort] .th-sort { color: var(--text) }
 [aria-sort] .th-sort .icon { color: var(--accent) }
@@ -3258,7 +3290,9 @@ tbody tr:last-child td { border-bottom: 0 }
     border-color var(--duration) var(--ease);
 }
 
-.checkbox:hover { border-color: #999 }
+@media (hover: hover) {
+  .checkbox:hover { border-color: #999 }
+}
 
 .checkbox:checked,
 .checkbox:indeterminate {
@@ -3281,13 +3315,17 @@ tbody tr { transition: background-color var(--duration) var(--ease) }
    something else carry their own cursor, and a control inside the row states
    its own. */
 tbody tr { cursor: pointer }
-tbody tr:hover { background: var(--row-hover) }
+@media (hover: hover) {
+  tbody tr:hover { background: var(--row-hover) }
+}
 tbody tr.row-selected { background: var(--row-selected) }
 
 /* (0,2,2) against (0,1,2), so this wins wherever it sits in the file. Written
    at equal weight it would have depended on the order, which is the fault
    that made a selected row inert in the first place. */
-tbody tr.row-selected:hover { background: var(--row-selected-hover) }
+@media (hover: hover) {
+  tbody tr.row-selected:hover { background: var(--row-selected-hover) }
+}
 
 /* The bar is a pseudo-element, stretched one hairline past each end, because
    an inset shadow stops short of the row's own bottom rule and reads as a
@@ -3304,7 +3342,9 @@ tbody tr.row-selected > td:first-child::before {
   transition: width var(--duration) var(--ease);
 }
 
-tbody tr.row-selected:hover > td:first-child::before { width: var(--select-bar-hover) }
+@media (hover: hover) {
+  tbody tr.row-selected:hover > td:first-child::before { width: var(--select-bar-hover) }
+}
 
 /* One line, truncated, with the full title on hover through the title
    attribute. The "youtube.com" caption is gone: every video here is a
@@ -3349,7 +3389,9 @@ tbody tr.row-selected:hover > td:first-child::before { width: var(--select-bar-h
   inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2)) 0;
 }
 
-.video-link:hover { color: var(--accent); text-decoration: underline }
+@media (hover: hover) {
+  .video-link:hover { color: var(--accent); text-decoration: underline }
+}
 
 /* A NOTE'S NAME IS A BUTTON, because it opens the editor rather than going
    anywhere, and a button carries a UA box an anchor does not. Measured at
@@ -3541,9 +3583,11 @@ th.amount { text-align: end }
   cursor: default;
 }
 
-.pager-step[aria-disabled="true"]:hover {
-  background: none;
-  color: var(--text-muted);
+@media (hover: hover) {
+  .pager-step[aria-disabled="true"]:hover {
+    background: none;
+    color: var(--text-muted);
+  }
 }
 
 /* ONE GLYPH, TWO ROTATIONS. The sprite holds a chevron pointing down, and a
@@ -3750,7 +3794,9 @@ th.amount { text-align: end }
    than only on the chip. The link still works: a reader may want to see what
    YouTube says about it. */
 .row-dead .video-link { text-decoration: line-through }
-.row-dead .video-link:hover { color: var(--danger-quiet) }
+@media (hover: hover) {
+  .row-dead .video-link:hover { color: var(--danger-quiet) }
+}
 
 /* THE #removed TAG IS THE WHOLE TREATMENT. A chip saying Unavailable used to
    sit beside it, so a dead row carried the same fact twice, in two shapes. It
@@ -3836,10 +3882,14 @@ th.amount { text-align: end }
   inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2));
 }
 
-.tag-remove:hover { color: var(--danger-quiet); background: #ffffff14 }
+@media (hover: hover) {
+  .tag-remove:hover { color: var(--danger-quiet); background: #ffffff14 }
+}
 
 @media (forced-colors: active) {
-  .tag-remove:hover { outline: 1px solid Highlight }
+  @media (hover: hover) {
+    .tag-remove:hover { outline: 1px solid Highlight }
+  }
 }
 
 /* COLLAPSED, THE ADD CONTROL IS A 24px PLUS.
@@ -3912,7 +3962,9 @@ th.amount { text-align: end }
     background-color var(--duration) var(--ease);
 }
 
-.tag-add-btn:hover { color: var(--text); border-color: #777; background: #ffffff14 }
+@media (hover: hover) {
+  .tag-add-btn:hover { color: var(--text); border-color: #777; background: #ffffff14 }
+}
 
 .tag-add-btn::after {
   content: "";
@@ -3996,7 +4048,13 @@ th.amount { text-align: end }
 }
 
 .tag-input::placeholder { color: var(--text-quiet) }
-.tag-input:hover, .tag-input:focus { background: var(--surface-sunken) }
+/* TWO RULES, BECAUSE ONLY ONE OF THEM ANSWERS TO A POINTER. The hover half
+   is gated below on a device that has one. Focus has to keep working on a
+   finger, and a shared selector list would have taken it away. */
+.tag-input:focus { background: var(--surface-sunken) }
+@media (hover: hover) {
+  .tag-input:hover { background: var(--surface-sunken) }
+}
 
 .row-remove,
 .row-edit,
@@ -4017,8 +4075,12 @@ th.amount { text-align: end }
     background-color var(--duration) var(--ease);
 }
 
-.row-remove:hover { color: var(--danger-quiet); background: #2a1414 }
-.row-edit:hover { color: var(--text); background: var(--row-hover) }
+@media (hover: hover) {
+  .row-remove:hover { color: var(--danger-quiet); background: #2a1414 }
+}
+@media (hover: hover) {
+  .row-edit:hover { color: var(--text); background: var(--row-hover) }
+}
 
 /* A DOWNLOAD IS NEITHER DESTRUCTIVE NOR A SAVE, so it takes the neutral
    hover the rename does. Held open it stays lit, because the menu belonging
@@ -4026,9 +4088,13 @@ th.amount { text-align: end }
 /* A DESTRUCTIVE ITEM IN A MENU SAYS SO IN ITS COLOUR. It sits under a rule,
    so the separation is stated twice: by the gap above it and by the hue. */
 .multi-option.multi-danger { color: var(--danger-quiet) }
-.multi-option.multi-danger:hover { background: #2a1414; color: var(--danger-quiet) }
+@media (hover: hover) {
+  .multi-option.multi-danger:hover { background: #2a1414; color: var(--danger-quiet) }
+}
 
-.row-get:hover { color: var(--text); background: var(--row-hover) }
+@media (hover: hover) {
+  .row-get:hover { color: var(--text); background: var(--row-hover) }
+}
 .row-get[aria-expanded="true"],
 #noteGet[aria-expanded="true"],
 #noteMenu[aria-expanded="true"] { color: var(--text); background: var(--row-selected) }
@@ -4047,7 +4113,9 @@ th.amount { text-align: end }
    what the press does. Save is its own hue: beside a delete cross it must
    read as neither that nor the brand. */
 .row-edit[data-mode="save"] { color: var(--save) }
-.row-edit[data-mode="save"]:hover { color: var(--save); background: #2a1c0c }
+@media (hover: hover) {
+  .row-edit[data-mode="save"]:hover { color: var(--save); background: #2a1c0c }
+}
 
 /* THE FIELD COSTS NO LAYOUT, so the row holds still while a name is edited.
    In flow it is a 44px control standing where the name is a 21px line, and
@@ -4117,7 +4185,9 @@ th.amount { text-align: end }
   cursor: pointer;
 }
 
-.tag-suggest li:hover { background: var(--option-hover) }
+@media (hover: hover) {
+  .tag-suggest li:hover { background: var(--option-hover) }
+}
 
 /* The active option is marked by its fill AND by its start edge, so the mark
    survives a reader who cannot separate two greys. */
@@ -4555,9 +4625,16 @@ dialog menu {
      planes go back to their resting colour. The selected case needs its own
      line: (0,2,2) beats the (0,1,2) above it whatever the order, so without
      this a selected card would light up and the reset would look applied. */
-  tbody tr:hover { background: var(--surface) }
-  tbody tr.row-selected,
-  tbody tr.row-selected:hover { background: var(--row-selected); border-color: var(--accent) }
+  @media (hover: hover) {
+    tbody tr:hover { background: var(--surface) }
+  }
+  /* TWO RULES, BECAUSE ONLY THE SECOND ANSWERS TO A POINTER. A shared
+     selector list would have put the resting card behind a hover test, so a
+     selected card on a phone would have lost its fill and its edge. */
+  tbody tr.row-selected { background: var(--row-selected); border-color: var(--accent) }
+  @media (hover: hover) {
+    tbody tr.row-selected:hover { background: var(--row-selected); border-color: var(--accent) }
+  }
 
   /* The bar is the row's edge on a table. On a card the border says it, so
      the pseudo-element would draw a second mark over the radius. */
