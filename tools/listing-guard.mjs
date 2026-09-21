@@ -7,7 +7,7 @@
  * So the caps are asked rather than remembered, and the stated count is
  * asked with them.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 const t = readFileSync('store/listing.md', 'utf8');
 const FENCE = '```';
 const grab = (h) => {
@@ -39,4 +39,36 @@ rows.forEach(([label, text, cap], i) => {
   console.log(`listing guard: ${label.padEnd(6)} ${String(text.length).padStart(4)} / ${cap}`
     + `  ${ok ? 'ok' : 'TOO LONG'}${agrees ? '' : `, but the file says ${says}`}`);
 });
+/* THE SHOTS ARE A STATED CONSTANT TOO. The file says 1080x1920 and calls it
+   9:16, and Play refuses anything outside that. A phone's own screen is
+   1080x2400, so the shape to catch is a screenshot taken without the resize.
+   Read the PNG header rather than trusting the sentence above it. */
+const SHOTS = 'store/screenshots';
+const RATIO = 9 / 16;
+let shots = [];
+try { shots = readdirSync(SHOTS).filter((f) => f.endsWith('.png')).sort(); }
+catch { shots = []; }
+
+if (shots.length < 2) {
+  console.error(`listing guard: ${shots.length} screenshots in ${SHOTS}, and Play asks for 2 to 8`);
+  bad += 1;
+} else if (shots.length > 8) {
+  console.error(`listing guard: ${shots.length} screenshots, and Play takes at most 8`);
+  bad += 1;
+}
+
+for (const file of shots) {
+  const png = readFileSync(`${SHOTS}/${file}`);
+  const w = png.readUInt32BE(16);
+  const h = png.readUInt32BE(20);
+  const sides = w >= 320 && h >= 320 && w <= 3840 && h <= 3840;
+  const ratio = Math.abs(w / h - RATIO) < 0.001;
+  const named = t.includes(`\`${file}\``);
+  if (!sides || !ratio || !named) bad += 1;
+  console.log(`listing guard: ${file.padEnd(20)} ${w}x${h}`
+    + `  ${ratio ? '9:16' : `NOT 9:16 (${(w / h).toFixed(3)})`}`
+    + `${sides ? '' : ', a side is outside 320 to 3840'}`
+    + `${named ? '' : ', and the listing never names it'}`);
+}
+
 process.exit(bad ? 1 : 0);

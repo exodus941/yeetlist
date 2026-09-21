@@ -69,13 +69,24 @@ Productivity
 |---|---|---|
 | App icon 512x512 | `icons/icon-512.png` | generated |
 | Feature graphic 1024x500 | `store/feature-1024x500.png` | generated |
-| Phone screenshots, 2 to 8 | — | taken on the device |
+| Phone screenshots, 4 | `store/screenshots/` | taken on the device |
+
+Every screenshot is 1080x1920, which is 9:16 exactly. Play asks for that ratio
+with each side between 320 and 3840 pixels, and a phone's own 1080x2400 is
+9:20. The emulator was set to `wm size 1080x1920` and `wm density 380` rather
+than cropping, so nothing is cut off.
+
+| File | What it shows |
+|---|---|
+| `1-watchlist.png` | the watchlist with tags and ratings on each row |
+| `2-filters.png` | search, the tag filter and the rating filter, open |
+| `3-rating-filter.png` | the rating filter's own menu |
+| `4-bookmarks.png` | the second list, for links that are not videos |
 
 **THE SCREENSHOTS ARE THE ONE THING A GENERATOR CANNOT HONESTLY MAKE.** Play
 wants pictures of the app as it runs, and a mockup drawn beside it would be a
-picture of something nobody can install. Take them on the phone with the app
-open: the list with a few rows, the filters open, and the rating control on a
-row. Play accepts 16:9 or 9:16 between 320 and 3840 pixels on each side.
+picture of something nobody can install. These were taken from the signed APK
+running on an Android 14 emulator, with data added through the app itself.
 
 ## Data safety form
 
