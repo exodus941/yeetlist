@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260921-13';
+const VERSION = '260921-14';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -2594,6 +2594,7 @@ async function driveConnect({ interactive = true } = {}) {
     /* Anything edited while the token was gone goes up now, rather than
        waiting for the next change to trigger a push. */
     if (drivePendingPush) { drivePendingPush = false; await drivePush(); }
+    watchDrive();
   } catch (error) {
     if (interactive) {
       driveStatus('error', 'Not connected');
@@ -2654,7 +2655,14 @@ async function drivePull({ announce = false } = {}) {
         ? `Read ${DRIVE.FILENAME} from Drive. ${gained} ${gained === 1 ? 'video' : 'videos'} added.`
         : `Read ${DRIVE.FILENAME} from Drive. Nothing new.`);
     }
-    await drivePush();
+
+    /* PUSH ONLY WHAT THE FILE DOES NOT ALREADY HOLD. A write moves the
+       file's stamp, and the watch reads that stamp to decide whether
+       somebody else wrote. Pushing after every pull therefore made each
+       device answer the other for ever: A writes, B notices and writes, A
+       notices and writes. The merge often produces exactly the file that
+       was read, and that case has nothing to send. */
+    if (fileText() !== text) await drivePush();
   } catch (error) {
     driveStatus('error', 'Sync failed');
     say(error.message);
@@ -2672,6 +2680,65 @@ function queueDrivePush() {
   clearTimeout(pushTimer);
   pushTimer = setTimeout(drivePush, 1200);
 }
+
+/* ==========================================================================
+   Noticing a change made somewhere else
+
+   THE PULL USED TO HAPPEN TWICE: on load, and when the reader pressed the
+   sync button. So a link added on a desktop reached a phone that was already
+   open only when the reader thought to ask. Their requirement, 21 September
+   2026: near-instant.
+
+   ASK FOR THE STAMP, NOT THE FILE. Drive answers a metadata request with the
+   file's modifiedTime and nothing else, so a check costs one small request
+   rather than the whole list. The file is only read when that stamp has
+   moved past the one this device last wrote.
+
+   ONLY WHILE THE READER IS LOOKING. A hidden tab has nobody to show a change
+   to, and a phone in a pocket should not be asking every few seconds. The
+   check stops when the page is hidden and runs once the moment it is shown,
+   which is also the fastest a returning reader could be served.
+   ========================================================================== */
+
+/* TEN SECONDS, AND THE COST IS ONE SMALL REQUEST. The interval only governs
+   the case where both screens are on at once, because a reader picking the
+   phone up is served by the visibility check instead. Measured end to end:
+   a change reaches the file in 1.5s and the other device within the
+   interval, so ten is the difference between "a moment" and "a wait". */
+const WATCH_MS = 10000;
+let watchTimer = null;
+let checking = false;
+
+async function driveCheck() {
+  if (checking || pushing) return;
+  if (!DRIVE.connected() || !DRIVE.live()) return;
+  const id = DRIVE.fileId();
+  if (!id) return;
+
+  checking = true;
+  try {
+    const info = await DRIVE.meta(id);
+    /* A STAMP THAT HAS NOT MOVED MEANS NOBODY ELSE WROTE. The value stored
+       here is what this device last read or wrote, so a difference is
+       somebody else's change and nothing else. */
+    if (info?.modifiedTime && info.modifiedTime !== DRIVE.syncedAt()) await drivePull();
+  } catch { /* No connection, or the token lapsed. The next tick asks again. */
+  } finally {
+    checking = false;
+  }
+}
+
+function watchDrive() {
+  const want = DRIVE.connected() && document.visibilityState === 'visible';
+  if (want && !watchTimer) {
+    watchTimer = setInterval(driveCheck, WATCH_MS);
+    driveCheck();
+  }
+  if (!want && watchTimer) { clearInterval(watchTimer); watchTimer = null; }
+}
+
+document.addEventListener('visibilitychange', watchDrive);
+addEventListener('online', driveCheck);
 
 async function drivePush() {
   if (!DRIVE.connected() || pushing) return;
@@ -3849,6 +3916,7 @@ render();
    now rather than one interval from now. */
 watchForConnection();
 resolvePending();
+watchDrive();
 refreshMetadata();
 renderDriveAvailability();
 
