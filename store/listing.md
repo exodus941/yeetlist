@@ -95,10 +95,18 @@ policy allows an app to change its own code only through Play's own update
 mechanism. The APK checks GitHub on every launch and hands a newer file to
 the system installer, which is exactly what that forbids.
 
-The `.aab` in each release is built from the same project, so it carries the
-updater too. **It cannot be uploaded as it stands.** A Play build needs the
-`Add the updater` step removed from `.github/workflows/android.yml`, and then
-Play's own updates do that job instead.
+**NO RELEASE CARRIES AN `.aab` ANY MORE.** Their instruction, 22 September
+2026: "i think you can lose the AAB files for now. we are not going to be
+needing them anytime soon. perhaps never."
+
+The build still produces one, because that lives in
+`.github/workflows/android.yml` and needs an access this project's token does
+not carry. It is deleted from each release by hand instead, beside the purge
+of older releases.
+
+A PLAY BUILD WOULD NEED TWO CHANGES, not one. The bundle has to be published
+again, and the `Add the updater` step has to be removed, because that updater
+is what Play forbids. Play's own updates do that job instead.
 
 Nothing is broken today: the app is installed from the release page, where
 self-updating is the only way an update can arrive at all.
