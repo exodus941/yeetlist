@@ -672,7 +672,7 @@ body[data-note-open] { overflow: hidden }
 #listRuntime, #searchClear, #state, #tagSuggest, #tagBulkPanel,
 #typedConfirm, #importPanel, #driveConnect, #rateList, #noteLevelList,
 #driveGroup, #driveAlert, #tagFilterPanel, #sortList, #exportMenu, #filterPanel,
-#newNote, #noteEditor, #rateGroup, #pager {
+#noteEditor, #rateGroup, #pager {
   transition:
     opacity var(--duration) var(--ease),
     display var(--duration) allow-discrete;
@@ -683,7 +683,7 @@ body[data-note-open] { overflow: hidden }
 #importPanel[hidden], #driveConnect[hidden], #driveGroup[hidden],
 #driveAlert[hidden], #tagFilterPanel[hidden], #sortList[hidden], #exportMenu[hidden],
 #rateList[hidden], #noteLevelList[hidden],
-#newNote[hidden], #noteEditor[hidden], #rateGroup[hidden], #pager[hidden],
+#noteEditor[hidden], #rateGroup[hidden], #pager[hidden],
 #filterPanel[hidden] {
   opacity: 0;
 }
@@ -696,7 +696,7 @@ body[data-note-open] { overflow: hidden }
   #driveGroup:not([hidden]), #driveAlert:not([hidden]),
   #tagFilterPanel:not([hidden]), #sortList:not([hidden]), #exportMenu:not([hidden]),
   #rateList:not([hidden]), #noteLevelList:not([hidden]),
-  #newNote:not([hidden]), #noteEditor:not([hidden]), #rateGroup:not([hidden]),
+  #noteEditor:not([hidden]), #rateGroup:not([hidden]),
   #pager:not([hidden]),
   #filterPanel:not([hidden]) {
     opacity: 0;

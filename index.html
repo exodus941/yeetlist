@@ -268,16 +268,18 @@
              aria-label="Add a video or bookmark by link" autocomplete="off" />
       <!-- The label carries its own element, because the tab decides the word
            and a bare text node cannot be addressed without losing the icon. -->
+      <!-- ONE FIELD AND ONE BUTTON, ON ALL THREE TABS. Their instruction,
+           22 September 2026: the New Note field is identical to the link
+           field on the other two tabs, and the button takes the same enter
+           icon. Only the placeholder, the name and the label move.
+
+           IT USED TO SWAP IN A SECOND BUTTON and hide the field. That left
+           the empty state's own action pointing at a hidden input, so
+           "Write Your First Note" focused nothing on a fresh install.
+           Measured: focus() on a hidden field does not land. -->
       <button id="addBtn" class="btn btn-primary" type="button">
         <span class="btn-label">Add to List</span>
         <svg class="icon" aria-hidden="true"><use href="#i-enter"/></svg>
-      </button>
-      <!-- A NOTE IS NOT ADDED BY PASTING A LINK, so the notes tab swaps the
-           field and the button for this one. Hidden rather than built on
-           demand, the way every other panel in this file is. -->
-      <button id="newNote" class="btn btn-primary" type="button" hidden>
-        <span class="btn-label">New Note</span>
-        <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>
       </button>
     </div>
     <!-- AN EMPTY LIVE REGION, ALWAYS PRESENT. Twenty-four runtime messages

@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-1';
+const VERSION = '260922-2';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -146,17 +146,19 @@ const LISTS = {
     ],
   },
 
-  /* THE THIRD LIST HOLDS DOCUMENTS RATHER THAN LINKS, so its add control is
-     a button rather than a field. Everything else is the machinery the other
-     two already use: the same tags, the same rating, the same selection and
-     the same sort. */
+  /* THE THIRD LIST HOLDS DOCUMENTS RATHER THAN LINKS, and it takes the same
+     field. Their instruction, 22 September 2026: the New Note field is
+     identical to the link field on the other two tabs. Typing a line and
+     pressing Enter opens that note in the editor. The button alone opens a
+     blank one. Everything else is the machinery the other two already use:
+     the same tags, the same selection and the same sort. */
   notes: {
     noun: ['Note', 'Notes'],
     home: 'your notes',
     head: '',
     runtime: false,
-    placeholder: '',
-    fieldName: '',
+    placeholder: 'Write a note…',
+    fieldName: 'Start a note by its first line',
     add: 'New Note',
     search: 'Search notes, their text, or tags',
     empty: {
@@ -528,13 +530,10 @@ function render() {
   if (editing !== null && !inTab().some((v) => v.id === editing)) { editing = null; draft = ''; }
 
   const spec = LISTS[tab];
-  /* A NOTE IS NOT ADDED BY PASTING A LINK, so the field and its button give
-     way to one button. Hidden rather than removed, because the field is also
-     where a share arrives and the live region beside it must stay. */
-  const writing = tab === 'notes';
-  $('#videoUrl').hidden = writing;
-  $('#addBtn').hidden = writing;
-  $('#newNote').hidden = !writing;
+  /* THE FIELD AND ITS BUTTON STAND ON ALL THREE TABS NOW. The notes tab used
+     to hide both and swap in a second button, which left the empty state's
+     own action focusing a hidden input. Only the placeholder, the name and
+     the label move, and renderChrome writes all three. */
 
   /* A FILTER FOR SOMETHING THE LIST CANNOT HOLD IS A CONTROL THAT RETURNS
      NOTHING. The columns are the list's own declaration of what it has, so
@@ -1821,6 +1820,21 @@ const playlistOf = (url) => {
 
 async function addVideo() {
   const typed = $('#videoUrl').value.trim();
+
+  /* THE NOTES TAB WRITES A NOTE, AND AN EMPTY FIELD IS STILL A NOTE THERE.
+     Their instruction: the button alone opens a fully blank one, and a typed
+     line opens that note in the editor. So this is the one list where the
+     control does something with nothing in the field.
+
+     THE TYPED LINE IS THE NOTE'S FIRST BLOCK, which is what `titleOf` reads
+     for the name. One writer for the title, the same one the editor's own
+     title field uses. */
+  if (tab === 'notes') {
+    $('#videoUrl').value = '';
+    newNote(typed);
+    return;
+  }
+
   if (!typed) return;
   const url = withScheme(typed);
 

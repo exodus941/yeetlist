@@ -169,10 +169,24 @@ function saveNote({ now = false } = {}) {
   save();
 }
 
-function newNote() {
+/* A TYPED LINE BECOMES THE NOTE'S FIRST BLOCK, and nothing else.
+   Their instruction, 22 September 2026: typing in the add field and pressing
+   Enter opens that note in the editor. The button with an empty field opens a
+   fully blank one.
+
+   `titleOf` READS THE NAME OFF THE BODY, so the title is derived rather than
+   stated. It is the same function the editor's own title field reads, and it
+   falls back to "Untitled note" on an empty body. Writing a title here as
+   well would be two writers for one name. */
+async function newNote(firstLine = '') {
+  /* `titleOf` LIVES IN THE LAZY MODULE, so this waits for it the way
+     openNote does. A click can in principle beat the import. */
+  await notesReady;
+
   const now = new Date().toISOString();
+  const body = String(firstLine || '').trim();
   videos.push({
-    id: noteId(), kind: 'note', title: 'Untitled note', body: '',
+    id: noteId(), kind: 'note', title: NOTES.titleOf(body), body,
     addedAt: now, editedAt: now, tags: [],
   });
   save();
@@ -335,7 +349,8 @@ document.addEventListener('click', (event) => {
   const open = event.target.closest?.('.note-open');
   if (open) { openNote(open.dataset.id); return; }
 
-  if (event.target.closest?.('#newNote')) { newNote(); return; }
+  /* `#newNote` IS GONE. One field and one button serve all three tabs, and
+     `addVideo` routes to `newNote` on this one. */
   if (event.target.closest?.('#noteBack')) { closeNote(); return; }
 
   const tool = event.target.closest?.('.note-tool');

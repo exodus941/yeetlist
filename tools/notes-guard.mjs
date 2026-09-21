@@ -14,6 +14,7 @@
  * jsdom; this tests the reader against the shapes a browser actually hands
  * it, including the ones execCommand invents.
  */
+import { readFileSync } from 'node:fs';
 import { markdownToHtml, htmlToMarkdown, titleOf, looksLikeMarkdown, pasteToHtml, inlineToHtml }
   from '../notes.js';
 
@@ -178,6 +179,87 @@ ok('pasted text cannot inject markup', !pasteToHtml('<img src=x onerror=1>').inc
   pasteToHtml('<img src=x onerror=1>'));
 ok('markdown-shaped text cannot inject markup either',
   !pasteToHtml('# <img src=x onerror=1>').includes('<img'), pasteToHtml('# <img src=x onerror=1>'));
+
+/* ── The add field writes a note ─────────────────────────────────────────
+ *
+ * Their instruction, 22 September 2026: the New Note field is identical to
+ * the link field on the other two tabs. Typing a line and pressing Enter
+ * opens that note in the editor. The button alone opens a blank one.
+ *
+ * THE ROUTE IS WHAT BREAKS SILENTLY. `addVideo` serves all three tabs, and
+ * its second line returns early on an empty field. The notes branch has to
+ * sit ABOVE that line, or the button with nothing typed does nothing at all
+ * and no error says so.
+ *
+ * READ AS TEXT, because the route lives in a browser file that needs a DOM.
+ * Comments are blanked first, or a rule quoted in prose reads as code.
+ */
+{
+  /* A WRONG LINE NUMBER IS WORSE THAN NONE, so a comment is blanked rather
+     than deleted. Nothing here reports a line, and the offsets below are
+     compared against each other, so the lengths have to hold. */
+  const blank = (src) => src
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/(^|[^:])\/\/[^\n]*/g, (m, p) => p + ' '.repeat(m.length - p.length));
+
+  const app = blank(readFileSync(new URL('../app.js', import.meta.url), 'utf8'));
+  const ui = blank(readFileSync(new URL('../notes-ui.js', import.meta.url), 'utf8'));
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+
+  const add = app.slice(app.indexOf('async function addVideo()'));
+  const route = add.indexOf("tab === 'notes'");
+  const bail = add.indexOf('if (!typed) return;');
+  ok('the notes branch sits above the empty-field return',
+    route > -1 && bail > -1 && route < bail, `${route} against ${bail}`);
+  ok('the branch clears the field and calls newNote',
+    /tab === 'notes'\)\s*\{[^}]*#videoUrl'\)\.value = ''[^}]*newNote\(typed\)/.test(add));
+
+  /* THE SECOND BUTTON IS GONE FROM EVERY STORE. One left behind in the fade
+     lists is a selector matching nothing, and one left in the markup is a
+     control nothing shows.
+
+     THE MARKUP SPELLS IT DIFFERENTLY, and asking for the selector there is a
+     case that can never fire. An element writes `id="newNote"` with no hash,
+     so putting the button back left this quiet. Proven by injection. */
+  for (const [where, text, needle] of [['the markup', html, 'id="newNote"'],
+    ['the stylesheet', css, '#newNote'], ['app.js', app, '#newNote'],
+    ['notes-ui.js', ui, '#newNote']]) {
+    const at = text.indexOf(needle);
+    ok(`no ${needle} left in ${where}`, at < 0,
+      at < 0 ? '' : text.slice(Math.max(0, at - 20), at + 30));
+  }
+
+  /* ONE FIELD, SO EVERY LIST STATES WHAT IT SAYS. A fourth list added
+     tomorrow needs all three, and an empty placeholder is what the notes tab
+     shipped while its field was hidden. */
+  /* `const sorts`, WHICH IS THE NEXT TOP-LEVEL DECLARATION. `function inTab`
+     read as the end and is written as a const arrow, so the slice came back
+     empty and the three loops below reported 0 of 3 on correct code. */
+  const specs = app.slice(app.indexOf('const LISTS'), app.indexOf('const sorts'));
+  ok('the list specs were found', specs.length > 500, String(specs.length));
+  for (const key of ['placeholder', 'fieldName', 'add']) {
+    /* `\\b`, NOT `\b`. A template literal resolves every escape at parse
+       time, so `\b` reaches the RegExp as a backspace character rather than
+       as a word boundary. It matched nothing and reported 0 of 3 on correct
+       code. Double every backslash inside a literal. */
+    const found = [...specs.matchAll(new RegExp(`\\b${key}: '([^']*)'`, 'g'))].map((m) => m[1]);
+    ok(`every list states its ${key}`, found.length === 3, `${found.length}: ${found.join(' | ')}`);
+    ok(`no list leaves its ${key} empty`, found.every((v) => v.trim().length > 0), found.join(' | '));
+  }
+
+  /* THE TITLE IS DERIVED, NEVER STATED TWICE. newNote reads titleOf so the
+     name cannot disagree with the body the editor shows. */
+  ok('newNote takes a first line', /function newNote\(firstLine = ''\)/.test(ui));
+  ok('and derives the title from the body', /title: NOTES\.titleOf\(body\)/.test(ui));
+  ok('and waits for the lazy module', /async function newNote[\s\S]{0,400}await notesReady/.test(ui));
+
+  /* AND titleOf ANSWERS BOTH CASES, which is why one writer is enough. */
+  same('a typed line becomes the title', titleOf('Groceries for the weekend'),
+    'Groceries for the weekend');
+  same('an empty body falls back', titleOf(''), 'Untitled note');
+  same('a blank run of spaces falls back too', titleOf('   '), 'Untitled note');
+}
 
 /* ── Verdict ────────────────────────────────────────────────────────────── */
 
