@@ -18,6 +18,11 @@ node tools/notes-file-guard.mjs
 # of them forgetting to scope acts on rows nobody can see.
 node tools/selection-guard.mjs
 
+# Every link in an imported file has to reach a list. A video id is swept out
+# of the whole text, so it survives any line shape while a page address did
+# not. Both halves are asserted: the shapes arrive, and prose stays prose.
+node tools/import-guard.mjs
+
 # The share patch runs only in CI, where nothing watches it. Its clauses are
 # proven here instead, so a clause that stops firing fails a commit.
 node tools/android-share-fix.mjs --self-test

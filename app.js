@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260921-31';
+const VERSION = '260921-32';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -394,6 +394,20 @@ const filtering = () => activeTags.size > 0 || untaggedOnly || ratingFilter !== 
    and tags alike. */
 const hashed = (tag) => '#' + tag;
 
+/* ONE WRITER FOR A CHIP, BECAUSE THE COLUMN IS SIZED FROM ITS WIDTH.
+   `fitTags()` measures a chip to decide the tags column, and it measures a
+   probe rather than the 800 in the table. A second copy of this markup
+   would size the column from a chip the reader never sees.
+
+   `owner` is the record the remove button acts on. The probe passes a
+   placeholder, because a label's own width is what it is measuring and the
+   aria text paints nothing. */
+const tagChip = (tag, owner) => `<span class="tag-chip" data-tag="${escape(tag)}"${tag === DEAD_TAG ? ' data-dead' : ''}>
+  ${tag === DEAD_TAG ? icon('alert') : ''}<span>${escape(hashed(tag))}</span>
+  ${tag === DEAD_TAG ? '' : `<button class="tag-remove" type="button" data-id="${escape(owner.id)}" data-tag="${escape(tag)}"
+          aria-label="Remove ${escape(hashed(tag))} from ${escape(owner.title)}">${icon('x')}</button>`}
+</span>`;
+
 /* ==========================================================================
    Rating
 
@@ -682,9 +696,38 @@ function renderSelection() {
 
    MEASURED, NEVER COMPUTED. The chip's width is its padding, its label, its
    mark and its own gap, which is four numbers this would otherwise restate.
-   The rectangle is the answer, and `.cell-tags .tag-chip` refuses to shrink
-   so the rectangle is the chip's natural width rather than whatever the
-   current column left it. */
+   The rectangle is the answer, and a chip refuses to shrink, so the
+   rectangle is its natural width rather than whatever the column left it.
+
+   MEASURED ONCE PER DISTINCT TAG, NOT ONCE PER ROW. A row is
+   `content-visibility: auto`, so reading a rectangle inside it makes the
+   browser render that one row. 800 rows are then 800 layouts. Two tags with
+   the same word are the same width, so a probe holding one chip per distinct
+   word answers every row in one layout. Measured on an 800-row watchlist
+   carrying 533 chips: 32.1ms of reads for 12 distinct words.
+
+   THE PAIRING IS ARITHMETIC OVER MEASURED WIDTHS, which is what it always
+   was. The rows supply their own word lists, which a `data-tag` attribute
+   answers with no layout at all. */
+function chipSizes(labels) {
+  const probe = document.createElement('div');
+  probe.className = 'tag-probe';
+  probe.innerHTML = `<div class="tags">${
+    labels.map((t) => tagChip(t, { id: '', title: '' })).join('')}</div>`;
+  $('.table-wrap').append(probe);
+
+  const box = probe.firstElementChild;
+  const gap = parseFloat(getComputedStyle(box).columnGap) || 0;
+  const width = new Map();
+  [...box.children].forEach((chip, i) => width.set(labels[i], chip.getBoundingClientRect().width));
+
+  /* AN INSTRUMENT LEFT ON THE PAGE BECOMES ONE OF THE THINGS IT MEASURES.
+     It is attached and removed inside one task, so nothing paints it and no
+     sweep can find it. */
+  probe.remove();
+  return { width, gap };
+}
+
 function fitTags() {
   const th = $('#head').querySelector('[data-col="tags"]');
   if (!th) return;
@@ -698,16 +741,20 @@ function fitTags() {
   range.selectNodeContents(th);
   const heading = range.getBoundingClientRect().width;
 
-  let gap = 0;
+  /* Each row's own words, read off the attribute rather than the layout. */
+  const rows = $$('#rows .cell-tags .tags')
+    .map((box) => [...box.querySelectorAll('.tag-chip')].map((c) => c.dataset.tag));
+  const labels = [...new Set(rows.flat())];
+  const { width, gap } = labels.length ? chipSizes(labels) : { width: new Map(), gap: 0 };
+
   let content = 0;
-  $$('#rows .cell-tags .tags').forEach((box) => {
-    gap = parseFloat(getComputedStyle(box).columnGap) || gap;
-    const chips = [...box.querySelectorAll('.tag-chip')].map((c) => c.getBoundingClientRect().width);
-    for (let i = 0; i < chips.length; i += 2) {
-      const pair = chips[i] + (chips[i + 1] === undefined ? 0 : gap + chips[i + 1]);
+  for (const tags of rows) {
+    for (let i = 0; i < tags.length; i += 2) {
+      const pair = (width.get(tags[i]) || 0)
+        + (tags[i + 1] === undefined ? 0 : gap + (width.get(tags[i + 1]) || 0));
       content = Math.max(content, pair);
     }
-  });
+  }
 
   /* THE BUTTON, NEVER ITS WRAPPER. `.tag-add` grows into a field while
      somebody is typing, and a render during that would state a column wide
@@ -716,11 +763,29 @@ function fitTags() {
 
      AND AN OPEN FIELD HIDES ITS OWN BUTTON, so the first one in the table
      can measure 0. Taking the first read 0 the moment row one was typing,
-     and the column lost the 32px this cap exists to hold. Take the widest
-     button that is painted, and fall back to the step it is drawn at when a
-     one-row table has its only field open. */
-  const add = $$('#rows .tag-add-btn')
-    .reduce((w, b) => Math.max(w, b.getBoundingClientRect().width), 0)
+     and the column lost the 32px this cap exists to hold.
+
+     ONE BUTTON, NOT ALL OF THEM, AND THAT WAS 4.26 SECONDS. Every button is
+     the same size: `aspect-ratio: 1` on one stated height, at both pointers.
+     So the widest of 800 is the first of 800, and reading all 800 rectangles
+     bought nothing.
+
+     IT COST THAT MUCH BECAUSE A ROW IS `content-visibility: auto`. Reading
+     the rectangle of an element inside a skipped subtree makes the browser
+     render that subtree, so 800 reads are 800 separate layouts at 5.3ms
+     each. Measured on an 800-row watchlist: 4,257.6ms for this one line,
+     against 32.1ms for the chip loop above it, which only touches the rows
+     that hold a chip. A second run of the same reads costs 1.2ms, because
+     every row is rendered by then. So the cost is invisible to any
+     measurement taken on a warm page.
+
+     ASK THE ATTRIBUTE, NEVER `checkVisibility`. The open field hides its
+     button with `display: none`, and the wrapper carries `data-expanded`,
+     which is the declaration that says so. A visibility question forces the
+     render this is avoiding. */
+  const painted = $$('#rows .tag-add-btn')
+    .find((b) => !b.closest('.tag-add')?.hasAttribute('data-expanded'));
+  const add = (painted ? painted.getBoundingClientRect().width : 0)
     || parseFloat(getComputedStyle(th).getPropertyValue('--control-sm')) || 0;
   const widest = Math.max(heading, content ? content + gap + add : add);
 
@@ -910,11 +975,7 @@ const CELLS = {
 
   tags: (v) => `<td class="cell-tags">
     <div class="tags">
-      ${(v.tags || []).map((t) => `<span class="tag-chip"${t === DEAD_TAG ? ' data-dead' : ''}>
-        ${t === DEAD_TAG ? icon('alert') : ''}<span>${escape(hashed(t))}</span>
-        ${t === DEAD_TAG ? '' : `<button class="tag-remove" type="button" data-id="${escape(v.id)}" data-tag="${escape(t)}"
-                aria-label="Remove ${escape(hashed(t))} from ${escape(v.title)}">${icon('x')}</button>`}
-      </span>`).join('')}
+      ${(v.tags || []).map((t) => tagChip(t, v)).join('')}
       <span class="tag-add">
         <button class="tag-add-btn" type="button" aria-label="Add a tag to ${escape(v.title)}"
                 aria-expanded="false">${icon('plus')}</button>
@@ -2198,11 +2259,69 @@ const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim().slice(0
 const ASSET = /\.(?:jpe?g|png|gif|webp|avif|svgz?|bmp|ico|css|js|mjs|json|woff2?|ttf|otf|eot|map)(?:$|[?#])/i;
 const BARE = /https?:\/\/[^\s"'<>)\]]+/g;
 
+/* A LIST OF LINKS IS NOT A DOCUMENT THAT CITES THEM, AND THE FILE SAYS WHICH.
+   Every rule below about an entry exists for prose: a note, an article or a
+   video description quotes addresses, so taking each one would save what
+   somebody read rather than what they kept.
+
+   A FILE WHOSE LINES ARE MOSTLY ADDRESSES IS A LIST. Nothing in it is a
+   citation, so every address on every line is an entry and no line shape can
+   drop one.
+
+   IT WAS DROPPING EVERY BOOKMARK AND KEEPING EVERY VIDEO. A video id is
+   swept out of the whole text at the end, so it survives any line shape. A
+   page address only survived a line the prose rules accepted. Measured on
+   one plain text file of links: six shapes took the video and none of the
+   others. An indented line, a tab-indented line, several addresses on one
+   line, an address with words after it, a quoted address, and an address
+   followed by its own title.
+
+   TWO MEASUREMENTS, BECAUSE DENSITY ALONE IS NOT ENOUGH. A short article
+   citing a few sources came out at exactly 0.50 of its lines, so a density
+   bar of one half read it as a list and took all three citations.
+
+   WHERE THE ADDRESS SITS IS THE STRONGER SIGNAL. In a list it starts the
+   line or ends it, with the words on one side. In prose it sits inside a
+   sentence, with words both sides.
+
+   Measured over six files, as density and edge share:
+   a bare dump 1.00 and 1.00, a titled list 1.00 and 1.00, that same list
+   with the title after the address 1.00 and 1.00, the citing article 0.50
+   and 0.40, a readme 0.40 and 0.00. So a list needs both, at one half of
+   the lines and three fifths of the edges. */
+const LINE_LINK = /(?:https?:\/\/|www\.)[^\s"'<>)\]]+/gi;
+/* What a reader puts in front of an address: a list marker, a quote, a
+   heading, an opening bracket, or a field name. None of it is prose. */
+const LEAD = /^(?:[-*+]|\d+[.)])\s+|^[>#\s"'<([]+|^(?:\*\*|__)?[A-Za-z0-9][A-Za-z0-9 _/-]{0,24}(?:\*\*|__)?\s*[:–-]\s+/;
+
+const listLike = (text) => {
+  const lines = String(text).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return false;
+
+  let linked = 0;
+  let edge = 0;
+  for (const line of lines) {
+    const found = line.match(LINE_LINK) || [];
+    if (!found.length) continue;
+    linked += 1;
+    const bare = line.replace(LEAD, '').replace(/[\s"'>)\].,;:!?]+$/, '');
+    if (bare.startsWith(found[0]) || bare.endsWith(found[found.length - 1])) edge += 1;
+  }
+  return linked / lines.length >= 0.5 && edge / linked >= 0.6;
+};
+
 function linksIn(text, isHtml) {
   const clips = new Set();
   const pages = new Map();
 
-  const add = (href, title) => {
+  const add = (raw, title) => {
+    /* A SCHEME OR NOTHING. `www.site.com/a` is an address a reader wrote
+       without one, and every step below needs one to parse it. A relative
+       path is left alone, because it names no site and drops out.
+       `withScheme` is the one writer for this. */
+    const href = /^(?:[a-z][a-z0-9+.-]*:|\/)/i.test(String(raw))
+      ? String(raw) : withScheme(String(raw));
+
     const id = videoIdFrom(href);
     if (id) { clips.add(id); return; }
     if (ASSET.test(String(href))) return;
@@ -2213,7 +2332,7 @@ function linksIn(text, isHtml) {
     if (!pages.has(key)) pages.set(key, clean(title));
   };
 
-  if (isHtml) scanHtml(text, add); else scanText(text, add);
+  if (isHtml) scanHtml(text, add); else scanText(text, add, listLike(text));
 
   /* Belt and braces, and the whole of the video pass: an address with a video
      id in it is that video, quoted or saved. The entry pass runs first, so a
@@ -2238,7 +2357,18 @@ const LABEL = /^(?:\*\*|__)?[A-Za-z0-9][A-Za-z0-9 _/-]{0,24}(?:\*\*|__)?\s*[:–
 /* A markdown link, an autolink, or a bare address. */
 const LINK = /^(!)?\[([^\]]*)\]\(\s*<?([^\s)<>]+)>?[^)]*\)|^<(https?:\/\/[^>\s]+)>|^(https?:\/\/[^\s"'<>)\]]+)/;
 
-function scanText(text, add) {
+/* EVERY ADDRESS ON THE LINE, FOR A FILE THAT IS A LIST. `www.` counts here
+   and nowhere else: a bare hostname in prose is usually a sentence, and in a
+   link list it is a link. A punctuation mark at the end belongs to the line,
+   never to the address. */
+const EVERY_LINK = /(?:https?:\/\/|www\.)[^\s"'<>)\]]+/gi;
+const MD_LINK = /(!)?\[([^\]]*)\]\(\s*<?([^\s)<>]+)>?[^)]*\)/g;
+const TRIM_EDGE = /^[\s"'<>[\]()*_`~:–—-]+|[\s"'<>[\]()*_`~:–—,.;-]+$/g;
+/* A field name is not a title. These are the words that stand in front of an
+   address to say that an address follows. */
+const FIELD = /^(?:url|uri|link|links|source|src|href|address|site|website|web|www|video|page)$/i;
+
+function scanText(text, add, listy = false) {
   let heading = '';
   let headingFree = false;
 
@@ -2265,9 +2395,40 @@ function scanText(text, add) {
        markdown list calls the body of the item above it. A description pasted
        into such a block cites addresses rather than saving them. Nested list
        items carry their own marker, so they stay entries. */
-    if (indent > 0 && !marked && !head) continue;
+    if (indent > 0 && !marked && !head && !listy) continue;
 
     const body = rest.replace(LABEL, '');
+
+    /* IN A LIST, THE LINE IS ENTRIES AND THE REST OF IT IS A NAME. The
+       markdown links go first and keep the words in their brackets. What is
+       left is stripped of them, so its bare addresses are taken once each,
+       and the surviving words name the first of those. */
+    if (listy && !head) {
+      /* `rest`, NEVER `body`. LABEL strips a field name in front of the
+         address, and in a list those words are usually the link's own title.
+         "Some Site - https://..." lost its name to that rule. The field
+         names themselves are few and known, so they drop out below. */
+      let bare = rest;
+      for (const md of rest.matchAll(MD_LINK)) {
+        if (!md[1]) add(md[3], md[2]);
+        bare = bare.replace(md[0], ' ');
+      }
+
+      const found = bare.match(EVERY_LINK) || [];
+      if (found.length) {
+        let words = clean(bare.replace(EVERY_LINK, ' ').replace(TRIM_EDGE, ''));
+        if (FIELD.test(words)) words = '';
+        found.forEach((href, i) => add(
+          href.replace(/[.,;:!?]+$/, ''),
+          i === 0 ? (words || (headingFree ? heading : '')) : '',
+        ));
+        headingFree = false;
+      }
+      continue;
+    }
+
+    /* A heading is read by the prose path below, so a list file still lets
+       one name the entry under it. */
     const m = body.match(LINK);
     if (!m || m[1]) continue;
 

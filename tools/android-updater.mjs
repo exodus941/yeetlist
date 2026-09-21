@@ -39,7 +39,10 @@ export const codeOf = (stamp) => {
 export function appSource(pkg) {
   return `package ${pkg};
 
-/* THE APP ASKS GITHUB FOR THE NEWEST RELEASE ON EVERY LAUNCH.
+import android.app.Activity;
+import android.os.Bundle;
+
+/* THE APP ASKS GITHUB FOR THE NEWEST RELEASE WHENEVER IT COMES TO THE FRONT.
  *
  * Their instruction: check on every launch, download the newest APK, and
  * install it. Android has no silent install off Play, so this downloads and
@@ -47,20 +50,50 @@ export function appSource(pkg) {
  *
  * AN APPLICATION SUBCLASS, NOT THE ACTIVITY. Bubblewrap regenerates the
  * launcher on every build, so anything written into it is lost. This is
- * named in the manifest instead and runs once per process.
+ * named in the manifest instead.
  *
  * IT EXTENDS BUBBLEWRAP'S OWN Application RATHER THAN REPLACING IT. The
  * template already names one, and the unqualified name here resolves to the
  * generated class in this same package, so everything it does still happens.
+ *
+ * onCreate RUNS ONCE PER PROCESS, AND THAT IS WHY NO PROMPT ARRIVED. Android
+ * keeps a process alive for hours, so tapping the icon on a backgrounded app
+ * starts no process and re-ran nothing. Restarting the app many times never
+ * checked again. Only a force-stop or a reboot did.
+ *
+ * SO THE TRIGGER IS THE APP BECOMING VISIBLE. The count of started
+ * activities going from none to one is that moment, and it covers the first
+ * launch as well, because the launcher starts right after onCreate.
  *
  * IT NEVER BLOCKS THE LAUNCH. The whole check is on its own thread behind a
  * pause, so a slow network delays nothing the reader is looking at, and a
  * failure of any kind leaves the app exactly as it was.
  */
 public class ${APP} extends Application {
+    private int shown = 0;
+
     @Override
     public void onCreate() {
         super.onCreate();
+        registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
+            @Override public void onActivityStarted(Activity a) {
+                shown += 1;
+                if (shown == 1) check();
+            }
+
+            @Override public void onActivityStopped(Activity a) {
+                if (shown > 0) shown -= 1;
+            }
+
+            @Override public void onActivityCreated(Activity a, Bundle b) { }
+            @Override public void onActivityResumed(Activity a) { }
+            @Override public void onActivityPaused(Activity a) { }
+            @Override public void onActivitySaveInstanceState(Activity a, Bundle b) { }
+            @Override public void onActivityDestroyed(Activity a) { }
+        });
+    }
+
+    private void check() {
         new Thread(new Runnable() {
             @Override public void run() { ${CLASS}.run(${APP}.this); }
         }, "yeetlist-update").start();
@@ -75,9 +108,13 @@ export function checkSource(pkg) {
 import android.app.Application;
 import android.app.DownloadManager;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
+import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -89,17 +126,43 @@ import java.net.URL;
 
 /* THE NEWEST RELEASE, THE NEWEST APK, THE SYSTEM INSTALLER.
  *
- * EVERY FAILURE IS SILENT AND LEAVES THE APP ALONE. No connection, a rate
- * limit, a release with no APK: each one returns and the reader sees the app
- * they opened. An update is never worth an error message on a launch.
+ * THE READER IS TOLD WHEN SOMETHING HAPPENS OR SOMETHING BREAKS. Their
+ * instruction, 21 September 2026: put a visible line in the app when it
+ * finds a newer version or fails.
+ *
+ * NOTHING IS SAID WHEN THE APP IS ALREADY CURRENT, which is almost every
+ * check. A line on every launch saying nothing changed is noise.
+ *
+ * A LOG LINE NOBODY CAN READ IS SILENCE. Every outcome went to logcat and
+ * nowhere else, so a working check and a broken one looked identical from
+ * the phone. That is why this could not be diagnosed from the outside.
  */
 final class ${CLASS} {
-    /* A SILENT CATCH IS A RUN THAT MEASURED NOTHING AND SAID SO TO NOBODY.
-       The first version swallowed every fault, and when the check did not
-       fire on a device there was no way to learn why. The reader still sees
-       nothing: this goes to logcat, where the person debugging it looks. */
     private static final String TAG = "YeetUpdate";
     private static final String LATEST = "https://api.github.com/repos/${REPO}/releases/latest";
+
+    /* THE APP COMES TO THE FRONT MANY TIMES AN HOUR, and each return would
+       otherwise be a request. Fifteen minutes is often enough to catch a
+       push within one sitting and rare enough to cost nothing. */
+    private static final String PREFS = "yeetlist-update";
+    private static final String LAST = "lastCheck";
+    private static final String SAID = "lastFailSaid";
+    private static final long GAP = 15L * 60L * 1000L;
+
+    /* A FAILURE IS SAID ONCE A DAY, NOT ONCE A CHECK. A phone with no signal
+       would otherwise show the same line every fifteen minutes all day. */
+    private static final long FAIL_GAP = 24L * 60L * 60L * 1000L;
+
+    /* ONE LINE, ON THE MAIN THREAD, BECAUSE A TOAST HAS TO BE. This runs on
+       its own thread, and a Toast raised there never appears. */
+    private static void say(final Application app, final String words) {
+        Log.i(TAG, words);
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            @Override public void run() {
+                Toast.makeText(app, words, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
 
     /* THE STAMP IS THE VERSION. YYMMDD-N becomes YYMMDD * 100 + N, which is
        what the build writes into versionCode. One formula, and the patcher
@@ -120,6 +183,15 @@ final class ${CLASS} {
     }
 
     static void run(Application app) {
+        SharedPreferences prefs = app.getSharedPreferences(PREFS, Application.MODE_PRIVATE);
+        long now = System.currentTimeMillis();
+        long since = now - prefs.getLong(LAST, 0L);
+        if (since >= 0 && since < GAP) {
+            Log.i(TAG, "checked " + (since / 1000) + "s ago, so not again yet");
+            return;
+        }
+        prefs.edit().putLong(LAST, now).apply();
+
         try {
             /* The launch comes first. Nothing here is urgent, and a request
                racing the first paint costs the one moment that is. */
@@ -133,18 +205,22 @@ final class ${CLASS} {
                 + " (" + latest.optString("tag_name") + ")");
             if (theirs <= ours) return;
 
+            String tag = latest.optString("tag_name");
             String url = apkUrl(latest.optJSONArray("assets"));
-            if (url == null) { Log.w(TAG, "the release carries no apk"); return; }
-            Log.i(TAG, "downloading " + url);
+            if (url == null) {
+                say(app, "A newer YeeTlist is listed, but it has no app file in it.");
+                return;
+            }
+            say(app, "YeeTlist " + tag + " is newer. Downloading it now.");
 
             /* ONE COPY AT A TIME. A launch while a download is already
                running would queue a second of the same file. */
             DownloadManager dm = (DownloadManager) app.getSystemService(Application.DOWNLOAD_SERVICE);
-            if (dm == null) { Log.w(TAG, "no DownloadManager"); return; }
+            if (dm == null) { say(app, "This phone would not start the download."); return; }
             if (alreadyRunning(dm)) { Log.i(TAG, "a download is already running"); return; }
 
             DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
-            req.setTitle("YeeTlist " + latest.optString("tag_name"));
+            req.setTitle("YeeTlist " + tag);
             req.setDescription("Downloading the update");
             req.setMimeType("application/vnd.android.package-archive");
             req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE);
@@ -152,7 +228,7 @@ final class ${CLASS} {
             long id = dm.enqueue(req);
 
             Uri file = waitFor(dm, id);
-            if (file == null) { Log.w(TAG, "the download did not finish"); return; }
+            if (file == null) { say(app, "The YeeTlist update did not finish downloading."); return; }
             Log.i(TAG, "asking the installer for " + file);
 
             /* ANDROID ASKS. REQUEST_INSTALL_PACKAGES earns the right to show
@@ -164,11 +240,33 @@ final class ${CLASS} {
             install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
             app.startActivity(install);
         } catch (Throwable error) {
-            /* The reader sees nothing. A launch is never worth an error
-               message about an update, and every fault here is one they can
-               do nothing about. It is logged so a person can find out. */
+            /* A FAILURE IS SAID, AND ONCE A DAY. The old version logged and
+               nothing else, so a check that never worked looked exactly like
+               one that had nothing to report. A phone with no signal would
+               otherwise show this every fifteen minutes. */
             Log.w(TAG, "update check stopped: " + error, error);
+            long said = now - prefs.getLong(SAID, 0L);
+            if (said < 0 || said >= FAIL_GAP) {
+                prefs.edit().putLong(SAID, now).apply();
+                say(app, "YeeTlist could not check for an update: " + reasonOf(error));
+            }
         }
+    }
+
+    /* PLAIN WORDS, NOT A CLASS NAME. An exception's own message is written
+       for a programmer, and its type name is worse. These are the four
+       things that actually go wrong, and anything else keeps its message. */
+    private static String reasonOf(Throwable error) {
+        String note = error.getMessage();
+        if (note == null) note = error.getClass().getSimpleName();
+        if (note.contains("EPERM") || note.contains("getaddrinfo")
+            || note.contains("UnknownHost") || note.contains("Unable to resolve")) {
+            return "it could not reach the internet";
+        }
+        if (note.contains("timed out") || note.contains("timeout")) return "the connection timed out";
+        if (note.contains("status 403")) return "GitHub asked it to wait a while";
+        if (note.contains("status 404")) return "there are no releases to read";
+        return note;
     }
 
     private static boolean alreadyRunning(DownloadManager dm) {
@@ -364,6 +462,43 @@ function selfTest() {
   say('the java takes the apk, not the bundle', java.includes(".endsWith(\".apk\")"));
   say('the java waits before it asks', java.includes('Thread.sleep(6000)'));
   say('the java refuses a second download', java.includes('alreadyRunning'));
+
+  /* THE CHECK RUNS WHEN THE APP BECOMES VISIBLE, NOT ONCE PER PROCESS. That
+     is why no prompt ever arrived: Android keeps a process alive for hours,
+     so tapping the icon on a backgrounded app re-ran nothing. */
+  const appJava = appSource('app.yeetlist.twa');
+  say('the app watches its activities', appJava.includes('registerActivityLifecycleCallbacks'));
+  say('it fires when the first one starts',
+    appJava.includes('shown += 1;') && appJava.includes('if (shown == 1) check();'));
+  say('and it counts them back down', appJava.includes('if (shown > 0) shown -= 1;'));
+  /* A NON-GREEDY MATCH FROM onCreate RAN PAST IT AND FOUND check()'s OWN
+     THREAD, so the first version of this clause failed on correct code.
+     Read the region BETWEEN the two methods instead, which is onCreate's
+     whole body and nothing else. */
+  say('onCreate no longer starts the thread itself',
+    !appJava.slice(appJava.indexOf('public void onCreate()'),
+      appJava.indexOf('private void check()')).includes('new Thread'));
+
+  /* AND THE READER IS TOLD. Their instruction: a visible line when it finds
+     a newer version or fails. A log line nobody can read is silence. */
+  say('a toast carries the line', java.includes('Toast.makeText(app, words, Toast.LENGTH_LONG)'));
+  say('the toast is raised on the main thread',
+    java.includes('new Handler(Looper.getMainLooper()).post'));
+  say('a newer version is announced', java.includes('" is newer. Downloading it now."'));
+  say('a failure is announced', java.includes('"YeeTlist could not check for an update: "'));
+  say('a release with no apk is announced', java.includes('"A newer YeeTlist is listed, but it has no app file in it."'));
+  say('a download that stalls is announced', java.includes('"The YeeTlist update did not finish downloading."'));
+
+  /* NOTHING IS SAID WHEN THE APP IS ALREADY CURRENT, which is almost every
+     check. The early return carries no line. */
+  say('a current app says nothing', /if \(theirs <= ours\) return;/.test(java));
+
+  say('a return to the front is throttled',
+    java.includes('GAP = 15L * 60L * 1000L') && java.includes('since < GAP'));
+  say('a failure is said once a day, not once a check',
+    java.includes('FAIL_GAP = 24L * 60L * 60L * 1000L') && java.includes('said >= FAIL_GAP'));
+  say('the reason is plain words rather than a class name',
+    java.includes('it could not reach the internet') && java.includes('the connection timed out'));
   /* A SILENT CATCH IS UNDIAGNOSABLE. The first version swallowed everything
      and a device that did nothing gave nothing to read. */
   say('the java logs rather than swallowing', java.includes('Log.w(TAG, "update check stopped: "')

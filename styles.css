@@ -3245,6 +3245,26 @@ th.amount { text-align: end }
    narrower than the widest chip, so nothing here can overflow. */
 .cell-tags .tag-chip { flex: 0 0 auto }
 
+/* THE BOX `fitTags()` MEASURES A CHIP IN, and it holds one chip per distinct
+   word rather than one per row. A row states `content-visibility: auto`, so
+   reading a rectangle inside it renders that row, and 800 rows cost 800
+   layouts. This box is one layout.
+
+   IT SITS OUT OF FLOW AND COMES STRAIGHT BACK OUT, inside one task, so it
+   moves nothing and no sweep can find it. The width is the viewport so no
+   chip is ever asked to shrink, which would report the width the box gave it
+   rather than the chip's own. */
+.tag-probe {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  width: 100vw;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.tag-probe .tag-chip { flex: 0 0 auto }
+
 /* ==========================================================================
    Rating
 

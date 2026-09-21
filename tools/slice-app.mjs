@@ -36,6 +36,25 @@ export function slice(src, name) {
   throw new Error(`slice-app: ${name} never closes`);
 }
 
+/* A RUN OF DECLARATIONS, WHERE THE BRACKET COUNTER CANNOT HELP.
+   `slice` counts brackets, and a bracket inside a regular expression or a
+   string is not a bracket. The link scanners are almost entirely regular
+   expressions, so slicing one by name returns a fragment that will not
+   parse. Take the whole run between two named declarations instead, which
+   needs no counting and stays correct when the lines move.
+
+   `to` is the declaration AFTER the run, and it is not included. */
+export function region(src, from, to) {
+  const lines = src.split('\n');
+  const head = (name) => new RegExp(`^(?:function|const|let) ${name}\\b`);
+  const start = lines.findIndex((l) => head(from).test(l));
+  const end = lines.findIndex((l) => head(to).test(l));
+  if (start < 0) throw new Error(`slice-app: no declaration for ${from}`);
+  if (end < 0) throw new Error(`slice-app: no declaration for ${to}`);
+  if (end <= start) throw new Error(`slice-app: ${to} is not after ${from}`);
+  return lines.slice(start, end).join('\n');
+}
+
 /* Build a module out of the named declarations, with the app's own mutable
    state supplied by the harness and handed back through accessors. */
 export function build(names, { state = [], extra = '' } = {}) {
