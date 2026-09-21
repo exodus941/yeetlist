@@ -9,9 +9,22 @@
 # to email.
 name: Android
 
+# EVERY PUSH TO MAIN REBUILDS IT. Their instruction, 21 September 2026:
+# "when pushing future updates, can you make sure the android build also gets
+# updated with them?"
+#
+# THE CONTENT WAS NEVER THE REASON. A TWA loads the live site, so an edit to
+# app.js or styles.css reaches the phone the moment Vercel deploys, with no
+# new APK. What a new APK carries is the shell: the manifest, the icons, the
+# share target and the version a reader sees in Settings.
+#
+# So the release is named by the build stamp rather than by a tag somebody has
+# to remember. app.js is the one writer for that stamp, and it changes on
+# every commit, so each build gets a tag of its own by construction.
 on:
   workflow_dispatch:
   push:
+    branches: [main]
     tags: ['v*']
 
 permissions:
@@ -55,19 +68,25 @@ jobs:
       # runner can answer: "There are changes in twa-manifest.json. Would you
       # like to apply them?" Exit code 130.
       #
-      # AND THE VERSION COMES FROM THE TAG AND THE RUN NUMBER. Under
-      # `--skipVersionUpgrade` Bubblewrap writes `versionName ""` into the
-      # gradle file, which is what a phone then shows in Settings. Without the
-      # flag it reads the name from `--appVersionName` and raises the code by
-      # one, so the code is seeded at one below the run number to land on it.
-      # A code that never rises is an app that refuses to upgrade over itself.
+      # AND THE VERSION IS THE WEB BUILD STAMP. app.js is the one writer, the
+      # header paints it, and the app now names itself with the same string,
+      # so a reader comparing a phone against the site sees one number.
+      #
+      # The code is that stamp as an integer: YYMMDD * 100 + N. A code that
+      # never rises is an app that refuses to install over itself.
+      #
+      # Under `--skipVersionUpgrade` Bubblewrap writes `versionName ""` into
+      # the gradle file whatever the manifest holds, and that empty string is
+      # what Settings shows. Without the flag it takes `--appVersionName` and
+      # raises the code by one, so the code is seeded one below to land on it.
       - name: Regenerate the project
         working-directory: android
-        env:
-          TAG: ${{ github.ref_type == 'tag' && github.ref_name || '0.0.0' }}
         run: |
-          node -e 'const f="twa-manifest.json", fs=require("fs"); const m=JSON.parse(fs.readFileSync(f,"utf8")); m.appVersionCode=Number(process.env.GITHUB_RUN_NUMBER)-1; fs.writeFileSync(f, JSON.stringify(m,null,2))'
-          bubblewrap update --appVersionName="${TAG#v}"
+          NAME=$(node ../tools/app-version.mjs --name ..)
+          CODE=$(node ../tools/app-version.mjs --code ..)
+          echo "version $NAME, code $CODE"
+          SEED=$((CODE - 1)) node -e 'const f="twa-manifest.json", fs=require("fs"); const m=JSON.parse(fs.readFileSync(f,"utf8")); m.appVersionCode=Number(process.env.SEED); fs.writeFileSync(f, JSON.stringify(m,null,2))'
+          bubblewrap update --appVersionName="$NAME"
 
       # --skipPwaValidation because the manifest is already the thing being
       # wrapped, and the validator fetches a Lighthouse run this build does
@@ -87,9 +106,13 @@ jobs:
           keytool -list -v -keystore android/yeetlist.keystore -alias yeetlist \
             -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" | grep -i "SHA256:"
 
+      # THE RELEASE IS NAMED BY THE STAMP, so a tag nobody typed still names
+      # exactly one build. A push and a tag then land on the same name when
+      # they carry the same commit, and the second one replaces the first
+      # rather than making a duplicate.
       - name: Name the build
         id: name
-        run: echo "tag=${GITHUB_REF_NAME#refs/tags/}" >> "$GITHUB_OUTPUT"
+        run: echo "stamp=$(node tools/app-version.mjs --name)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -99,9 +122,10 @@ jobs:
             android/app-release-bundle.aab
 
       - name: Publish the release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.name.outputs.stamp }}
+          name: YeeTlist ${{ steps.name.outputs.stamp }}
           files: |
             android/app-release-signed.apk
             android/app-release-bundle.aab
@@ -109,4 +133,8 @@ jobs:
             Install `app-release-signed.apk` on the phone. Android asks once
             for permission to install from this source.
 
-            The `.aab` is the Play Store format and is here for later.
+            The app loads the live site, so everything inside it is already
+            current. A new APK is only needed when the shell changes: the
+            icons, the share target, the manifest or this version.
+
+            The `.aab` is the Play Store format.

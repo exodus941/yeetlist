@@ -12,10 +12,8 @@
    and origin can be several pushes behind. The comment beside VERSION said
    origin, which is how the count drifted in the first place. */
 
-import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-
-const SOURCE = 'app.js';
+import { appVersion, SOURCE } from './app-version.mjs';
 
 const today = () => {
   const now = new Date();
@@ -36,15 +34,20 @@ function commitsToday(stamp) {
   }
 }
 
-const text = readFileSync(SOURCE, 'utf8');
-const found = text.match(/^const VERSION = '([^']+)';$/m);
+/* ONE PARSER, TWO CALLERS. The Android build names the app with this same
+   stamp, so a second reading of app.js is a second answer to one question.
 
-/* A RUN THAT MEASURED NOTHING IS NOT A PASS. With the declaration renamed or
-   moved this guard would otherwise be silent for as long as it existed. */
-if (!found) {
-  console.error(`version guard: no VERSION declaration in ${SOURCE}`);
+   A RUN THAT MEASURED NOTHING IS NOT A PASS. appVersion throws when the
+   declaration is renamed, moved or reshaped, and this guard would otherwise
+   be silent for as long as it existed. */
+let reading;
+try {
+  reading = appVersion('.');
+} catch (error) {
+  console.error(`version guard: ${error.message}`);
   process.exit(1);
 }
+const found = [null, reading.name];
 
 const stamp = today();
 const want = `${stamp}-${commitsToday(stamp) + 1}`;
