@@ -28,7 +28,19 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
+      # NO setup-android ACTION. Its v3 installs the retired `tools` package
+      # and fails on "Failed to find package 'tools'". The runner image
+      # already ships the SDK with its licences accepted.
+      #
+      # BUBBLEWRAP LOOKS FOR `tools/bin/sdkmanager` OR `bin/sdkmanager`, and
+      # the current SDK layout ships neither. The link goes one level above
+      # `bin`, because the launcher resolves `../lib` from its own directory.
+      - name: Point Bubblewrap at the JDK and the SDK
+        run: |
+          ln -sfn "$ANDROID_SDK_ROOT/cmdline-tools/latest" "$ANDROID_SDK_ROOT/tools"
+          mkdir -p ~/.bubblewrap
+          node -e 'require("fs").writeFileSync(process.env.HOME + "/.bubblewrap/config.json", JSON.stringify({ jdkPath: process.env.JAVA_HOME, androidSdkPath: process.env.ANDROID_SDK_ROOT }))'
+          cat ~/.bubblewrap/config.json
 
       - name: Install Bubblewrap
         run: npm install -g @bubblewrap/cli
