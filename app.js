@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260921-12';
+const VERSION = '260921-13';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -248,6 +248,11 @@ const payload = () => ({
 function save() {
   localStorage.setItem(STORE, JSON.stringify({ version: PAYLOAD_VERSION, videos, deleted: tombstones }));
   queueDrivePush();
+  /* THE CIRCLE IS A FUNCTION OF THE LIST, so it is painted wherever the list
+     is written. Painting it at each door instead leaves the one door nobody
+     remembered showing green over a row that is still waiting. */
+  watchForConnection();
+  renderDrive();
 }
 
 /* Everything below reads the CURRENT list. A tag menu counting videos while
@@ -1567,14 +1572,33 @@ async function addPlaylist(url) {
 
 async function addYouTube(url) {
   say('Reading video details…');
-  const response = await fetch(`/api/video?url=${encodeURIComponent(url)}`);
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error);
+
+  const waiting = videoIdOf(url);
+  let data;
+  try {
+    const response = await fetch(`/api/video?url=${encodeURIComponent(url)}`);
+    data = await response.json();
+    if (!response.ok) throw new Error(data.error);
+  } catch (error) {
+    /* A CONNECTION THAT IS NOT THERE IS NOT A BAD LINK. fetch throws rather
+       than answering, and the id is already in the address, so the row is
+       made now and finished by resolvePending() when the network returns.
+       A server that ANSWERS with an error is a different thing and still
+       stops the add. */
+    if (!offline(error) || !waiting) throw error;
+    /* THE CHANNEL SLOT SAYS WHY, or the card shows a blank line and a
+       floating dash and reads as a broken row. Measured at 375px: the second
+       line held nothing at its start. The real channel replaces it the
+       moment the details arrive. */
+    data = { id: waiting, title: waitingTitle(url), channel: 'Waiting for details', duration: '—', uploadedAt: null, pending: true };
+  }
+
   if (videos.some((v) => v.id === data.id)) throw new Error('That video is already in your watchlist.');
 
   videos.push({ ...data, kind: 'youtube', addedAt: new Date().toISOString(), tags: [] });
   tombstones = tombstones.filter((t) => t.id !== data.id);
   save();
+  if (data.pending) { say('Added. The details arrive when a connection does.'); return; }
   /* The only message that is not plain text: it names an environment
      variable, so the name is set in the code face. */
   say(data.limited
@@ -1613,11 +1637,17 @@ async function addLink(url) {
 
   say('Reading the page…');
   let name = '';
+  let waiting = false;
   try {
     const response = await fetch(`/api/link?url=${encodeURIComponent(url)}`);
     const data = await response.json();
     if (response.ok) name = data.title || '';
-  } catch { /* the host is the fallback, below */ }
+  } catch (error) {
+    /* A PAGE THAT REFUSED AND A PAGE NOBODY COULD REACH ARE DIFFERENT. The
+       first keeps the host as its name for good, which is the rule below.
+       The second is worth asking again once there is a connection. */
+    waiting = offline(error);
+  }
 
   /* THE HOST IS THE FALLBACK, NOT AN ERROR. Plenty of pages refuse a server
      that is not a browser, and a bookmark with no name is worse than one
@@ -1629,10 +1659,10 @@ async function addLink(url) {
      row can name the channel without a second request. */
   if (!name) name = channelName(url) || new URL(url).hostname.replace(/^www\./, '');
 
-  videos.push({ id, kind: 'link', title: name, url, addedAt: new Date().toISOString(), tags: [] });
+  videos.push({ id, kind: 'link', title: name, url, addedAt: new Date().toISOString(), tags: [], ...(waiting ? { pending: true } : {}) });
   tombstones = tombstones.filter((t) => t.id !== id);
   save();
-  say(`Bookmarked ${name}.`);
+  say(waiting ? `Bookmarked ${name}. The title arrives when a connection does.` : `Bookmarked ${name}.`);
 }
 
 /* THE COUNT IS THE KEY. Their instruction, 19 September 2026: deleting five
@@ -2332,6 +2362,104 @@ function dismissToast(node) {
 }
 
 /* ==========================================================================
+   What the app still owes the network
+
+   A LINK ADDED WITH NO CONNECTION IS STILL ADDED. Their instruction,
+   21 September 2026: the row appears, the sync circle turns red to say it is
+   not synced, the app keeps checking at intervals, and the circle goes back
+   to green once it is.
+
+   THE ROW IS MADE FROM THE ADDRESS ALONE, because the address already holds
+   the one thing that identifies it. A YouTube id and a bookmark's own URL
+   need no server. The title, the channel and the runtime do, so the row
+   carries `pending` until they arrive.
+   ========================================================================== */
+
+/* A REFUSAL AND AN ABSENCE ARE DIFFERENT ANSWERS. A server that replies with
+   an error has decided something, and asking again changes nothing. fetch
+   THROWS when there is no connection at all, and that is the case worth
+   retrying. TypeError is what it throws, in every current browser. */
+function offline(error) {
+  return error instanceof TypeError;
+}
+
+/* A ROW WAITING FOR ITS TITLE IS NAMED AFTER ITS OWN ADDRESS. Their choice,
+   21 September 2026, from four drawn on the real card: the address is what
+   the reader pasted, so they recognise the row they just made.
+
+   THE SAME SHAPE A BOOKMARK ALREADY SHOWS, which is the host and the path
+   with no scheme. A bookmark with no title falls back to its host by the
+   rule in addLink, so two rows waiting for the same reason read alike. */
+function waitingTitle(url) {
+  return String(url).replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
+}
+
+const pendingRows = () => videos.filter((v) => v.pending);
+
+/* THE INTERVAL IS THE ONE THE READER WAITS THROUGH, so it is short enough to
+   feel automatic and long enough to cost nothing. A failed fetch with no
+   connection returns in milliseconds and makes no request. */
+const RETRY_MS = 30000;
+let retryTimer = null;
+let resolving = false;
+
+/* ONE TIMER, STARTED AND STOPPED BY THE SAME QUESTION. Nothing owed means no
+   timer at all, so an app with a connection is not waking up for ever. */
+function watchForConnection() {
+  const owed = pendingRows().length > 0;
+  if (owed && !retryTimer) retryTimer = setInterval(resolvePending, RETRY_MS);
+  if (!owed && retryTimer) { clearInterval(retryTimer); retryTimer = null; }
+}
+
+/* ASK AGAIN FOR EVERY ROW THAT IS WAITING. A row whose answer arrives is
+   finished and loses the flag. A row whose request fails keeps it, so the
+   next run picks it up rather than the row being stuck.
+
+   A SERVER THAT ANSWERS WITH AN ERROR ALSO FINISHES THE ROW. Waiting for ever
+   on a video that has been deleted is worse than a row named after its id. */
+async function resolvePending() {
+  if (resolving) return;
+  const waiting = pendingRows();
+  if (!waiting.length) { watchForConnection(); return; }
+
+  resolving = true;
+  let changed = 0;
+  try {
+    for (const row of waiting) {
+      try {
+        if (row.kind === 'youtube') {
+          const response = await fetch(`/api/video?url=https://www.youtube.com/watch?v=${row.id}`);
+          const data = await response.json();
+          if (!response.ok) { delete row.pending; changed += 1; continue; }
+          Object.assign(row, data, { pending: undefined });
+          delete row.pending;
+        } else {
+          const response = await fetch(`/api/link?url=${encodeURIComponent(row.url)}`);
+          const data = await response.json();
+          if (response.ok && data.title) row.title = data.title;
+          delete row.pending;
+        }
+        changed += 1;
+      } catch (error) {
+        /* Still no connection. The flag stays and the next run asks again. */
+        if (!offline(error)) { delete row.pending; changed += 1; }
+      }
+    }
+  } finally {
+    resolving = false;
+  }
+
+  if (changed) { save(); render(); }
+  watchForConnection();
+  renderDrive();
+}
+
+/* THE BROWSER SAYS WHEN THE CONNECTION RETURNS, so the reader does not wait
+   out the interval for the common case. The interval is what covers a
+   connection the browser thinks it has and cannot use. */
+addEventListener('online', resolvePending);
+
+/* ==========================================================================
    Drive
    ========================================================================== */
 
@@ -2407,12 +2535,26 @@ function renderDrive() {
      reader sees the right thing while /api/config is still in the air. */
   const broken = linked && !live && !driveResuming;
 
-  if (linked) {
+  /* WORK OWED TO THE NETWORK OUTRANKS EVERY DRIVE STATE, because it is the
+     one the reader caused and the one that resolves itself. A row added with
+     no connection is on screen and incomplete, and the circle says so until
+     the details arrive. */
+  const owed = pendingRows().length;
+  if (owed) {
+    driveStatus('error', owed === 1
+      ? 'One row is waiting for a connection'
+      : `${owed} rows are waiting for a connection`);
+  } else if (linked) {
     if (live) { /* whatever the last sync said still stands */ }
     else if (driveResuming) driveStatus('busy', 'Connecting…');
     else driveStatus('error', 'Reconnect to sync');
   } else if (driveAvailable !== null) {
-    driveStatus('local', 'Stored locally');
+    /* GREEN, BECAUSE NOTHING IS OWED. The circle answers one question: does
+       the app still need the network? A reader with no Drive link has a
+       complete list, and the words beside it say where it lives. It used to
+       write 'local', which the stylesheet never defined, so it painted the
+       default green by accident rather than by decision. */
+    driveStatus('ok', 'Stored locally');
   }
 
   /* THE SAME THREE FACTS THE STATUS LINE READS, so the banner and the header
@@ -3701,6 +3843,12 @@ if (arrivedWith) {
 driveResuming = DRIVE.connected();
 renderDrive();
 render();
+
+/* A RELOAD DOES NOT LOSE THE QUEUE. A row added with no connection is in
+   storage with its flag, so the watch restarts and the first attempt is made
+   now rather than one interval from now. */
+watchForConnection();
+resolvePending();
 refreshMetadata();
 renderDriveAvailability();
 

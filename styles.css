@@ -846,7 +846,13 @@ header {
   background: var(--ok);
 }
 
-.sync-dot[data-state="off"] { background: var(--text-quiet) }
+/* THREE COLOURS, AND EACH ANSWERS ONE QUESTION. Green: the app owes the
+   network nothing. Amber: a request is in flight. Red: something is waiting,
+   either a row with no details or a Drive push that failed.
+
+   A FOURTH RULE FOR `off` WAS DEAD. The code wrote 'local' and the sheet
+   styled 'off', so "Stored locally" painted the default green by accident.
+   The colour was right and nothing chose it. */
 .sync-dot[data-state="busy"] { background: var(--warn) }
 .sync-dot[data-state="error"] { background: var(--danger) }
 
