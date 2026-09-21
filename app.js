@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260921-29';
+const VERSION = '260921-30';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -90,6 +90,7 @@ const seconds = (value) => String(value ?? '')
 const LISTS = {
   youtube: {
     noun: ['Video', 'Videos'],
+    home: 'your watchlist',
     head: 'Saved',
     runtime: true,
     placeholder: 'Paste a link…',
@@ -116,6 +117,7 @@ const LISTS = {
   },
   links: {
     noun: ['Bookmark', 'Bookmarks'],
+    home: 'your bookmarks',
     head: '',
     runtime: false,
     placeholder: 'Paste a link…',
@@ -150,6 +152,7 @@ const LISTS = {
      the same sort. */
   notes: {
     noun: ['Note', 'Notes'],
+    home: 'your notes',
     head: '',
     runtime: false,
     placeholder: '',
@@ -1791,10 +1794,33 @@ function openDelete(ids) {
 
   const many = deletion.length !== 1;
 
-  $('#confirmTitle').textContent = many ? `Delete ${deletion.length} Videos?` : 'Remove This Video?';
+  /* ── THE DIALOG NAMES WHAT IS GOING ──────────────────────────────────
+   *
+   * It said "Remove This Video?" over a note, and "from your watchlist"
+   * over a bookmark. Their report, 21 September 2026: the delete dialogs
+   * need to be page-specific, the single one and the bulk one both.
+   *
+   * IT READS THE RECORDS, NEVER THE TAB. A delete can outlive the view it
+   * started in, and the thing being removed is the fact worth stating. Mixed
+   * kinds fall back to "items", which is honest rather than picking one of
+   * the two nouns and being wrong about the rest.
+   *
+   * THE NOUN AND THE PLACE ARE THE LIST'S OWN, beside each other in LISTS,
+   * so a fourth list states both once and this reads them. */
+  const kinds = new Set(deletion.map((id) => {
+    const item = videos.find((v) => v.id === id);
+    return item ? listOf(item) : tab;
+  }));
+  const spec = kinds.size === 1 ? LISTS[[...kinds][0]] : null;
+  const noun = spec ? spec.noun[many ? 1 : 0] : (many ? 'Items' : 'Item');
+  const home = spec ? spec.home : 'your lists';
+
+  $('#confirmTitle').textContent = many
+    ? `Delete ${deletion.length} ${noun}?`
+    : `Delete This ${noun}?`;
   $('#confirmText').textContent = many
-    ? 'This removes them from your watchlist on every device you have connected. It cannot be undone.'
-    : 'This removes the video from your watchlist on every device you have connected.';
+    ? `This removes them from ${home} on every device you have connected. It cannot be undone.`
+    : `This removes the ${noun.toLowerCase()} from ${home} on every device you have connected.`;
   $('#typedConfirm').hidden = !many;
   $('#confirmInput').value = '';
   $('#confirmDelete').disabled = many;
