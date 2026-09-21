@@ -3,7 +3,11 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const root = __dirname;
-const types = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8' };
+const types = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8',
+  // The manifest and the icons, or an install prompt never appears locally:
+  // Chrome refuses a manifest served as octet-stream and skips an icon it
+  // cannot decode. Vercel infers all three; this server states them.
+  '.webmanifest':'application/manifest+json; charset=utf-8', '.json':'application/json; charset=utf-8', '.png':'image/png' };
 const idFrom = value => { try { const u = new URL(value); return u.hostname === 'youtu.be' ? u.pathname.slice(1) : (u.searchParams.get('v') || u.pathname.match(/\/(?:shorts|embed)\/([^/?]+)/)?.[1]); } catch { return null; } };
 // Load local secrets without adding a dependency. Do not commit .env.local.
 const localEnv = path.join(root, '.env.local');

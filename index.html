@@ -16,6 +16,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&family=Onest:wght@100..900&display=swap" />
 <link rel="stylesheet" href="/styles.css" />
+<!-- THE MANIFEST IS WHAT MAKES IT AN APP. Android reads the name, the icons
+     and the share target from it, and Chrome offers to install only when it
+     is here with a service worker beside it. -->
+<link rel="manifest" href="/manifest.webmanifest" />
+<!-- iOS ignores the manifest's icons, so it takes the same file by its own
+     name. One drawing, two readers. -->
+<link rel="apple-touch-icon" href="/icons/icon-192.png" />
 </head>
 <body>
 

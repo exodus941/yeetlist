@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260920-2';
+const VERSION = '260921-1';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -3769,4 +3769,54 @@ if (DRIVE.connected()) {
    ========================================================================== */
 if (/(?:^|[?&])perf(?:&|=|$)/.test(location.search)) {
   import('./perf.js').catch((error) => say('Profiler failed: ' + error.message));
+}
+
+/* ==========================================================================
+   Installed, and a share target
+
+   ANDROID'S SHARE SHEET ARRIVES AS A NAVIGATION. The manifest declares a GET
+   share target, so a link shared from any app opens this page at `/?url=…`.
+   Chrome puts the address in `url` where the sending app separates it, and in
+   `text` where it does not, which is most of them.
+
+   ONE WRITER FOR ADDING. The shared address goes into the field and addVideo()
+   runs, so a share takes the same route as a paste: the playlist branch, the
+   channel branch, the list switch and the status line all come free.
+   ========================================================================== */
+
+/* A shared `text` is a sentence with an address in it, so the address is
+   pulled out rather than trusted whole. "Watch this https://youtu.be/x" is
+   the shape every browser sends. */
+const sharedLink = (params) => {
+  const direct = (params.get('url') || '').trim();
+  if (direct) return direct;
+  return (/https?:\/\/\S+/.exec(params.get('text') || '') || [''])[0];
+};
+
+function takeShare() {
+  const params = new URLSearchParams(location.search);
+  const link = sharedLink(params);
+  if (!link) return;
+
+  /* THE QUERY GOES BEFORE THE ADD, or a reload adds the same link twice. The
+     history entry is replaced rather than pushed, so Back still leaves the
+     app rather than returning to a share that has already been taken. */
+  history.replaceState(null, '', location.pathname);
+
+  $('#videoUrl').value = link;
+  addVideo();
+}
+
+takeShare();
+
+/* THE SERVICE WORKER IS WHAT MAKES THE LIST READABLE OFFLINE, and Chrome
+   wants one before it offers to install. Registered after load, so it never
+   competes with the page's own files for the connection. */
+if ('serviceWorker' in navigator) {
+  addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      /* A private window refuses registration, and the app works without it.
+         A message here would report a fault to a reader who has none. */
+    });
+  });
 }
