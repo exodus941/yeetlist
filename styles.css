@@ -882,6 +882,27 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   font: var(--text-sm) / var(--leading-body) var(--font-body);
 }
 
+/* THE HORIZONTAL AXIS IS THE APP'S, AND THE VERTICAL STAYS THE BROWSER'S.
+   Their report, 22 September 2026: the tab swipe did nothing on the phone.
+
+   A BROWSER OWNS A TOUCH GESTURE UNTIL SOMETHING SAYS OTHERWISE. Once it
+   starts scrolling it fires `pointercancel` and sends nothing further, so a
+   handler waiting for `pointerup` is never called. Every synthetic test
+   passed, because dispatching the events bypasses that decision entirely.
+
+   `pan-y` KEEPS VERTICAL SCROLLING, which is what this app is mostly used
+   with, and hands the horizontal over. `pinch-zoom` is named too: `pan-y`
+   alone takes the zoom away, and nothing here asked for that.
+
+   NOT `none`. That would take vertical scrolling with it, and this rule is on
+   the body. */
+:where(body) { touch-action: pan-y pinch-zoom }
+
+/* AND THE LIST IS ITS OWN SCROLLER, so the declaration has to reach it too.
+   A rule on the body does not govern a gesture that begins inside a box with
+   its own overflow. */
+:where(.table-wrap) { touch-action: pan-y pinch-zoom }
+
 :where(h1, h2, h3, p, menu) { margin: 0 }
 
 /* EVERY LINE BOX LANDS ON THE GRID, AND IT TAKES A RULE PER ELEMENT. A ratio

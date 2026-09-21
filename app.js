@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-3';
+const VERSION = '260922-4';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -3568,22 +3568,48 @@ addEventListener('pointerdown', (event) => {
    and letting its click through would open a row the reader never tapped. */
 let swiped = 0;
 
-addEventListener('pointerup', (event) => {
+/* THE DECISION IS ON `pointermove`, NEVER ON `pointerup`. That is the fault
+   they reported: it worked in every synthetic test and did nothing on the
+   phone.
+ *
+ * A BROWSER OWNS A TOUCH GESTURE UNTIL SOMETHING SAYS OTHERWISE. Once it
+ * begins scrolling it fires `pointercancel` and sends nothing further, so a
+ * handler waiting for `pointerup` is never called. My test dispatched the
+ * events itself and bypassed that entirely, which is why it passed.
+ *
+ * TWO HALVES, AND BOTH ARE NEEDED. The stylesheet declares `touch-action` so
+ * the browser keeps the vertical axis and hands over the horizontal. This
+ * decides the moment the threshold is crossed, so a cancel cannot lose the
+ * gesture even where that declaration does not reach. */
+const takeSwipe = (event) => {
   if (!swipe || event.pointerType !== 'touch') return;
   const dx = event.clientX - swipe.x;
   const dy = event.clientY - swipe.y;
   const held = event.timeStamp - swipe.at;
-  swipe = null;
 
   if (Math.abs(dx) < SWIPE_MIN) return;
   if (Math.abs(dx) < Math.abs(dy) * SWIPE_RATIO) return;
-  if (held > SWIPE_MS) return;
+  if (held > SWIPE_MS) { swipe = null; return; }
 
+  /* ONE STEP PER GESTURE. A finger travelling 300px crosses the threshold on
+     every frame after the first, and without this it would walk the whole
+     strip in one swipe. */
+  swipe = null;
   swiped = event.timeStamp;
   /* THE CONTENT FOLLOWS THE FINGER, which is what every phone does. Dragging
      right brings the tab on the left into view, so the step is backwards. */
   stepTab(dx > 0 ? -1 : 1);
-}, true);
+};
+
+addEventListener('pointermove', takeSwipe, true);
+
+/* AND `pointerup` STILL ASKS, for a flick short enough that no move event
+   crossed the threshold before the finger left. */
+addEventListener('pointerup', takeSwipe, true);
+
+/* A CANCELLED GESTURE IS OVER. The browser took it, so nothing here should
+   act on a later event from the same press. */
+addEventListener('pointercancel', () => { swipe = null; }, true);
 
 /* THE CLICK THE SWIPE EARNED IS THE CLICK IT SWALLOWS. Capture phase, so it
    never reaches the row handler or the rating. `pointercancel` is not enough,

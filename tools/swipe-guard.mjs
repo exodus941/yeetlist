@@ -96,14 +96,69 @@ const handler = (mark) => {
   return code.slice(at, code.indexOf('}, true)', at) + 8);
 };
 const onDown = handler("addEventListener('pointerdown', (event) => {\n  swipe = null;");
-const onUp = handler("addEventListener('pointerup', (event) => {");
+const decide = code.slice(code.indexOf('const takeSwipe = (event) => {'),
+  code.indexOf('addEventListener(\'pointermove\', takeSwipe'));
 
 ok('the pointerdown handler was found', onDown.length > 100, String(onDown.length));
-ok('the pointerup handler was found', onUp.length > 100, String(onUp.length));
+ok('the decision was found', decide.length > 200, String(decide.length));
 ok('the press is touch only', /pointerType !== 'touch'/.test(onDown));
-ok('the release is touch only', /pointerType !== 'touch'/.test(onUp));
+ok('the decision is touch only', /pointerType !== 'touch'/.test(decide));
 ok('and only the primary pointer', /!event\.isPrimary/.test(onDown));
 ok('the excluded set is read, never restated', /closest\?\.\(SWIPE_NEVER\)/.test(code));
+
+/* THE DECISION IS ON `pointermove`, NEVER ONLY ON `pointerup`. That was the
+   fault they reported: every synthetic test passed and the phone did nothing.
+   A browser owns a touch gesture until something says otherwise, and once it
+   starts scrolling it fires `pointercancel` and sends nothing further. */
+ok('the decision runs on a move', /addEventListener\('pointermove', takeSwipe/.test(code));
+ok('and on the release too, for a flick too short to move',
+  /addEventListener\('pointerup', takeSwipe/.test(code));
+ok('and one function decides for both',
+  (code.match(/addEventListener\('pointer(?:move|up)', takeSwipe/g) || []).length === 2);
+
+/* A CANCELLED GESTURE IS OVER, or a later event from the same press acts on a
+   press the browser already took. */
+ok('a cancel clears the gesture',
+  /addEventListener\('pointercancel', \(\) => \{ swipe = null; \}/.test(code));
+
+/* ONE STEP PER GESTURE. A finger travelling 300px crosses the threshold on
+   every frame after the first, so the state is cleared before the step. */
+/* READ THE REGION BETWEEN THE LAST TEST AND THE STEP, not the whole
+   function. The time test also clears the gesture, so `lastIndexOf` found
+   that one and this passed with the clear deleted. Proven by mutation. */
+/* START AFTER THE TIME TEST'S OWN BRACE. That test also clears the gesture,
+   so a region opened at the test itself contains its clear and passed with
+   the real one deleted. Twice blind in one guard, the same way both times:
+   a region wider than the question. */
+{
+  const test = decide.indexOf('SWIPE_MS)');
+  const after = test > -1 ? decide.indexOf('}', test) + 1 : -1;
+  const step = decide.indexOf('stepTab(dx > 0');
+  const between = after > 0 && step > after ? decide.slice(after, step) : '';
+  ok('the region before the step was found', between.length > 0, String(between.length));
+  ok('the gesture is cleared in it', between.includes('swipe = null;'),
+    between.replace(/\s+/g, ' ').slice(0, 90));
+}
+
+/* AND THE STYLESHEET DECLARES THE AXIS SPLIT, which is the other half. This
+   one cannot be tested from a synthetic event at all, which is exactly why it
+   needs asserting rather than remembering. */
+{
+  const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+  const rules = [...css.matchAll(/touch-action:\s*([^;}]+)/g)].map((m) => m[1].trim());
+  ok('touch-action is declared', rules.length >= 2, rules.join(' | '));
+  ok('it keeps vertical scrolling', rules.every((r) => /\bpan-y\b/.test(r)), rules.join(' | '));
+  ok('and it keeps pinch zoom', rules.every((r) => /\bpinch-zoom\b/.test(r)), rules.join(' | '));
+  ok('it never says none', !rules.some((r) => /\bnone\b/.test(r)), rules.join(' | '));
+  /* THE LIST IS ITS OWN SCROLLER, so a rule on the body does not reach a
+     gesture beginning inside it. Read the selector each declaration sits on,
+     rather than building a pattern per name. */
+  const on = [...css.matchAll(/([^{}]+)\{[^}]*touch-action[^}]*\}/g)]
+    .map((m) => m[1].trim().split('\n').pop().trim());
+  for (const sel of ['body', '.table-wrap']) {
+    ok(`the axis split reaches ${sel}`, on.some((s) => s.includes(sel)), on.join(' | '));
+  }
+}
 
 /* A BOX THAT CAN ACTUALLY SCROLL SIDEWAYS OWNS THE GESTURE, and a box that
    merely declares it does not. Six declare `overflow-x: auto` at 375 and
