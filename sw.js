@@ -69,7 +69,12 @@ self.addEventListener('fetch', (event) => {
      Serving both from the cache means the reader always runs one version of
      everything. The page itself asks whether a newer one exists and reloads
      once when it has it, which costs nothing at launch. */
-  if (request.mode === 'navigate') {
+  /* THE APP'S OWN DOCUMENT, AND NOTHING ELSE. A first version answered EVERY
+     navigation with the cached shell, so /privacy.html returned the app. That
+     page is the one the Play listing links to. Another document on this origin
+     is another document. */
+  const isApp = url.pathname === '/' || url.pathname === '/index.html';
+  if (request.mode === 'navigate' && isApp) {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE);
       const hit = (await cache.match('/index.html')) || (await cache.match('/'));

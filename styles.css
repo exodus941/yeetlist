@@ -1502,6 +1502,30 @@ header {
   letter-spacing: var(--track-label);
 }
 
+/* THE STRIP SITS ABOVE THE TITLE ON A PHONE, ALWAYS. Their report,
+   21 September 2026: it appears above the title in mobile view, and beside it
+   on the bookmarks tab instead.
+
+   THE ARRANGEMENT WAS DECIDED BY THE TITLE'S OWN LENGTH. `wrap-reverse` breaks
+   when the two no longer fit, and the two tabs are one fixed width while the
+   words are not. Measured at 528px of room: "13 Saved Videos" needs 540.2 and
+   wraps, "10 Bookmarks" needs 493.4 and does not. So one tab stacked and the
+   other did not, over a band about a hundred pixels wide.
+
+   A BREAK THAT IS A SUM OF THE CONTENT'S INK IS NOT A DECISION. Below the
+   width where the LONGEST words block still fits, the title takes the whole
+   line and the strip takes the one above it, whatever the title says.
+
+   MEASURED BY SHRINKING THE REAL ROW with the wrap off. The strip is 322.58.
+   The widest words block is the runtime rather than the heading: a four
+   figure count with "1000 hours 59 minutes 59 seconds" comes to 230.4, plus
+   the 16 gap and 32 of shell padding, so 601. Today's labels need 580. The
+   figure is true of these labels, so recompute it if the runtime's wording
+   changes. */
+@media (max-width: 600px) {
+  .list-words { flex: 1 1 100% }
+}
+
 .list-head h2 {
   font-size: var(--text-xl);
   letter-spacing: var(--track-tight);
