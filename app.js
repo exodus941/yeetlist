@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-13';
+const VERSION = '260922-14';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -3619,20 +3619,28 @@ function showTab(next, { focus = false, animate = true } = {}) {
      AND IT FOCUSED THE WRONG TAB. The old line named youtube or links and
      never notes, so switching to Notes put the ring on YouTube. `tab` is the
      one that is current. */
-  /* AND A SWIPE DOES NOT ANIMATE, WHICH IS WHY IT COULD NOT REPEAT. Their
-     report, 22 September 2026: "i can't swipe rapidly between tabs, there is
-     a 1-2-second gap after swiping to a new tab during which additional
-     swipes are not accepted. that needs to go."
+  /* A SWIPE CROSS-FADES TOO, AT THE SHORT STEP. Their report, 22 September
+     2026: "the mobile app has no crossfade transitions when swiping between
+     tabs!"
 
-     A switch runs TWO view transitions at the fold duration: the pill and the
-     whole page cross-fading. The browser snapshots the document for each, and
-     a second `startViewTransition` while one runs is skipped. On a phone that
-     capture is the gap they felt.
+     IT HAD NONE BECAUSE I TOOK IT AWAY. Their earlier report was a 1-2 second
+     gap during which a second swipe did nothing, and I answered it by
+     switching the animation off for a swipe entirely. That removed the gap
+     and the fade with it.
 
-     A SWIPE IS ALREADY MOTION. The reader's own finger moved, so a cross-fade
-     adds nothing and costs the next swipe. A click has no motion of its own
-     and keeps it. */
-  if (animate) dissolve(focus ? () => $('#tab-' + tab).focus() : undefined, 'tab');
+     THE LENGTH WAS THE FAULT, NOT THE FADE. A switch runs two view
+     transitions at the fold duration, 500ms each, and 500ms is what read as a
+     blocked gesture. Measured with the animation back on and two switches
+     60ms apart: both land, and the tab ends where the second one sent it. A
+     second `startViewTransition` while one runs is skipped, and its callback
+     still runs, so nothing is dropped.
+
+     SO A SWIPE TAKES `--duration` AND A TAP KEEPS `--duration-fold`. Their
+     instruction for the switcher was the fold's own 500ms, and a tap is one
+     deliberate press. A swipe is a gesture a reader repeats, so it takes the
+     step every other change in this app uses. */
+  const kind = animate === 'swipe' ? 'swipe' : 'tab';
+  if (animate) dissolve(focus ? () => $('#tab-' + tab).focus() : undefined, kind);
   else { render(); if (focus) $('#tab-' + tab).focus(); }
 }
 
@@ -3779,7 +3787,7 @@ const takeSwipe = (event) => {
      I shipped the other reading, where the content follows the finger the way
      a carousel does. That is one convention, and theirs is the other. This is
      their app. */
-  stepTab(dx > 0 ? 1 : -1, { animate: false });
+  stepTab(dx > 0 ? 1 : -1, { animate: 'swipe' });
 };
 
 addEventListener('pointermove', takeSwipe, true);

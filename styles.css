@@ -718,7 +718,18 @@ body[data-note-open] { overflow: hidden }
    this setting, so the fades stay and nothing moves. */
 @media (prefers-reduced-motion: reduce) {
   .multi-chevron { transition-property: none }
-  .tab[aria-selected="true"] { view-transition-name: none }
+
+  /* THE NAME IS ON THE INDICATOR, NOT ON THE TAB, and this rule named the
+     tab. It moved to the `::after` when the bar became the only thing that
+     travels, and this line stayed where it was. So the pill glided for a
+     reader who had asked for less motion, and nothing said so: the rule was
+     live, it matched an element, and that element carries no name to remove.
+
+     Measured 22 September 2026 by lifting this block out of the served file
+     and injecting it: a swipe still ran a `::view-transition-group(tab-pill)`
+     animation. With the `::after` named, the browser has one rectangle and
+     nothing to glide between, so the pill cross-fades with everything else. */
+  .tab[aria-selected="true"]::after { view-transition-name: none }
 
   /* THE FOLD IS A TRAVEL, so it goes. The opacity and the display flip stay,
      which is the cross-fade the platform keeps under this setting. app.js
@@ -945,6 +956,24 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
 [data-vt="tab"]::view-transition-old(root),
 [data-vt="tab"]::view-transition-new(root) {
   animation-duration: var(--duration-fold);
+  animation-timing-function: var(--ease-out);
+}
+
+/* A SWIPE CROSS-FADES AT THE SHORT STEP. Their report, 22 September 2026:
+   "the mobile app has no crossfade transitions when swiping between tabs!"
+
+   It had none because the swipe stopped animating at all, which was my
+   answer to an earlier report of a 1-2 second gap. The LENGTH was the fault.
+   500ms on a gesture a reader repeats reads as a blocked swipe, and the same
+   fade at 250ms does not.
+
+   THE PILL TAKES IT TOO, or the bar would still glide for half a second
+   under a page that had already finished fading. That rule above is
+   unconditional, so this one has to name both halves. */
+[data-vt="swipe"]::view-transition-old(root),
+[data-vt="swipe"]::view-transition-new(root),
+[data-vt="swipe"]::view-transition-group(tab-pill) {
+  animation-duration: var(--duration);
   animation-timing-function: var(--ease-out);
 }
 

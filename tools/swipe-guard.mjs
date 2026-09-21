@@ -207,16 +207,64 @@ ok('and it reads the strip rather than a list of names',
 ok('a swipe right steps forward', /stepTab\(dx > 0 \? 1 : -1/.test(code),
   (code.match(/stepTab\(dx[^;]*/) || ['none'])[0]);
 
-/* AND A SWIPE DOES NOT ANIMATE, WHICH IS WHY IT COULD NOT REPEAT. Their
-   report, 22 September 2026: "i can't swipe rapidly between tabs, there is a
-   1-2-second gap after swiping to a new tab during which additional swipes
-   are not accepted. that needs to go."
+/* AND A SWIPE CROSS-FADES AT THE SHORT STEP. Two reports, and the second
+   corrected my answer to the first.
 
-   A switch runs TWO view transitions at the fold duration, and the browser
-   snapshots the document for each. A second one while the first runs is
-   skipped. On a phone that capture is the gap. */
-ok('a swipe asks for no animation', /stepTab\(dx > 0 \? 1 : -1, \{ animate: false \}\)/.test(code),
+   22 September 2026: "i can't swipe rapidly between tabs, there is a
+   1-2-second gap after swiping to a new tab during which additional swipes
+   are not accepted. that needs to go." I answered it by switching the
+   animation off for a swipe, and this check pinned that.
+
+   Then: "the mobile app has no crossfade transitions when swiping between
+   tabs!" The LENGTH was the fault, never the fade. A switch runs two view
+   transitions at the fold duration, 500ms each, and 500ms on a repeated
+   gesture reads as a blocked swipe.
+
+   MEASURED WITH THE FADE BACK ON: two switches 60ms apart both land, and the
+   tab ends where the second sent it. A second `startViewTransition` while one
+   runs is skipped and its callback still runs, so nothing is dropped. */
+ok('a swipe asks for its own animation',
+  /stepTab\(dx > 0 \? 1 : -1, \{ animate: 'swipe' \}\)/.test(code),
   (code.match(/stepTab\(dx[^;]*/) || ['none'])[0]);
+ok('and it is not the plain one', !/stepTab\(dx[^;]*animate: false/.test(code));
+
+/* THE MARK SEPARATES IT FROM A TAP, so the stylesheet can give each its own
+   length. One mark for both would put a swipe back on the fold duration. */
+ok('the swipe marks the root its own way', /animate === 'swipe' \? 'swipe' : 'tab'/.test(code));
+ok('and dissolve is told which', /dissolve\([^)]*, kind\)/.test(code));
+
+{
+  /* AND THE STYLESHEET GIVES BOTH HALVES THE SHORT STEP. The pill rule is
+     unconditional, so a swipe rule naming only the root would leave the bar
+     gliding for half a second under a page that had finished fading. */
+  const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+  const swipeRule = (css.match(/\[data-vt="swipe"\][\s\S]*?\}/) || [''])[0];
+  ok('a swipe fades the page', /view-transition-old\(root\)/.test(swipeRule), swipeRule.slice(0, 80));
+  ok('and moves the pill with it', /view-transition-group\(tab-pill\)/.test(swipeRule));
+  ok('both at the short step', /animation-duration: var\(--duration\)/.test(swipeRule));
+  ok('and never the fold', !/--duration-fold/.test(swipeRule));
+  /* A TAP KEEPS THEIR 500ms, which is what they asked for on the switcher. */
+  ok('a tap still takes the fold',
+    /\[data-vt="tab"\][\s\S]{0,200}animation-duration: var\(--duration-fold\)/.test(css));
+
+  /* ── THE PILL'S NAME AND THE RULE THAT REMOVES IT MUST NAME ONE ELEMENT ──
+   *
+   * The name moved to the indicator when the bar became the only thing that
+   * travels. The reduced-motion rule stayed on the tab, so it matched an
+   * element carrying no name and removed nothing. A reader who asked for
+   * less motion still got the glide, and nothing reported it: the rule was
+   * live and it matched.
+   *
+   * ASK THAT THE TWO AGREE, rather than pinning either selector. Whichever
+   * element carries the name is the one that has to give it up. */
+  const named = (css.match(/([^\n{]+)\{\s*view-transition-name: tab-pill\s*\}/) || [])[1];
+  const removed = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'))
+    .match(/([^\n{]+)\{\s*view-transition-name: none\s*\}/);
+  ok('the pill states a name somewhere', Boolean(named), String(named));
+  ok('and reduced motion takes it off the same element',
+    Boolean(removed) && removed[1].trim() === named.trim(),
+    `${named && named.trim()} against ${removed && removed[1].trim()}`);
+}
 
 /* AND A CLICK KEEPS IT, because a click carries no motion of its own. */
 {
