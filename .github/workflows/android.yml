@@ -124,16 +124,25 @@ jobs:
       # exactly one build. A push and a tag then land on the same name when
       # they carry the same commit, and the second one replaces the first
       # rather than making a duplicate.
+      # THE FILE A READER DOWNLOADS CARRIES ITS OWN NAME AND VERSION.
+      # Bubblewrap writes `app-release-signed.apk`, which says nothing about
+      # which app it is or which build, and two of them in one downloads
+      # folder differ only by a browser's own "(1)".
       - name: Name the build
         id: name
-        run: echo "stamp=$(node tools/app-version.mjs --name)" >> "$GITHUB_OUTPUT"
+        run: |
+          STAMP=$(node tools/app-version.mjs --name)
+          echo "stamp=$STAMP" >> "$GITHUB_OUTPUT"
+          mv android/app-release-signed.apk "android/yeetlist-$STAMP.apk"
+          mv android/app-release-bundle.aab "android/yeetlist-$STAMP.aab"
+          ls -l android/yeetlist-$STAMP.*
 
       - uses: actions/upload-artifact@v4
         with:
           name: yeetlist-apk
           path: |
-            android/app-release-signed.apk
-            android/app-release-bundle.aab
+            android/yeetlist-${{ steps.name.outputs.stamp }}.apk
+            android/yeetlist-${{ steps.name.outputs.stamp }}.aab
 
       - name: Publish the release
         uses: softprops/action-gh-release@v2
@@ -141,10 +150,10 @@ jobs:
           tag_name: ${{ steps.name.outputs.stamp }}
           name: YeeTlist ${{ steps.name.outputs.stamp }}
           files: |
-            android/app-release-signed.apk
-            android/app-release-bundle.aab
+            android/yeetlist-${{ steps.name.outputs.stamp }}.apk
+            android/yeetlist-${{ steps.name.outputs.stamp }}.aab
           body: |
-            Install `app-release-signed.apk` on the phone. Android asks once
+            Install `yeetlist-${{ steps.name.outputs.stamp }}.apk` on the phone. Android asks once
             for permission to install from this source.
 
             The app loads the live site, so everything inside it is already
