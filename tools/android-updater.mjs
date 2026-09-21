@@ -240,12 +240,17 @@ export function patchManifest(xml, pkg) {
 
   let out = xml;
 
-  /* THE PERMISSION EARNS THE RIGHT TO ASK, never the right to skip. */
-  if (!out.includes('REQUEST_INSTALL_PACKAGES')) {
+  /* TWO PERMISSIONS, AND A TWA SHIPS NEITHER.
+     REQUEST_INSTALL_PACKAGES earns the right to ASK, never the right to
+     skip. INTERNET is the one a TWA genuinely does not need, because Chrome
+     does all of its networking in another process. Measured on the device
+     without it: android_getaddrinfo failed with EPERM. The check reached the
+     network layer and the system refused to resolve a name for it. */
+  for (const name of ['android.permission.INTERNET', 'android.permission.REQUEST_INSTALL_PACKAGES']) {
+    if (out.includes(name)) continue;
     const at = out.indexOf('<application');
     if (at < 0) throw new Error('the manifest holds no <application');
-    const line = '    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\n\n';
-    out = out.slice(0, at) + line + out.slice(at);
+    out = out.slice(0, at) + `    <uses-permission android:name="${name}" />\n\n` + out.slice(at);
   }
 
   /* BUBBLEWRAP ALREADY NAMES AN Application, so the manifest points at ours
@@ -298,8 +303,9 @@ function main(root) {
   const back = readFileSync(manifestPath, 'utf8');
   const ok = back.includes(`android:name="${APP}"`)
     && back.includes('REQUEST_INSTALL_PACKAGES')
+    && back.includes('android.permission.INTERNET')
     && existsSync(`${dir}/${CLASS}.java`);
-  console.log(`updater: ${APP} and ${CLASS} written into ${pkg}, install permission declared`
+  console.log(`updater: ${APP} and ${CLASS} written into ${pkg}, internet and install declared`
     + ` — ${ok ? 'ok' : 'THE PATCH DID NOT LAND'}`);
   process.exit(ok ? 0 : 1);
 }
@@ -312,8 +318,6 @@ function selfTest() {
 
   const sample = `<?xml version="1.0"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-permission android:name="android.permission.INTERNET" />
-
     <application
         android:name="Application"
         android:label="@string/appName">
@@ -324,6 +328,10 @@ function selfTest() {
   const out = patchManifest(sample, 'app.yeetlist.twa');
   say('the application names our class', out.includes(`android:name="${APP}"`));
   say('the install permission is declared', out.includes('REQUEST_INSTALL_PACKAGES'));
+  /* WITHOUT THIS THE CHECK CANNOT RESOLVE A NAME. A TWA ships no INTERNET
+     permission because Chrome does its networking, and the device answered
+     android_getaddrinfo failed with EPERM. */
+  say('the internet permission is declared', out.includes('android.permission.INTERNET'));
   say('the permission sits outside the application',
     out.indexOf('REQUEST_INSTALL_PACKAGES') < out.indexOf('<application'));
   say('the launcher is untouched', out.includes('<activity android:name="LauncherActivity" />'));
