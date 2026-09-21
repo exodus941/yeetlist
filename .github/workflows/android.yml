@@ -88,6 +88,20 @@ jobs:
           SEED=$((CODE - 1)) node -e 'const f="twa-manifest.json", fs=require("fs"); const m=JSON.parse(fs.readFileSync(f,"utf8")); m.appVersionCode=Number(process.env.SEED); fs.writeFileSync(f, JSON.stringify(m,null,2))'
           bubblewrap update --appVersionName="$NAME"
 
+      # A SHARE ARRIVING WHILE THE APP IS OPEN IS DROPPED BY ANDROID, not by
+      # the library. The intent carries NEW_TASK, a task already rooted by a
+      # share matches it on action and data, and the task is brought forward
+      # with the intent thrown away. LauncherActivity reads the share in
+      # onCreate, which never runs.
+      #
+      # A trampoline takes the share and re-fires it with CLEAR_TOP, which
+      # recreates the launcher. It is applied here because the whole Android
+      # project is regenerated above, so a committed edit would be lost.
+      - name: Fix the share target
+        run: |
+          node tools/android-share-fix.mjs --self-test
+          node tools/android-share-fix.mjs android
+
       # --skipPwaValidation because the manifest is already the thing being
       # wrapped, and the validator fetches a Lighthouse run this build does
       # not need.
