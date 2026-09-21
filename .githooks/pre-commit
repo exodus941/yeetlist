@@ -5,3 +5,5 @@ set -e
 node tools/syntax-guard.mjs .
 node tools/version-guard.mjs
 node tools/fade-guard.mjs .
+
+node tools/listing-guard.mjs

@@ -1,9 +1,11 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
-      "package_name": "app.vercel.yeetlist.twa",
+      "package_name": "app.yeetlist.twa",
       "sha256_cert_fingerprints": [
         "2A:E8:6B:EA:E3:83:F3:25:AD:C8:50:DE:EC:CA:E3:BC:00:CA:E0:BE:1D:84:2E:72:C9:5A:90:E1:EB:91:A6:C5"
       ]

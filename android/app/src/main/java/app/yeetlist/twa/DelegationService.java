@@ -1,4 +1,4 @@
-package app.vercel.yeetlist.twa;
+package app.yeetlist.twa;
 
 
 

@@ -21,7 +21,7 @@ plugins {
 }
 
 def twaManifest = [
-    applicationId: 'app.vercel.yeetlist.twa',
+    applicationId: 'app.yeetlist.twa',
     hostName: 'yeetlist.vercel.app', // The domain being opened in the TWA.
     launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
     name: 'YeeTlist', // The application name.
@@ -52,9 +52,9 @@ def twaManifest = [
 
 android {
     compileSdkVersion 36
-    namespace "app.vercel.yeetlist.twa"
+    namespace "app.yeetlist.twa"
     defaultConfig {
-        applicationId "app.vercel.yeetlist.twa"
+        applicationId "app.yeetlist.twa"
         minSdkVersion 21
         targetSdkVersion 36
         versionCode 1

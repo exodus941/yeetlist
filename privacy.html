@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>YeeTlist privacy</title>
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#0f0f0f" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23ff3030'/%3E%3Cpath d='M12 9l12 7-12 7z' fill='%23fff'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&family=Onest:wght@100..900&display=swap" />
+<link rel="stylesheet" href="/styles.css" />
+<!-- THE PAGE IS BUILT FROM THE APP'S OWN PRIMITIVES. `.shell` carries the
+     page padding and the measure, `.card` the surface, and the type comes
+     from the same scale. A policy page in its own styles is a second design
+     nobody chose, and the first thing to drift. -->
+<style>
+  .policy { max-width: 70ch }
+  .policy h1 { font-size: var(--text-2xl); letter-spacing: var(--track-tight) }
+  .policy h2 { margin-block-start: var(--space-xl); font-size: var(--text-lg) }
+  .policy p, .policy li { color: var(--text-muted) }
+  .policy ul { margin: var(--space-sm) 0 0; padding-inline-start: var(--space-xl) }
+  .policy li { margin-block-start: var(--space-xs) }
+  .policy strong { color: var(--text) }
+  .policy .updated { font-family: var(--font-mono); font-size: var(--text-xs) }
+</style>
+</head>
+<body>
+<div class="shell">
+  <main class="card policy">
+    <h1>YeeTlist privacy</h1>
+    <p class="updated">Last updated 21 September 2026.</p>
+
+    <h2>What is stored, and where</h2>
+    <p>
+      Your list lives in your own browser, in <strong>local storage on your
+      device</strong>. It is not sent anywhere, and there is no account and no
+      database behind this app.
+    </p>
+
+    <h2>Google Drive</h2>
+    <p>
+      Connecting Drive is optional. It exists so one list can be read on more
+      than one device. If you connect it:
+    </p>
+    <ul>
+      <li>
+        The app asks for <strong>drive.file</strong>, the narrowest scope
+        Google offers. It grants access to files this app itself creates, and
+        to nothing else in your Drive.
+      </li>
+      <li>
+        One file is written, holding your list. You can open it, move it or
+        delete it like any other file you own.
+      </li>
+      <li>
+        The sign-in token is held in a cookie on your device so the connection
+        survives a reload. Disconnecting removes it.
+      </li>
+      <li>
+        No Drive content is copied anywhere else, and none is read by anyone
+        but you.
+      </li>
+    </ul>
+
+    <h2>YouTube</h2>
+    <p>
+      When you paste a link, the address alone is sent to YouTube's public API
+      to fetch the title, the channel and the duration. Nothing about you is
+      sent with it, and nothing about the request is kept.
+    </p>
+
+    <h2>What is not collected</h2>
+    <ul>
+      <li>No analytics, no tracking pixels and no advertising identifiers.</li>
+      <li>No name, email address or contacts, beyond the Google sign-in you
+        choose to grant.</li>
+      <li>No data is sold or shared with a third party. There is nobody to
+        share it with.</li>
+    </ul>
+
+    <h2>Removing everything</h2>
+    <p>
+      Clearing the site data for this app removes the list from the device.
+      Disconnecting Drive revokes the token, and deleting the file it wrote
+      removes the copy there. Both are complete: nothing survives elsewhere.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      Questions or a deletion request go to the repository at
+      <a href="https://github.com/exodus941/yeetlist">github.com/exodus941/yeetlist</a>.
+    </p>
+  </main>
+</div>
+</body>
+</html>
