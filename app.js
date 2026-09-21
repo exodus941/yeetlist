@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260921-28';
+const VERSION = '260921-29';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -507,20 +507,6 @@ function render() {
   $('#tabCountLinks').textContent = videos.filter((v) => listOf(v) === 'links').length;
   $('#tabCountNotes').textContent = videos.filter((v) => listOf(v) === 'notes').length;
 
-  /* THE SELECT AND THE STRIP SAY THE SAME THING, and only one of them is on
-     screen. Its options carry the counts too, because the strip's counts are
-     half of what a reader is choosing between. */
-  for (const option of $$('#listSelectList .multi-option')) {
-    /* THE STRIP'S OWN WORDS, from the markup rather than from the noun. The
-       tab reads "YouTube Watchlist" and its noun is "Videos", so building
-       the label from the noun would give the reader two different names for
-       one list depending on the width. */
-    const n = videos.filter((v) => listOf(v) === option.dataset.value).length;
-    option.textContent = `${option.dataset.label} (${n})`;
-    const on = option.dataset.value === tab;
-    option.setAttribute('aria-checked', on ? 'true' : 'false');
-    if (on) $('#listSelectValue').textContent = option.textContent;
-  }
 
   /* The FIELD decides, never searchTerm. A run of spaces is a search nobody
      can see and still something to clear. */
@@ -1584,7 +1570,7 @@ const withScheme = (raw) => (/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : 'https://'
 
 /* ONE FIELD, AND THE LINK DECIDES THE LIST. Their instruction: the button
    says Add to List, a YouTube link is sorted into the YouTube list, and every
-   other link goes to Other Bookmarks.
+   other link goes to Bookmarks.
 
    It used to refuse a mismatch and name the other tab, which made the reader
    do the routing the address already answers. */
@@ -1603,7 +1589,7 @@ const videoIdOf = (value) => {
 
 /* A PLAYLIST IS A SET OF VIDEOS AND A CHANNEL IS ONE PAGE. Their instruction,
    19 September 2026: a playlist adds every video in it, and a channel link
-   goes into Other Bookmarks.
+   goes into Bookmarks.
 
    A LIST IN THE ADDRESS IS THE WHOLE LIST, EVEN BESIDE A VIDEO ID. Their
    instruction: "a watch link carrying &list= should add the whole list." I had
@@ -2032,8 +2018,11 @@ function bookmarkFile(scope) {
   const picked = scope === 'youtube' ? clips : scope === 'links' ? links : [...clips, ...links];
 
   const inner = scope === 'all'
-    ? [...bookmarkFolder('YouTube Watchlist', clips, '        '),
-       ...bookmarkFolder('Other Bookmarks', links, '        ')]
+    /* THE FOLDER NAMES ARE THE TAB NAMES. Two names for one list is what
+       this file's own comment warns about, and the export is where a reader
+       meets the second one. */
+    ? [...bookmarkFolder('YouTube', clips, '        '),
+       ...bookmarkFolder('Bookmarks', links, '        ')]
     : picked.map((v) => bookmarkLink(v, '        '));
 
   const json = JSON.stringify({ ...payload(), videos: picked }, null, 2);
@@ -3543,14 +3532,6 @@ const sortMenu = pickMenu({
 /* ONE PICK, SO THE SAME MENU THE SORT CONTROL USES. Its parts are that
    control's, rather than the tag listbox's, because a listbox announces a
    multiple selection and this holds one value. */
-/* THE NARROW-WIDTH LIST PICKER. Its call sits here with the others rather
-   than beside its own markup, because `menus` is declared here and a call
-   further up the file would run before that array exists. */
-pickMenu({
-  trigger: '#listSelectTrigger', list: '#listSelectList', wrapper: '#listSelect',
-  onPick: (value) => showTab(value),
-});
-
 /* THE NOTE EDITOR'S STYLE CONTROL, which was a native select until they
    pointed at it. `setLevel` lives in notes-ui.js, which loads first. */
 pickMenu({

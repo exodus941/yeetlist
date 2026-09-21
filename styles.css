@@ -670,7 +670,7 @@ body[data-note-open] { overflow: hidden }
    rearranges, on each breakpoint a drag crosses. That is work nobody asked
    for at a width nobody stops at. */
 #listRuntime, #searchClear, #state, #tagSuggest, #tagBulkPanel,
-#typedConfirm, #importPanel, #driveConnect, #rateList, #noteLevelList, #listSelectList,
+#typedConfirm, #importPanel, #driveConnect, #rateList, #noteLevelList,
 #driveGroup, #driveAlert, #tagFilterPanel, #sortList, #exportMenu, #filterPanel,
 #newNote, #noteEditor, #rateGroup {
   transition:
@@ -682,7 +682,7 @@ body[data-note-open] { overflow: hidden }
 #tagBulkPanel[hidden], #typedConfirm[hidden],
 #importPanel[hidden], #driveConnect[hidden], #driveGroup[hidden],
 #driveAlert[hidden], #tagFilterPanel[hidden], #sortList[hidden], #exportMenu[hidden],
-#rateList[hidden], #noteLevelList[hidden], #listSelectList[hidden],
+#rateList[hidden], #noteLevelList[hidden],
 #newNote[hidden], #noteEditor[hidden], #rateGroup[hidden],
 #filterPanel[hidden] {
   opacity: 0;
@@ -695,7 +695,7 @@ body[data-note-open] { overflow: hidden }
   #importPanel:not([hidden]), #driveConnect:not([hidden]),
   #driveGroup:not([hidden]), #driveAlert:not([hidden]),
   #tagFilterPanel:not([hidden]), #sortList:not([hidden]), #exportMenu:not([hidden]),
-  #rateList:not([hidden]), #noteLevelList:not([hidden]), #listSelectList:not([hidden]),
+  #rateList:not([hidden]), #noteLevelList:not([hidden]),
   #newNote:not([hidden]), #noteEditor:not([hidden]), #rateGroup:not([hidden]),
   #filterPanel:not([hidden]) {
     opacity: 0;
@@ -811,7 +811,10 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
    absolutely placed bar under the tabs, whose left and width are measured
    and written on every switch, every resize and every font swap. That is
    three writers for one position. */
-.tab[aria-selected="true"] { view-transition-name: tab-pill }
+/* THE NAME IS ON THE INDICATOR, NOT ON THE TAB. Every tab takes the same
+   share of the band now, so morphing the tab element moves nothing a reader
+   can see. The bar is the only thing that travels. */
+.tab[aria-selected="true"]::after { view-transition-name: tab-pill }
 
 /* THE SWITCHER TAKES THE LONG PAIR. Their instruction: the same 500ms and the
    same eased-out curve as the filter fold. The pill only moves on a switch,
@@ -956,6 +959,12 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
    its padding. */
 .shell {
   --page-pad: var(--space-xl);
+  /* THE SIDE PADDING IS NOT THE TOP PADDING, and one name for both is how a
+     full-bleed child misses the page edge. `--page-pad` is 24 here and the
+     inline padding is 32, so a band subtracting the first stopped 8px short
+     on each side. Measured: the band at x 169 against the shell's own 161.
+     Published so a child can ask the box that made the inset. */
+  --page-inline: var(--space-2xl);
   max-width: 1380px;
   margin: auto;
   padding: var(--page-pad) var(--space-2xl) var(--space-3xl);
@@ -1602,75 +1611,47 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
    it. That is what says the strip and the list below are one thing.
    ========================================================================== */
 
-/* A SEGMENTED PICKER, NOT A RULED STRIP. It sits beside the count now, so an
-   underline has no rule of its own to sit on and would draw a 2px mark against
-   nothing. The group carries the edge and the chosen pill carries the fill. */
+/* ── A MATERIAL TAB BAND ──────────────────────────────────────────────
+ *
+ * Their instruction, 21 September 2026: tabs at every size, edge to edge,
+ * in the material style. So the segmented pill group is gone, and with it
+ * the dropdown the old strip turned into below 460.
+ *
+ * IT SPANS THE VIEWPORT, not the page's text column. The band reads as part
+ * of the chrome under the app bar rather than as a control sitting in the
+ * page. It reads the shell's own padding rather than naming a number: that
+ * value is 24 by default and 16 below 1120, so a typed one would be right
+ * at a single width.
+ *
+ * THE RULE UNDER IT SPANS THE WHOLE ROW, and the chosen tab's indicator
+ * sits on top of it. That is what says the band and the list are one thing.
+ */
 .tabs {
   display: flex;
   flex-wrap: nowrap;
-  flex: 0 0 auto;
-  gap: var(--space-xs);
-  padding: var(--space-xs);
-  /* AN OUTLINE RATHER THAN A BORDER, SO THE BOX IS THE TITLE'S LINE. A border
-     adds its own 2px: at 28 + 8 + 2 the group came out 38 against a 36px line
-     box and sat 1.50px off the title's cap band. An outline costs no layout,
-     and at a negative offset it paints on the box edge the border drew.
-     Measured after: the group is 36 and reads 0.50 off the band. */
-  outline: 1px solid var(--line-subtle);
-  outline-offset: -1px;
-  border-radius: var(--radius-pill);
-  background: var(--surface);
+  width: calc(100% + var(--page-inline) * 2);
+  margin-inline: calc(var(--page-inline) * -1);
+  margin-block-end: var(--space-xl);
+  border-block-end: 1px solid var(--line);
 }
 
-/* THE SELECT THE STRIP BECOMES. One of the two is on screen and never both,
-   so a reader meets one control and a screen reader hears one.
+/* EVERY TAB TAKES THE SAME SHARE, which is what makes the band a band. At
+   `flex: 0 0 auto` three labels of different lengths leave a ragged end and
+   the row stops reading as one control.
 
-   THE STRIP IS THE DEFAULT and this appears, rather than the other way
-   round, because the wide layout is the one every other rule here is
-   written against. */
-.multi.list-select { display: none }
-
-/* A STRIP THAT DOES NOT FIT BECOMES A DROPDOWN, which is this file's own
-   rule and what a third tab finally made bite. Two tabs fit everywhere;
-   three do not.
-
-   MEASURED ON THE REAL STRIP rather than summed. The three pills come to
-   126.30, 184.28 and 101.33 with the short labels, plus two 4px gaps and
-   the group's own 8px of padding: 427.91. The shell gives 32px away at
-   these widths, so the strip runs out at 460.
-
-   The figure is true of these labels. Recompute it if any of the three
-   changes, or if a fourth list is ever added. */
-@media (max-width: 459px) {
-  .tabs { display: none }
-  /* `.multi.list-select`, or `.multi`'s own 160px wins on order. The picker
-     stands in for the whole strip, so it takes the strip's full width. */
-  .multi.list-select { display: block; width: 100% }
-}
-
-/* A TAB NEVER SHRINKS BELOW ITS OWN CONTENT. It wraps its children for the
-   baseline packing below, so a squeezed one puts its count on a second line
-   inside a box whose height is stated. Measured at 360 with the long label:
-   each tab 22.8px under its content, and the count on a line of its own.
-   Nothing clipped and nothing reported, because the strip itself still fit. */
-/* THE FLOOR IS A REACH, NOT A HEIGHT. Written as max(step, floor) the pill
-   grew to 44 on a finger, the group to 50, and the group then sat 8px below
-   the title it is supposed to line up with. The box keeps its own step and
-   an ::after carries the target, which costs no layout, so the group is 34
-   at both pointers. */
+   48 IS THE MATERIAL HEIGHT, and it clears both pointer floors, so the
+   ::after that used to carry the touch reach is gone with the pill. */
 .tab {
   position: relative;
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--icon-gap);
-  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  flex: 1 1 0;
   min-width: 0;
-  height: var(--control-sm);
-  /* A BUTTON CARRIES 1px OF BLOCK PADDING FROM THE USER AGENT, and a stated
-     height hides it rather than removing it. Nobody chose that pixel. */
-  padding: 0 var(--space-md);
+  height: 48px;
+  padding: 0 var(--space-sm);
   border: 0;
-  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text-muted);
   font: inherit;
@@ -1682,35 +1663,21 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
     background-color var(--duration) var(--ease);
 }
 
-/* A fixed-height box carrying words packs its single flex line to the top
-   under baseline alignment, so the line is placed and the items within it
-   are aligned. The two compose; one alone leaves the label high. */
-.tabs { align-items: stretch }
-.tab { flex-wrap: wrap; align-content: center }
-
-/* 100% is the pill's own box, so one rule serves both labels. The inline
-   inset resolves to 0 on a pill already wider than the floor, and only the
-   block axis reaches: 8px above and below at a coarse pointer, inside the
-   24px the group stands clear of the card above it. */
-.tab::after {
-  content: "";
-  position: absolute;
-  inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2));
-}
-
-.tab .icon { align-self: baseline; transform: translateY(calc((100% - var(--cap-ratio) * 1em) / 2)) }
-
 .tab:hover { color: var(--text); background: var(--row-hover) }
 
 /* PAINT IS NOT A STATE, so the mark is aria-selected and the rule reads it.
-   A FILL rather than a border, which adds no height and joins no box, so the
-   two pills stay the same size whichever one is chosen. */
-.tab[aria-selected="true"] {
-  color: var(--text);
-  background: var(--row-selected);
-}
+   THE INDICATOR IS A BAR ON THE RULE, not a fill. It paints over the band's
+   own hairline rather than beside it, so the two never read as two lines. */
+.tab[aria-selected="true"] { color: var(--text) }
 
-.tab[aria-selected="true"]:hover { background: var(--row-selected-hover) }
+.tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: -1px;
+  height: 2px; /* half-step: a rule's weight, like a hairline, not a step */
+  background: var(--accent);
+}
 
 .tab-count {
   color: var(--text-quiet);
@@ -1723,46 +1690,24 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
 /* A FILL IS DISREGARDED IN FORCED COLORS, so the chosen pill loses its only
    marker there. An outline survives that mode and costs no layout. */
 @media (forced-colors: active) {
-  .tabs { outline: 1px solid CanvasText; outline-offset: -1px }
+  /* A BAR PAINTED WITH `background` IS DISREGARDED IN FORCED COLORS, so the
+     chosen tab loses its only marker there. An outline survives that mode. */
   .tab[aria-selected="true"] { outline: 2px solid Highlight; outline-offset: -2px }
 }
 
 /* THE COUNT AND THE PICKER SHARE A ROW. The picker sat on its own line above
    this, which spent a whole row on two words.
 
-   THE PICKER SITS ON THE TITLE'S LINE, NOT ON THE BLOCK'S CENTRE. The words
-   are two lines on the watchlist, a title over a runtime readout, so centring
-   put the pill group 10px below the title and it read as attached to the
-   readout. Started, the 34px group centres at 231.00 against the title's own
-   cap band centre of 231.00, and it needs no transform: the group is 2px
-   shorter than the 36px line box it stands in.
+   THE PICKER IS GONE AND SO IS THE ROW. This block held the count beside a
+   pill group, and the comment here carried six measurements about keeping
+   the two on one line: the group's 34px height, the wrap-reverse that put
+   the picker above the title, the cross-axis flip that came with it, and
+   the 568 switch. Every one of them described a second child that no longer
+   exists.
 
-   That only holds while the group IS 34. Promoted to the touch step it stood
-   at 50 and sat 8px low at 693 and 534, which is why the tab's reach is an
-   overhang rather than a height.
-
-   It wraps rather than squeezing: below the width where both fit, the picker
-   takes its own line.
-
-   AND THAT LINE GOES ABOVE THE TITLE. Their instruction. `wrap-reverse`
-   stacks the lines the other way, and it tracks the real break at every title
-   length. A media query cannot: the break is a sum of the title's own ink, so
-   a threshold measured on "34 of 100 Saved Videos" splits the row early on
-   every shorter one. Measured at 375: the picker at y 279 and the title at
-   321, where they were 279 and 343. The block is 98 tall either way, so the
-   filter row below it does not move. The switch is at 568: one row at 569,
-   two at 567.
-
-   THE CROSS AXIS FLIPS WITH IT, so `flex-end` is what `flex-start` used to
-   mean. Left alone, the picker sat 22px low on the one-row layout: the line
-   is 56 tall and the group is 34. Measured on a 900px shell, before and
-   after: the group at x 572.6, y 279, and the row 56 tall in both. */
+   Their instruction, 21 September 2026: the tabs are a band of their own
+   above this. So the block holds the words and nothing else. */
 .list-head {
-  display: flex;
-  flex-wrap: wrap-reverse;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-sm) var(--space-lg);
   /* THE TITLE HEADS THE PAGE NOW, so both numbers moved. Their instruction,
      21 September 2026: the title and the tab selector sit above the link
      field, in every view.
@@ -1807,30 +1752,6 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: var(--track-label);
-}
-
-/* THE STRIP SITS ABOVE THE TITLE ON A PHONE, ALWAYS. Their report,
-   21 September 2026: it appears above the title in mobile view, and beside it
-   on the bookmarks tab instead.
-
-   THE ARRANGEMENT WAS DECIDED BY THE TITLE'S OWN LENGTH. `wrap-reverse` breaks
-   when the two no longer fit, and the two tabs are one fixed width while the
-   words are not. Measured at 528px of room: "13 Saved Videos" needs 540.2 and
-   wraps, "10 Bookmarks" needs 493.4 and does not. So one tab stacked and the
-   other did not, over a band about a hundred pixels wide.
-
-   A BREAK THAT IS A SUM OF THE CONTENT'S INK IS NOT A DECISION. Below the
-   width where the LONGEST words block still fits, the title takes the whole
-   line and the strip takes the one above it, whatever the title says.
-
-   MEASURED BY SHRINKING THE REAL ROW with the wrap off. The strip is 322.58.
-   The widest words block is the runtime rather than the heading: a four
-   figure count with "1000 hours 59 minutes 59 seconds" comes to 230.4, plus
-   the 16 gap and 32 of shell padding, so 601. Today's labels need 580. The
-   figure is true of these labels, so recompute it if the runtime's wording
-   changes. */
-@media (max-width: 600px) {
-  .list-words { flex: 1 1 100% }
 }
 
 .list-head h2 {
@@ -3993,7 +3914,7 @@ dialog menu {
    ========================================================================== */
 
 @media (max-width: 1120px) {
-  .shell { --page-pad: var(--space-lg); padding: var(--page-pad) }
+  .shell { --page-pad: var(--space-lg); --page-inline: var(--space-lg); padding: var(--page-pad) }
 
   .sync-words { display: none }
 
@@ -4071,13 +3992,6 @@ dialog menu {
      list it kept order 0 and sat on a line of its own ABOVE the search
      field, 144px wide at 937. Its panel hangs off its end edge, so the panel
      then started 159.7px outside the window. */
-  /* THE SECOND WORD DROPS WITH THE TABLE. Measured with it in: the strip
-     needs 372.5px against the 328 a 360px window gives, so at the narrowest
-     width this ships the tabs were 22.8px under their own content. The card
-     view is where that starts to matter, and it is one threshold rather than
-     a fifth one for a single word. */
-  .tab-long { display: none }
-
   /* THE CARD VIEW IS WHERE THE ROW STOPS BEING ONE ROW. Above it the field
      absorbs every pixel down to its floor, and this width is that floor. */
   .filters-row { flex-wrap: wrap }

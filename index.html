@@ -195,8 +195,8 @@
             <svg class="icon multi-chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
           </button>
           <ul class="multi-panel multi-list" id="exportMenu" role="menu" aria-label="Export" tabindex="-1" hidden>
-            <li class="multi-option" role="menuitem" tabindex="-1" data-scope="youtube">YouTube Watchlist</li>
-            <li class="multi-option" role="menuitem" tabindex="-1" data-scope="links">Other Bookmarks</li>
+            <li class="multi-option" role="menuitem" tabindex="-1" data-scope="youtube">YouTube</li>
+            <li class="multi-option" role="menuitem" tabindex="-1" data-scope="links">Bookmarks</li>
             <li class="multi-option" role="menuitem" tabindex="-1" data-scope="all">Everything</li>
           </ul>
         </span>
@@ -213,70 +213,46 @@
   <!-- ONE TAB STOP FOR THE WHOLE STRIP. A composite widget takes Tab once and
        the arrows move within it. Built with a tabindex on every tab, walking
        past two costs two presses and a strip of six costs six. -->
-  <!-- ONE ROW: the count on the left, the list picker on the right. The
-       picker used to be a strip on its own line above this, which cost a
-       whole row of height and put the tabs further from the thing they
-       change. -->
+  <!-- A TAB BAND UNDER THE APP BAR, which is what the material pattern is.
+       Their instruction, 21 September 2026: tabs at every size, edge to
+       edge, in the material style. It spans the viewport rather than the
+       page's text column, so it reads as a band rather than as a control
+       sitting in the page.
+
+       NO ICON. Three tabs need 118.47px of content each with one, and a
+       320px screen gives 106.67. An icon that shows above 428 and vanishes
+       below is one control with two shapes, which is the fault this file
+       already records about a burger's label. So the label and its count
+       carry it at every width. -->
+  <div class="tabs" role="tablist" aria-label="Which list">
+    <button class="tab" id="tab-youtube" type="button" role="tab" data-tab="youtube"
+            aria-selected="true" aria-controls="listPanel">
+      <span>YouTube</span>
+      <span class="tab-count" id="tabCountYoutube"></span>
+    </button>
+    <button class="tab" id="tab-links" type="button" role="tab" data-tab="links"
+            aria-selected="false" aria-controls="listPanel" tabindex="-1">
+      <span>Bookmarks</span>
+      <span class="tab-count" id="tabCountLinks"></span>
+    </button>
+    <button class="tab" id="tab-notes" type="button" role="tab" data-tab="notes"
+            aria-selected="false" aria-controls="listPanel" tabindex="-1">
+      <span>Notes</span>
+      <span class="tab-count" id="tabCountNotes"></span>
+    </button>
+  </div>
+
   <section class="list-head">
     <!-- THE LIVE REGION IS THE WORDS, NEVER THE ROW. A tablist inside one
          would announce both tabs on every switch. -->
+    <!-- THE RUNTIME READS FIRST. Their instruction, 21 September 2026: the
+         time total goes above the title. -->
     <div class="list-words" role="status">
-      <h2 id="listCount">0 Saved Videos</h2>
       <p id="listRuntime" class="list-runtime" hidden></p>
+      <h2 id="listCount">0 Saved Videos</h2>
     </div>
 
-    <div class="tabs" role="tablist" aria-label="Which list">
-      <button class="tab" id="tab-youtube" type="button" role="tab" data-tab="youtube"
-              aria-selected="true" aria-controls="listPanel">
-        <svg class="icon" aria-hidden="true"><use href="#i-play"/></svg>
-        <!-- CSS CANNOT SEE A TEXT LABEL, so the word that drops carries its own
-             element. Hidden, it leaves the accessible name too, and the tab
-             announces exactly what it shows. -->
-        <span>YouTube<span class="tab-long"> Watchlist</span></span>
-        <span class="tab-count" id="tabCountYoutube"></span>
-      </button>
-      <button class="tab" id="tab-links" type="button" role="tab" data-tab="links"
-              aria-selected="false" aria-controls="listPanel" tabindex="-1">
-        <svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>
-        <span>Other Bookmarks</span>
-        <span class="tab-count" id="tabCountLinks"></span>
-      </button>
-      <button class="tab" id="tab-notes" type="button" role="tab" data-tab="notes"
-              aria-selected="false" aria-controls="listPanel" tabindex="-1">
-        <svg class="icon" aria-hidden="true"><use href="#i-note"/></svg>
-        <span>Notes</span>
-        <span class="tab-count" id="tabCountNotes"></span>
-      </button>
-    </div>
 
-    <!-- A STRIP THAT DOES NOT FIT BECOMES A DROPDOWN. This file's own rule,
-         and a third tab is what made it bite: at 375 the three need 427.9px
-         against the 343 the row has. A run of destinations that does not fit
-         is a list, and a list you pick from is a select.
-
-         IT IS THE APP'S OWN MENU, NOT A NATIVE SELECT. This shipped as one,
-         on the argument that the platform's control is the one a reader
-         knows. That argument is already answered in the stylesheet: every
-         native select here was removed, because the operating system draws
-         the option list and it carries none of this file's colours, type or
-         fades. Two of them had crept back. The two controls write the same
-         state either way. -->
-    <div class="multi list-select" id="listSelect">
-      <button class="multi-trigger" id="listSelectTrigger" type="button"
-              aria-expanded="false" aria-haspopup="menu" aria-controls="listSelectList">
-        <span class="multi-value" id="listSelectValue">YouTube Watchlist</span>
-        <svg class="icon multi-chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
-      </button>
-      <ul class="multi-panel multi-list" id="listSelectList" role="menu" aria-label="Which list"
-          tabindex="-1" hidden>
-        <li class="multi-option" role="menuitemradio" tabindex="-1" data-value="youtube"
-            data-label="YouTube Watchlist" aria-checked="true">YouTube Watchlist</li>
-        <li class="multi-option" role="menuitemradio" tabindex="-1" data-value="links"
-            data-label="Other Bookmarks" aria-checked="false">Other Bookmarks</li>
-        <li class="multi-option" role="menuitemradio" tabindex="-1" data-value="notes"
-            data-label="Notes" aria-checked="false">Notes</li>
-      </ul>
-    </div>
   </section>
 
   <!-- NO VISIBLE HEADING. The field's placeholder and the button beside it

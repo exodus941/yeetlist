@@ -2078,8 +2078,22 @@ function sweep (within = null, exclude = null) {
         && EDGE_ALIGNED.has(cs.alignItems) && el.children.length >= 3) {
       const ls = [...el.children].filter(seen)
         .filter(c => {
-          const self = getComputedStyle(c).alignSelf
-          return self === 'auto' || EDGE_ALIGNED.has(self)
+          const ccs = getComputedStyle(c)
+          const self = ccs.alignSelf
+          if (!(self === 'auto' || EDGE_ALIGNED.has(self))) return false
+
+          /* ── A FULL-BLEED CHILD SAID SO, WITH A NEGATIVE MARGIN ──
+           *
+           * A band that spans past the column's inset escapes it on purpose,
+           * and the negative inline margin is the declaration. Nothing else
+           * writes one: it is the one mechanism for undoing a container's
+           * own padding, the way a negative margin cancels a gap.
+           *
+           * Measured 21 September 2026 on one app: a tab band bled to the
+           * page edges and the stack reported two lefts, 193 and 161. The
+           * 161 was the band arriving exactly where it was sent. */
+          const bleeds = parseFloat(ccs.marginLeft) < 0 || parseFloat(ccs.marginRight) < 0
+          return !bleeds
         })
         .map(c => Math.round(c.getBoundingClientRect().left))
       if (new Set(ls).size > 1) out.edges.push({ stack: name(el), lefts: [...new Set(ls)] })
