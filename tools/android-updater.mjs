@@ -47,13 +47,17 @@ export function appSource(pkg) {
  *
  * AN APPLICATION SUBCLASS, NOT THE ACTIVITY. Bubblewrap regenerates the
  * launcher on every build, so anything written into it is lost. This is
- * registered in the manifest instead and runs once per process.
+ * named in the manifest instead and runs once per process.
+ *
+ * IT EXTENDS BUBBLEWRAP'S OWN Application RATHER THAN REPLACING IT. The
+ * template already names one, and the unqualified name here resolves to the
+ * generated class in this same package, so everything it does still happens.
  *
  * IT NEVER BLOCKS THE LAUNCH. The whole check is on its own thread behind a
  * pause, so a slow network delays nothing the reader is looking at, and a
  * failure of any kind leaves the app exactly as it was.
  */
-public class ${APP} extends android.app.Application {
+public class ${APP} extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
@@ -230,18 +234,29 @@ export function patchManifest(xml, pkg) {
     out = out.slice(0, at) + line + out.slice(at);
   }
 
-  /* THE APPLICATION CLASS IS AN ATTRIBUTE ON THE ELEMENT THAT IS ALREADY
-     THERE. Bubblewrap's template states none, so this adds one rather than
-     replacing somebody's. */
+  /* BUBBLEWRAP ALREADY NAMES AN Application, so the manifest points at ours
+     and ours extends theirs. Written as "add an attribute" this refused the
+     real manifest on its first run in CI: the template states
+     `android:name="Application"` and the sample it was proven against did
+     not. A fixture that is not the real shape proves nothing.
+
+     ONLY THAT ONE NAME IS REPLACED. Any other class is somebody's decision,
+     and dropping it silently is how a build loses behaviour nobody notices. */
   const open = out.indexOf('<application');
   const close = out.indexOf('>', open);
+  if (open < 0 || close < 0) throw new Error('the manifest holds no <application');
   const head = out.slice(open, close);
-  if (/\bandroid:name\s*=/.test(head)) {
-    throw new Error('the <application> already names a class, so this would replace it');
+  const named = /\bandroid:name\s*=\s*"([^"]+)"/.exec(head);
+
+  if (!named) {
+    out = out.slice(0, open + '<application'.length)
+      + `\n        android:name="${APP}"`
+      + out.slice(open + '<application'.length);
+  } else if (named[1] === 'Application') {
+    out = out.slice(0, open) + head.replace(named[0], `android:name="${APP}"`) + out.slice(close);
+  } else {
+    throw new Error(`the <application> names ${named[1]}, which is not Bubblewrap's own`);
   }
-  out = out.slice(0, open + '<application'.length)
-    + `\n        android:name="${APP}"`
-    + out.slice(open + '<application'.length);
 
   return out;
 }
@@ -286,6 +301,7 @@ function selfTest() {
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
+        android:name="Application"
         android:label="@string/appName">
         <activity android:name="LauncherActivity" />
     </application>
@@ -303,8 +319,18 @@ function selfTest() {
     catch (e) { say(why, true, e.message); }
   };
   refuses(out, 'a second run refuses');
-  refuses(sample.replace('<application', '<application android:name="Someone.Else"'),
-    'an application that already names a class refuses');
+  refuses(sample.replace('android:name="Application"', 'android:name="Someone.Else"'),
+    'an application naming somebody else refuses');
+  say("the sample is the real shape, naming Bubblewrap's Application",
+    sample.includes('android:name="Application"'));
+  say('our class extends theirs rather than android.app.Application',
+    appSource('app.yeetlist.twa').includes('extends Application {')
+    && !appSource('app.yeetlist.twa').includes('extends android.app.Application'));
+
+  /* AND A MANIFEST WITH NO NAME STILL GAINS ONE, because the template could
+     drop the attribute upstream and the patch must not depend on it. */
+  const bare = patchManifest(sample.replace('\n        android:name="Application"', ''), 'app.yeetlist.twa');
+  say('a manifest with no application name gains ours', bare.includes(`android:name="${APP}"`));
   refuses('<manifest></manifest>', 'a manifest with no application refuses');
 
   /* ONE FORMULA, TWO LANGUAGES, AND THE JAVA IS CHECKED RATHER THAN TRUSTED.
