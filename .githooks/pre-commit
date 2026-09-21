@@ -23,6 +23,10 @@ node tools/selection-guard.mjs
 # not. Both halves are asserted: the shapes arrive, and prose stays prose.
 node tools/import-guard.mjs
 
+# Fifty rows drawn, and every record still counted. The page is not a filter,
+# so every count and both bulk actions read the whole filtered set.
+node tools/pager-guard.mjs
+
 # The share patch runs only in CI, where nothing watches it. Its clauses are
 # proven here instead, so a clause that stops firing fails a commit.
 node tools/android-share-fix.mjs --self-test

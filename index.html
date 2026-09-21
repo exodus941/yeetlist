@@ -593,6 +593,21 @@
     <div id="state" class="empty" hidden></div>
   </section>
 
+  <!-- THE PAGER SITS OUTSIDE THE SCROLLER, so it stays put while the rows
+       move under it. Inside, it would scroll away and a reader at the foot
+       of page one would have to scroll again to leave it.
+
+       IT IS A NAVIGATION, and the readout beside it is a readout. A count
+       that rewrites itself silently is a count nobody hears, so it says so.
+       Both are written by render(). -->
+  <nav id="pager" class="pager" aria-label="Pages" hidden>
+    <!-- `tabindex="-1"` so focus can land here after a page change. The
+         button a reader pressed may not exist on the new page, and focus
+         left on a removed node goes to the body. -->
+    <p id="pagerCount" class="pager-count" role="status" tabindex="-1"></p>
+    <div id="pagerNav" class="pager-nav"></div>
+  </nav>
+
   <footer id="sync-note">
     <strong>Portable by design.</strong>
     Link Google Drive and YeeTlist keeps one <code>yeetlist.md</code> there, readable from any device on the same account.

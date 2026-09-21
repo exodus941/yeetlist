@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260921-32';
+const VERSION = '260921-33';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -246,6 +246,44 @@ let searchTerm = '';
    offers and never touches which videos are shown, so it is cleared on every
    open and on every close. */
 let tagQuery = '';
+
+/* FIFTY ROWS AT A TIME, WHICH IS THEIR NUMBER.
+   Their instruction, 21 September 2026: show about fifty entries at once and
+   put the rest behind a paginator, with every record still in memory so
+   search and filtering stay instant.
+
+   THE COST IS THE ROWS, NOT THE RECORDS. Measured on an 800-row watchlist at
+   1440: 55,460 elements and 3.2MB of markup, at 456.7ms a render. The filter
+   and the sort run over all 800 either way, in under 3ms.
+
+   AND `render()` RUNS ON EVERY SEARCH KEYSTROKE, so that 456.7ms was paid per
+   letter typed. The tab switch was the complaint. The typing was the same
+   fault, unreported.
+
+   THE PAGE IS NOT A FILTER. Every count, the runtime line, Select All and
+   Delete Selected read the whole filtered set, exactly as before. Only the
+   rows drawn are cut. */
+const PAGE_SIZE = 50;
+let page = 1;
+
+/* ONE WRITER RESETS IT, RATHER THAN EVERY DOOR THAT CHANGES THE LIST.
+   The tab, the sort, the search and the three filters each change which
+   records are shown, so each would otherwise have to remember to go back to
+   page one. Written at six doors, the seventh is the one that gets forgotten.
+
+   This is the shape the tag prune already uses: everything renders, so the
+   question is asked once, in render(). */
+const pageKey = () => JSON.stringify([tab, sort.key, sort.dir, searchTerm,
+  [...activeTags].sort(), untaggedOnly, ratingFilter]);
+/* EMPTY, BECAUSE `ratingFilter` IS DECLARED BELOW THIS LINE. Calling pageKey
+   here would read a `let` before its declaration and throw on load. The
+   first render finds a change and sets page one, which it already is. */
+let pageKeyHeld = '';
+
+/* THE LAST PAGE MOVES WHEN ROWS GO. Deleting the only row on page 16 leaves
+   the reader on a page that no longer exists, and an empty table reads as a
+   broken list rather than as a page past the end. */
+const lastPage = (count) => Math.max(1, Math.ceil(count / PAGE_SIZE));
 
 /* ONE FIELD FOR ONE DECISION. 'any' is no filter, 'none' is the unrated, and
    a number is that rating and up. Two fields would let both be set, and the
@@ -508,6 +546,14 @@ function render() {
   const held = inTab();
   const filtered = filteredVideos();
 
+  /* THE PAGE, DECIDED IN ONE PLACE. A different list means page one, and a
+     shorter list means the last page that still exists. */
+  const key = pageKey();
+  if (key !== pageKeyHeld) { pageKeyHeld = key; page = 1; }
+  page = Math.min(Math.max(1, page), lastPage(filtered.length));
+  const from = (page - 1) * PAGE_SIZE;
+  const shown = filtered.slice(from, from + PAGE_SIZE);
+
   renderChrome(spec);
   renderFilterToggle();
 
@@ -530,7 +576,9 @@ function render() {
     : '';
   runtimeLine.hidden = !spec.runtime || !filtered.length;
 
-  $('#rows').innerHTML = listState === 'loading' ? skeleton() : filtered.map(row).join('');
+  /* `shown`, NOT `filtered`. This is the only line the page changes. */
+  $('#rows').innerHTML = listState === 'loading' ? skeleton() : shown.map(row).join('');
+  renderPager(filtered.length, from, shown.length);
 
   renderState(filtered.length, filtering());
   renderTagFilter();
@@ -793,6 +841,84 @@ function fitTags() {
      many fractions the chips came to. */
   th.closest('table').style.setProperty('--col-tags', `${Math.ceil(widest + pad)}px`);
 }
+
+/* THE PAGES A READER IS OFFERED, AND THE GAPS BETWEEN THEM.
+   Sixteen pages is sixteen buttons, and a hundred is a wall. So the run is
+   the first, the last, and the two either side of where the reader is. What
+   is cut out is replaced by one gap mark, never by a button.
+
+   THE SET IS BUILT BEFORE IT IS ORDERED, or the same page appears twice on a
+   short list: page 2 of 3 is both "one either side" and "the last".
+
+   A GAP IS ONLY A GAP WHERE SOMETHING IS MISSING. Between 1 and 2 there is
+   nothing to hide, and a mark there says a page exists that does not.
+
+   AND A GAP STANDING FOR ONE PAGE IS THAT PAGE. At 4 of 5 the run came out
+   1, gap, 3, 4, 5, where the gap hid page 2 alone. The mark is as wide as
+   the button and offers nothing, so the page goes in instead. */
+function pageRun(at, last) {
+  const want = new Set([1, last, at - 1, at, at + 1]);
+  const run = [...want].filter((n) => n >= 1 && n <= last).sort((a, b) => a - b);
+  const out = [];
+  run.forEach((n, i) => {
+    const step = i ? n - run[i - 1] : 0;
+    if (step === 2) out.push(n - 1);
+    else if (step > 2) out.push(null);
+    out.push(n);
+  });
+  return out;
+}
+
+/* THE PAGER SAYS WHERE THE READER IS AND OFFERS THE REST.
+   It is hidden on one page, because a control offering nothing is a control
+   a reader still has to read.
+
+   THE CHEVRON IS THE SET'S OWN, TURNED. The sprite holds one, pointing down,
+   and a typed guillemet comes from the text font and carries none of the
+   stroke, size or join the set states. Two rotations, one glyph, no second
+   drawing.
+
+   A DISABLED END KEEPS ITS PLACE IN THE TAB ORDER. `disabled` would take
+   Previous out of reach on page one, so a keyboard reader could not learn
+   which end they were at. `aria-disabled` says the state and stays. */
+function renderPager(total, from, count) {
+  const nav = $('#pager');
+  const last = lastPage(total);
+  nav.hidden = last < 2 || listState === 'loading';
+  if (nav.hidden) return;
+
+  const noun = LISTS[tab].noun[total === 1 ? 0 : 1].toLowerCase();
+  $('#pagerCount').textContent = `Showing ${from + 1} to ${from + count} of ${total} ${noun}`;
+
+  const end = (to, label, turn) => `<button class="btn btn-ghost btn-icon pager-step"
+      type="button" data-page="${to}" aria-label="${label}"
+      ${to < 1 || to > last ? 'aria-disabled="true"' : ''}
+      >${icon('chevron-down', `icon pager-${turn}`)}</button>`;
+
+  $('#pagerNav').innerHTML = end(page - 1, 'Previous page', 'back')
+    + pageRun(page, last).map((n) => (n === null
+      ? '<span class="pager-gap" aria-hidden="true">…</span>'
+      : `<button class="btn btn-ghost pager-page" type="button" data-page="${n}"
+           aria-label="Page ${n}"${n === page ? ' aria-current="page"' : ''}>${n}</button>`)).join('')
+    + end(page + 1, 'Next page', 'on');
+}
+
+/* THE ROWS CHANGE, SO THE SCROLLER GOES BACK TO THE TOP. A reader halfway
+   down page one lands halfway down page two otherwise, having never seen its
+   first rows. */
+$('#pager').addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-page]');
+  if (!button || button.getAttribute('aria-disabled') === 'true') return;
+  const to = Number(button.dataset.page);
+  if (!Number.isFinite(to) || to === page) return;
+  page = to;
+  dissolve(() => {
+    $('.table-wrap').scrollTop = 0;
+    /* The control a reader just pressed may not exist on the new page, so
+       focus goes to the readout, which always does. */
+    $('#pagerCount').focus?.();
+  });
+});
 
 /* ONE PASS FOR EVERYTHING THE COLUMN SET DECIDES. The widths, the header
    row, the sort menu, the two placeholders and the tab marks all read the

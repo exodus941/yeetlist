@@ -672,7 +672,7 @@ body[data-note-open] { overflow: hidden }
 #listRuntime, #searchClear, #state, #tagSuggest, #tagBulkPanel,
 #typedConfirm, #importPanel, #driveConnect, #rateList, #noteLevelList,
 #driveGroup, #driveAlert, #tagFilterPanel, #sortList, #exportMenu, #filterPanel,
-#newNote, #noteEditor, #rateGroup {
+#newNote, #noteEditor, #rateGroup, #pager {
   transition:
     opacity var(--duration) var(--ease),
     display var(--duration) allow-discrete;
@@ -683,7 +683,7 @@ body[data-note-open] { overflow: hidden }
 #importPanel[hidden], #driveConnect[hidden], #driveGroup[hidden],
 #driveAlert[hidden], #tagFilterPanel[hidden], #sortList[hidden], #exportMenu[hidden],
 #rateList[hidden], #noteLevelList[hidden],
-#newNote[hidden], #noteEditor[hidden], #rateGroup[hidden],
+#newNote[hidden], #noteEditor[hidden], #rateGroup[hidden], #pager[hidden],
 #filterPanel[hidden] {
   opacity: 0;
 }
@@ -697,6 +697,7 @@ body[data-note-open] { overflow: hidden }
   #tagFilterPanel:not([hidden]), #sortList:not([hidden]), #exportMenu:not([hidden]),
   #rateList:not([hidden]), #noteLevelList:not([hidden]),
   #newNote:not([hidden]), #noteEditor:not([hidden]), #rateGroup:not([hidden]),
+  #pager:not([hidden]),
   #filterPanel:not([hidden]) {
     opacity: 0;
   }
@@ -3264,6 +3265,124 @@ th.amount { text-align: end }
 }
 
 .tag-probe .tag-chip { flex: 0 0 auto }
+
+/* ==========================================================================
+   Pager
+
+   FIFTY ROWS AT A TIME, AND THE REST BEHIND THIS. It sits outside the
+   scroller, so it stays put while the rows move under it.
+   ========================================================================== */
+
+/* TWO GROUPS, AND THE SLACK BETWEEN THEM. The readout is one thing and the
+   controls are another, so every spare pixel lands in one place. The declared
+   gap is the floor at the width where they wrap. 24 against the 4 inside the
+   run is 6:1.
+
+   `space-between`, NEVER AN AUTO MARGIN ON THE NAV. A margin cannot say
+   "first on this line". Written that way the nav read correctly on one line
+   and as an 85px indent on two, at 375px. `space-between` distributes along
+   each LINE, so one item alone on a line packs at its start.
+
+   TWO CHILDREN, SO THERE IS ONE GAP TO SPREAD THE SLACK ACROSS. The warning
+   about this mechanism is about a row of three, where the slack opens a hole
+   inside a group. */
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm) var(--space-xl);
+  margin-block-start: var(--space-xl);
+}
+
+.pager-count {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+/* The readout takes focus after a page change and is not a control, so it
+   shows no ring of its own. The reset already names [tabindex]. */
+.pager-count:focus-visible { outline: none }
+
+.pager-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+/* TWO PAGES OF THE SAME DIGIT COUNT ARE THE SAME BOX, or the run shifts
+   under the pointer as the reader walks along it. Measured before: page 1 at
+   39.3px against page 2 at 41.9, because a proportional face draws a one
+   narrower than a two. Tabular figures give every digit one width.
+
+   The floor is the control's own step, which makes a single digit square. A
+   two-digit page is legitimately wider, and stays put. */
+.pager-page {
+  min-inline-size: max(var(--control-md), var(--control-floor));
+  font-variant-numeric: tabular-nums;
+}
+
+/* The current page is marked by its fill, and the attribute is what says so
+   to a reader who hears the page rather than seeing it. */
+/* `--option-selected`, WHICH IS THE ONE FOR A PICK IN A RUN. `--row-selected`
+   is a table row's plane and sits on the row ladder with the stripe and the
+   hover. A page is an option, the way a menu option is.
+
+   THE FILL ALONE IS NOT ENOUGH HERE, AND THE NUMBER SAYS SO. A selected table
+   row is a band 1316px wide, so 1.2 against its neighbours is findable. A
+   43px button among four identical ones is not: measured at 1.31, with the
+   same ink and the same weight as every button beside it.
+
+   SO IT TAKES THE BAR THE TAB STRIP ALREADY USES. A run of destinations with
+   one of them current is the same pattern, and the accent bar is what this
+   app already draws for it. Reusing it beats inventing a second mark. */
+.pager-page[aria-current="page"] {
+  position: relative;
+  background: var(--option-selected);
+  color: var(--text);
+}
+
+.pager-page[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  inset-inline: var(--space-xs);
+  inset-block-end: var(--space-xs);
+  height: 2px; /* half-step: a rule's weight, like a hairline, not a step */
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+/* A FILL AND A PAINTED BAR ARE BOTH DISREGARDED IN FORCED COLORS, so the
+   current page would lose both its markers. An outline survives that mode and
+   costs no layout, which is what the tab strip does. */
+@media (forced-colors: active) {
+  .pager-page[aria-current="page"] { outline: 2px solid Highlight; outline-offset: -2px }
+}
+
+/* AN END KEEPS ITS PLACE IN THE TAB ORDER AND STOPS LOOKING LIVE.
+   `disabled` would take Previous out of reach on page one. */
+.pager-step[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pager-step[aria-disabled="true"]:hover {
+  background: none;
+  color: var(--text-muted);
+}
+
+/* ONE GLYPH, TWO ROTATIONS. The sprite holds a chevron pointing down, and a
+   typed guillemet comes from the text font with none of the stroke, size or
+   join the icon set states. */
+.pager-back { transform: rotate(90deg) }
+.pager-on { transform: rotate(-90deg) }
+
+/* A gap mark is not a control, so it is not a button and takes no target. */
+.pager-gap {
+  padding-inline: var(--space-2xs);
+  color: var(--text-quiet);
+}
 
 /* ==========================================================================
    Rating
