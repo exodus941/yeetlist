@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260921-25';
+const VERSION = '260921-26';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -510,16 +510,17 @@ function render() {
   /* THE SELECT AND THE STRIP SAY THE SAME THING, and only one of them is on
      screen. Its options carry the counts too, because the strip's counts are
      half of what a reader is choosing between. */
-  const select = $('#listSelect');
-  for (const option of select.options) {
+  for (const option of $$('#listSelectList .multi-option')) {
     /* THE STRIP'S OWN WORDS, from the markup rather than from the noun. The
        tab reads "YouTube Watchlist" and its noun is "Videos", so building
        the label from the noun would give the reader two different names for
        one list depending on the width. */
-    const n = videos.filter((v) => listOf(v) === option.value).length;
+    const n = videos.filter((v) => listOf(v) === option.dataset.value).length;
     option.textContent = `${option.dataset.label} (${n})`;
+    const on = option.dataset.value === tab;
+    option.setAttribute('aria-checked', on ? 'true' : 'false');
+    if (on) $('#listSelectValue').textContent = option.textContent;
   }
-  select.value = tab;
 
   /* The FIELD decides, never searchTerm. A run of spaces is a search nobody
      can see and still something to clear. */
@@ -3056,7 +3057,7 @@ $('.tabs').addEventListener('click', (event) => {
   if (button) showTab(button.dataset.tab);
 });
 
-$('#listSelect').addEventListener('change', (event) => showTab(event.target.value));
+
 
 /* ONE TAB STOP, AND THE ARROWS MOVE WITHIN IT. Home and End are part of the
    same pattern, and a two-tab strip still answers them. */
@@ -3383,9 +3384,6 @@ addEventListener('pointerdown', (event) => {
 
   if (!$('#exportMenu').hidden && !event.target.closest('.export-menu')) openExport(false);
 
-  if (!$('#sortList').hidden && !event.target.closest('.sort-multi')) openSort(false);
-  if (!$('#rateList').hidden && !event.target.closest('#rateTrigger') && !event.target.closest('#rateList')) openRate(false);
-
   /* The suggestion list is appended to the BODY so it can escape the panel's
      clipping, so it is outside #tagBulk. */
   if (bulkOpen && !event.target.closest('#tagBulk') && !event.target.closest('#tagSuggest')) {
@@ -3406,123 +3404,132 @@ $('thead').addEventListener('click', (event) => {
   dissolve();
 });
 
-/* ONE OPEN STATE, WRITTEN IN ONE PLACE, which is the export menu's own
-   pattern. The attribute on the trigger is what the chevron and a screen
-   reader both read, so the two cannot disagree. */
-function openSort(open) {
-  const menu = $('#sortList');
-  menu.hidden = !open;
-  $('#sortTrigger').setAttribute('aria-expanded', String(open));
-  if (open) {
-    (menu.querySelector('[aria-checked="true"]') || menu.querySelector('.multi-option'))?.focus();
-  }
+/* ==========================================================================
+   One pick menu, every caller
+
+   THE SORT CONTROL AND THE RATING CONTROL HELD THE SAME 45 LINES TWICE, and
+   the Style control in the note editor would have been a third copy. A
+   native select is not the alternative: this app took every one of those out
+   on purpose, because the operating system draws the option list and it
+   carries none of this file's colours, type or fades.
+
+   So the behaviour moves here and each caller states only what it picks.
+   Four things a menu owes, and each was written twice before: one open
+   state on the trigger, arrows that move within it, Escape that leaves, and
+   a press that closes before it acts.
+   ========================================================================== */
+
+const menus = [];
+
+function pickMenu({ trigger, list, wrapper, onPick }) {
+  const t = () => $(trigger);
+  const m = () => $(list);
+  const items = () => $$(`${list} .multi-option`);
+
+  /* ONE OPEN STATE, WRITTEN IN ONE PLACE. The attribute on the trigger is
+     what the chevron and a screen reader both read, so the two cannot
+     disagree. */
+  const open = (want) => {
+    m().hidden = !want;
+    t().setAttribute('aria-expanded', String(want));
+    if (want) {
+      (m().querySelector('[aria-checked="true"]') || m().querySelector('.multi-option'))?.focus();
+    }
+  };
+
+  $(trigger).addEventListener('click', () => open(m().hidden));
+
+  $(list).addEventListener('click', (event) => {
+    const option = event.target.closest('.multi-option');
+    if (!option) return;
+    /* CLOSE BEFORE ACTING. The pick can re-render the page, and a menu left
+       open over a rebuilt tree holds a detached element. */
+    open(false);
+    t().focus();
+    onPick(option.dataset.value, option);
+  });
+
+  /* ARROWS MOVE, ENTER AND SPACE PRESS, ESCAPE LEAVES. A menu is one tab
+     stop, so the items carry tabindex -1 and this moves focus between them.
+     A separator is not an item, so it is never in the ring. */
+  $(list).addEventListener('keydown', (event) => {
+    const all = items();
+    const at = all.indexOf(document.activeElement);
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      open(false);
+      return t().focus();
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const step = event.key === 'ArrowDown' ? 1 : -1;
+      return all[(at + step + all.length) % all.length]?.focus();
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      document.activeElement?.click();
+    }
+  });
+
+  $(trigger).addEventListener('keydown', (event) => {
+    if ((event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') && m().hidden) {
+      event.preventDefault();
+      open(true);
+    }
+  });
+
+  const menu = { open, wrapper, isOpen: () => !m().hidden };
+  menus.push(menu);
+  return menu;
 }
 
-const sortItems = () => $$('#sortList .multi-option');
+/* ONE OUTSIDE-CLICK RULE FOR ALL OF THEM, read on the CAPTURE phase. Where a
+   pointer went down is a fact about the moment the event started, and an
+   inner handler can rebuild the tree before the bubble phase reads it. */
+addEventListener('pointerdown', (event) => {
+  for (const menu of menus) {
+    if (menu.isOpen() && !event.target.closest(menu.wrapper)) menu.open(false);
+  }
+}, true);
 
-$('#sortTrigger').addEventListener('click', () => openSort($('#sortList').hidden));
-
-$('#sortList').addEventListener('click', (event) => {
-  const option = event.target.closest('.multi-option');
-  if (!option) return;
-  const value = option.dataset.value;
-
-  openSort(false);
-  $('#sortTrigger').focus();
-
-  /* A DIRECTION IS ITS OWN PICK. Applying it without touching the key is
-     what keeps the trigger showing both. */
-  if (value.startsWith('dir:')) sort.dir = Number(value.slice(4));
-  else sort.key = value;
-  dissolve();
+const sortMenu = pickMenu({
+  trigger: '#sortTrigger', list: '#sortList', wrapper: '.sort-multi',
+  onPick: (value) => {
+    /* A DIRECTION IS ITS OWN PICK. Applying it without touching the key is
+       what keeps the trigger showing both. */
+    if (value.startsWith('dir:')) sort.dir = Number(value.slice(4));
+    else sort.key = value;
+    dissolve();
+  },
 });
-
-/* ARROWS MOVE, ENTER AND SPACE PRESS, ESCAPE LEAVES. A menu is one tab stop,
-   so the items carry tabindex -1 and this moves the focus between them. The
-   separator is not an item, so it is never in the ring. */
-$('#sortList').addEventListener('keydown', (event) => {
-  const items = sortItems();
-  const at = items.indexOf(document.activeElement);
-
-  if (event.key === 'Escape') {
-    event.preventDefault();
-    openSort(false);
-    return $('#sortTrigger').focus();
-  }
-  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-    event.preventDefault();
-    const step = event.key === 'ArrowDown' ? 1 : -1;
-    return items[(at + step + items.length) % items.length]?.focus();
-  }
-  if (event.key === 'Enter' || event.key === ' ') {
-    event.preventDefault();
-    document.activeElement?.click();
-  }
-});
-
-$('#sortTrigger').addEventListener('keydown', (event) => {
-  if ((event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ')
-      && $('#sortList').hidden) {
-    event.preventDefault();
-    openSort(true);
-  }
-});
-
 /* ---- rating -------------------------------------------------------------- */
 
 /* ONE PICK, SO THE SAME MENU THE SORT CONTROL USES. Its parts are that
    control's, rather than the tag listbox's, because a listbox announces a
    multiple selection and this holds one value. */
-function openRate(open) {
-  const menu = $('#rateList');
-  menu.hidden = !open;
-  $('#rateTrigger').setAttribute('aria-expanded', String(open));
-  if (open) {
-    (menu.querySelector('[aria-checked="true"]') || menu.querySelector('.multi-option'))?.focus();
-  }
-}
-
-$('#rateTrigger').addEventListener('click', () => openRate($('#rateList').hidden));
-
-$('#rateList').addEventListener('click', (event) => {
-  const option = event.target.closest('.multi-option');
-  if (!option) return;
-  const value = option.dataset.value;
-
-  openRate(false);
-  $('#rateTrigger').focus();
-  ratingFilter = /^[0-9]+$/.test(value) ? Number(value) : value;
-  dissolve();
+/* THE NARROW-WIDTH LIST PICKER. Its call sits here with the others rather
+   than beside its own markup, because `menus` is declared here and a call
+   further up the file would run before that array exists. */
+pickMenu({
+  trigger: '#listSelectTrigger', list: '#listSelectList', wrapper: '#listSelect',
+  onPick: (value) => showTab(value),
 });
 
-$('#rateList').addEventListener('keydown', (event) => {
-  const items = $$('#rateList .multi-option');
-  const at = items.indexOf(document.activeElement);
-
-  if (event.key === 'Escape') {
-    event.preventDefault();
-    openRate(false);
-    return $('#rateTrigger').focus();
-  }
-  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-    event.preventDefault();
-    const step = event.key === 'ArrowDown' ? 1 : -1;
-    return items[(at + step + items.length) % items.length]?.focus();
-  }
-  if (event.key === 'Enter' || event.key === ' ') {
-    event.preventDefault();
-    document.activeElement?.click();
-  }
+/* THE NOTE EDITOR'S STYLE CONTROL, which was a native select until they
+   pointed at it. `setLevel` lives in notes-ui.js, which loads first. */
+pickMenu({
+  trigger: '#noteLevelTrigger', list: '#noteLevelList', wrapper: '#noteLevelMenu',
+  onPick: (value) => setLevel(value),
 });
 
-$('#rateTrigger').addEventListener('keydown', (event) => {
-  if ((event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ')
-      && $('#rateList').hidden) {
-    event.preventDefault();
-    openRate(true);
-  }
+const rateMenu = pickMenu({
+  trigger: '#rateTrigger', list: '#rateList', wrapper: '#rateGroup',
+  onPick: (value) => {
+    ratingFilter = /^[0-9]+$/.test(value) ? Number(value) : value;
+    dissolve();
+  },
 });
-
 /* ONE WRITER FOR THE VALUE. The pointer and the keys both land here, so the
    half step, the store and the repaint cannot be done one way in one place
    and another way in the other. */

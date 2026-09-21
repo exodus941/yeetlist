@@ -350,14 +350,29 @@
          against the 343 the row has. A run of destinations that does not fit
          is a list, and a list you pick from is a select.
 
-         IT IS A NATIVE SELECT, because a tab strip is one choice from a
-         short closed set and the platform's own control is the one every
-         reader already knows on a phone. The two write the same state. -->
-    <select id="listSelect" class="input list-select" aria-label="Which list">
-      <option value="youtube" data-label="YouTube Watchlist">YouTube Watchlist</option>
-      <option value="links" data-label="Other Bookmarks">Other Bookmarks</option>
-      <option value="notes" data-label="Notes">Notes</option>
-    </select>
+         IT IS THE APP'S OWN MENU, NOT A NATIVE SELECT. This shipped as one,
+         on the argument that the platform's control is the one a reader
+         knows. That argument is already answered in the stylesheet: every
+         native select here was removed, because the operating system draws
+         the option list and it carries none of this file's colours, type or
+         fades. Two of them had crept back. The two controls write the same
+         state either way. -->
+    <div class="multi list-select" id="listSelect">
+      <button class="multi-trigger" id="listSelectTrigger" type="button"
+              aria-expanded="false" aria-haspopup="menu" aria-controls="listSelectList">
+        <span class="multi-value" id="listSelectValue">YouTube Watchlist</span>
+        <svg class="icon multi-chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+      </button>
+      <ul class="multi-panel multi-list" id="listSelectList" role="menu" aria-label="Which list"
+          tabindex="-1" hidden>
+        <li class="multi-option" role="menuitemradio" tabindex="-1" data-value="youtube"
+            data-label="YouTube Watchlist" aria-checked="true">YouTube Watchlist</li>
+        <li class="multi-option" role="menuitemradio" tabindex="-1" data-value="links"
+            data-label="Other Bookmarks" aria-checked="false">Other Bookmarks</li>
+        <li class="multi-option" role="menuitemradio" tabindex="-1" data-value="notes"
+            data-label="Notes" aria-checked="false">Notes</li>
+      </ul>
+    </div>
   </section>
 
 
@@ -627,11 +642,25 @@
      guard can see it and it needs nothing built on demand.
      ========================================================================== -->
 <section id="noteEditor" class="note-editor" hidden aria-label="Note editor">
+  <!-- THE TITLE READS FIRST AND THE ACTIONS SIT AT THE FAR END. Their
+       instruction, 21 September 2026. The pen is the affordance: the field
+       is flat until it is focused, so nothing else says it can be typed in.
+
+       THE TITLE IS THE NOTE'S FIRST HEADING, never a second field beside
+       it. Typing here rewrites that heading, and a note with no heading
+       gains one. Two places holding one name is how they disagree. -->
   <header class="note-bar">
+    <div class="note-name">
+      <input id="noteTitle" class="note-title" type="text" aria-label="Note title"
+             placeholder="Untitled note" autocomplete="off" spellcheck="false" />
+      <button id="noteRename" class="btn btn-icon note-pen" type="button" aria-label="Edit the title">
+        <svg class="icon" aria-hidden="true"><use href="#i-pencil"/></svg>
+      </button>
+    </div>
+    <p id="noteState" class="note-state" role="status">Saved</p>
     <button id="noteBack" class="btn btn-icon" type="button" aria-label="Close the note">
       <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
     </button>
-    <p id="noteState" class="note-state" role="status">Saved</p>
     <button id="noteDelete" class="btn btn-icon btn-danger-outline" type="button" aria-label="Delete this note">
       <svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>
     </button>
@@ -642,39 +671,53 @@
        heading control is a select because six levels is a list rather than
        six more buttons. -->
   <div class="note-tools" role="toolbar" aria-label="Formatting">
-    <label class="note-level-label" for="noteLevel">Style</label>
-    <select id="noteLevel" class="input note-level" aria-label="Text style">
-      <option value="p">Body</option>
-      <option value="h1">Title</option>
-      <option value="h2">Heading</option>
-      <option value="h3">Subheading</option>
-      <option value="h4">Level 4</option>
-      <option value="h5">Level 5</option>
-      <option value="h6">Level 6</option>
-    </select>
+    <!-- THE APP'S OWN MENU, NOT A NATIVE SELECT. A native option list is
+         drawn by the operating system, so it takes none of this file's
+         colours, type or fades. That is why every other select here was
+         removed, and this one had put one back. -->
+    <div class="multi note-level" id="noteLevelMenu">
+      <button class="multi-trigger" id="noteLevelTrigger" type="button"
+              aria-expanded="false" aria-haspopup="menu" aria-controls="noteLevelList">
+        <span class="multi-value" id="noteLevelValue">Body</span>
+        <svg class="icon multi-chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+      </button>
+      <!-- THE NUMBER LEADS AND THE NAME FOLLOWS. Their instruction: a reader
+           picking a level wants the ladder, and the familiar name says what
+           that rung looks like. -->
+      <ul class="multi-panel multi-list" id="noteLevelList" role="menu" aria-label="Text style"
+          tabindex="-1" hidden>
+        <li class="multi-option" role="menuitemradio" tabindex="-1" data-value="p" aria-checked="true">Body</li>
+        <li class="multi-option" role="menuitemradio" tabindex="-1" data-value="h1" aria-checked="false">Level 1 (Title)</li>
+        <li class="multi-option" role="menuitemradio" tabindex="-1" data-value="h2" aria-checked="false">Level 2 (Heading)</li>
+        <li class="multi-option" role="menuitemradio" tabindex="-1" data-value="h3" aria-checked="false">Level 3 (Subheading)</li>
+        <li class="multi-option" role="menuitemradio" tabindex="-1" data-value="h4" aria-checked="false">Level 4</li>
+        <li class="multi-option" role="menuitemradio" tabindex="-1" data-value="h5" aria-checked="false">Level 5</li>
+        <li class="multi-option" role="menuitemradio" tabindex="-1" data-value="h6" aria-checked="false">Level 6</li>
+      </ul>
+    </div>
 
     <div class="note-tool-group">
-      <button class="btn btn-sm btn-icon note-tool" type="button" data-mark="bold" aria-label="Bold" aria-pressed="false">
+      <button class="btn btn-icon note-tool" type="button" data-mark="bold" aria-label="Bold" aria-pressed="false">
         <svg class="icon" aria-hidden="true"><use href="#i-bold"/></svg>
       </button>
-      <button class="btn btn-sm btn-icon note-tool" type="button" data-mark="italic" aria-label="Italic" aria-pressed="false">
+      <button class="btn btn-icon note-tool" type="button" data-mark="italic" aria-label="Italic" aria-pressed="false">
         <svg class="icon" aria-hidden="true"><use href="#i-italic"/></svg>
       </button>
       <!-- STRIKETHROUGH, NOT UNDERLINE. Markdown has no underline, and their
            choice was the emphasis that travels rather than raw HTML. -->
-      <button class="btn btn-sm btn-icon note-tool" type="button" data-mark="strike" aria-label="Strikethrough" aria-pressed="false">
+      <button class="btn btn-icon note-tool" type="button" data-mark="strike" aria-label="Strikethrough" aria-pressed="false">
         <svg class="icon" aria-hidden="true"><use href="#i-strike"/></svg>
       </button>
     </div>
 
     <div class="note-tool-group">
-      <button class="btn btn-sm btn-icon note-tool" type="button" data-mark="bullets" aria-label="Bulleted list" aria-pressed="false">
+      <button class="btn btn-icon note-tool" type="button" data-mark="bullets" aria-label="Bulleted list" aria-pressed="false">
         <svg class="icon" aria-hidden="true"><use href="#i-bullets"/></svg>
       </button>
-      <button class="btn btn-sm btn-icon note-tool" type="button" data-mark="numbers" aria-label="Numbered list" aria-pressed="false">
+      <button class="btn btn-icon note-tool" type="button" data-mark="numbers" aria-label="Numbered list" aria-pressed="false">
         <svg class="icon" aria-hidden="true"><use href="#i-numbers"/></svg>
       </button>
-      <button class="btn btn-sm btn-icon note-tool" type="button" data-mark="link" aria-label="Add a link" aria-pressed="false">
+      <button class="btn btn-icon note-tool" type="button" data-mark="link" aria-label="Add a link" aria-pressed="false">
         <svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>
       </button>
     </div>

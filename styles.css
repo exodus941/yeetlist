@@ -431,18 +431,68 @@ body[data-note-open] { overflow: hidden }
 .note-bar {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   padding: var(--space-sm) var(--space-lg);
   border-bottom: 1px solid var(--line);
 }
 
-/* THE STATE TAKES THE MIDDLE AND THE SLACK, so the two controls sit at the
-   ends and the word between them never moves as it changes. */
-.note-state {
+/* THE NAME TAKES THE SLACK, so the two actions sit at the far end however
+   long the title is. Their instruction, 21 September 2026. */
+.note-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
   flex: 1;
+  min-width: 0;
+}
+
+/* FLAT UNTIL IT IS FOCUSED. A bordered field in a title bar reads as a form,
+   and the note's name is not a form. The border arrives on focus, which is
+   the moment it is a field rather than a heading. */
+.note-title {
+  /* THE FIELD TAKES ITS TEXT, SO THE PEN SITS BESIDE THE WORDS. At `flex: 1`
+     it spanned the whole bar and put the pen 1500px from the title it
+     renames, which is the affordance pointing at nothing.
+
+     `field-sizing` IS THE ONLY WAY AN INPUT SIZES TO ITS CONTENT. Chrome has
+     it. Where a browser does not, the field falls back to its own default
+     width and still works, so nothing breaks and the pen still sits beside
+     it. */
+  field-sizing: content;
+  min-width: 12ch;
+  max-width: 100%;
+  height: max(var(--control-md), var(--control-floor));
+  padding: 0 var(--space-xs);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--text-md);
+  font-weight: 650;
+  outline: 0;
+  text-overflow: ellipsis;
+  transition: border-color var(--duration) var(--ease), background-color var(--duration) var(--ease);
+}
+
+.note-title::placeholder { color: var(--text-quiet) }
+.note-title:hover { border-color: var(--line) }
+.note-title:focus { border-color: #777; background: var(--surface-sunken) }
+
+/* THE PEN IS THE AFFORDANCE, so it fades where the field itself gives no
+   sign. It disappears once the field is focused, because by then the caret
+   says the same thing and the button has nothing left to offer. */
+.note-pen { color: var(--text-muted); flex: 0 0 auto }
+.note-name:focus-within .note-pen { opacity: 0 ; pointer-events: none }
+.note-pen { transition: opacity var(--duration) var(--ease), background-color var(--duration) var(--ease) }
+
+/* A READOUT, NOT A CONTROL, so it takes its own content and no slack. It
+   used to take the middle and every pixel between the two buttons. */
+.note-state {
+  flex: 0 0 auto;
   color: var(--text-muted);
   font-size: var(--text-xs);
-  text-align: center;
+  white-space: nowrap;
 }
 
 .note-tools {
@@ -452,7 +502,11 @@ body[data-note-open] { overflow: hidden }
   /* THE GAP BETWEEN GROUPS BEATS THE GAP INSIDE ONE, at 16 against 4, which
      is four to one and clear of the two the rule asks for. Without it the
      eight controls read as one run and the pairs mean nothing. */
-  gap: var(--space-sm) var(--space-lg);
+  /* ONE STEP ON BOTH AXES, BECAUSE THE CHILDREN ARE GROUPS. A wrapped run of
+     like buttons shares one gap in both directions, and this is the other
+     case: a line break here IS a boundary between the style control, the
+     marks and the lists. It read 8 down against 16 across. */
+  gap: var(--space-lg);
   padding: var(--space-sm) var(--space-lg);
   border-bottom: 1px solid var(--line);
 }
@@ -463,14 +517,25 @@ body[data-note-open] { overflow: hidden }
   gap: var(--space-xs);
 }
 
-.note-level-label {
-  color: var(--text-muted);
-  font-size: var(--text-2xs);
-  font-weight: 700;
-  letter-spacing: var(--track-label);
-}
+/* EVERYTHING IN A CONTROL ROW IS ONE HEIGHT, and this row held three. The
+   style control was a 36px field, the eight tool buttons were the 28px small
+   step, and a "Style" label sat at 16. Measured 21 September 2026: the box
+   was evenly padded at 8 above and below, and the reader still saw uneven
+   padding, because three heights in one row is what that looks like.
 
-.note-level { width: auto; min-width: 128px }
+   36 IS THE APP'S CONTROL HEIGHT. The search field, the tag filter and the
+   New note button all measure it. The label is gone with them: the trigger
+   states the level it is on, so a word beside it repeated nothing. */
+/* `.multi.note-level`, NEVER `.note-level` ALONE. The tag filter's `.multi`
+   states 160px and sits 1400 lines further down, so a rule of equal weight
+   up here lost on order and the control rendered at 160. A dead rule reads
+   as done.
+
+   168 IS MEASURED, NOT PICKED. "Level 3 (Subheading)" inks 117.72px, plus
+   the 8px mark gap, the 14px chevron, 12px of padding each side and the two
+   borders: 165.72. The next step on the 4px grid is 168. Recompute it if any
+   option's wording changes. */
+.multi.note-level { width: 168px; flex: 0 0 auto }
 
 /* A PRESSED TOOL IS A STATE, AND IT READS OFF aria-pressed RATHER THAN A
    CLASS. The attribute is what a screen reader hears, so a second marker
@@ -612,7 +677,7 @@ body[data-note-open] { overflow: hidden }
    rearranges, on each breakpoint a drag crosses. That is work nobody asked
    for at a width nobody stops at. */
 #listRuntime, #searchClear, #state, #tagSuggest, #tagBulkPanel,
-#typedConfirm, #importPanel, #driveConnect, #rateList,
+#typedConfirm, #importPanel, #driveConnect, #rateList, #noteLevelList, #listSelectList,
 #driveGroup, #driveAlert, #tagFilterPanel, #sortList, #exportMenu, #filterPanel,
 #newNote, #noteEditor, #rateGroup {
   transition:
@@ -624,7 +689,7 @@ body[data-note-open] { overflow: hidden }
 #tagBulkPanel[hidden], #typedConfirm[hidden],
 #importPanel[hidden], #driveConnect[hidden], #driveGroup[hidden],
 #driveAlert[hidden], #tagFilterPanel[hidden], #sortList[hidden], #exportMenu[hidden],
-#rateList[hidden],
+#rateList[hidden], #noteLevelList[hidden], #listSelectList[hidden],
 #newNote[hidden], #noteEditor[hidden], #rateGroup[hidden],
 #filterPanel[hidden] {
   opacity: 0;
@@ -637,7 +702,7 @@ body[data-note-open] { overflow: hidden }
   #importPanel:not([hidden]), #driveConnect:not([hidden]),
   #driveGroup:not([hidden]), #driveAlert:not([hidden]),
   #tagFilterPanel:not([hidden]), #sortList:not([hidden]), #exportMenu:not([hidden]),
-  #rateList:not([hidden]),
+  #rateList:not([hidden]), #noteLevelList:not([hidden]), #listSelectList:not([hidden]),
   #newNote:not([hidden]), #noteEditor:not([hidden]), #rateGroup:not([hidden]),
   #filterPanel:not([hidden]) {
     opacity: 0;
@@ -1553,7 +1618,7 @@ header {
    THE STRIP IS THE DEFAULT and this appears, rather than the other way
    round, because the wide layout is the one every other rule here is
    written against. */
-.list-select { display: none }
+.multi.list-select { display: none }
 
 /* A STRIP THAT DOES NOT FIT BECOMES A DROPDOWN, which is this file's own
    rule and what a third tab finally made bite. Two tabs fit everywhere;
@@ -1568,7 +1633,9 @@ header {
    changes, or if a fourth list is ever added. */
 @media (max-width: 459px) {
   .tabs { display: none }
-  .list-select { display: block; width: 100% }
+  /* `.multi.list-select`, or `.multi`'s own 160px wins on order. The picker
+     stands in for the whole strip, so it takes the strip's full width. */
+  .multi.list-select { display: block; width: 100% }
 }
 
 /* A TAB NEVER SHRINKS BELOW ITS OWN CONTENT. It wraps its children for the

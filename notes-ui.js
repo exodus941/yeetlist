@@ -82,10 +82,40 @@ async function openNote(id) {
 
   noteEl('noteState').textContent = 'Saved';
   noteEl('noteEditor').hidden = false;
+  paintTitle();
   document.body.dataset.noteOpen = '';
   syncTools();
   body.focus();
   caretToEnd(body);
+}
+
+/* ── The title ──────────────────────────────────────────────────────────
+ *
+ * THE FIELD EDITS THE NOTE'S FIRST BLOCK, and nothing else. `titleOf` reads
+ * the first heading, or the first line where there is none, so whatever the
+ * field shows is what that function will return. One name, one place.
+ *
+ * THAT IS ALSO THEIR SECOND RULE: a note added without a title takes its
+ * first line as the title. It always did, and now the field says so.
+ */
+function paintTitle() {
+  const field = noteEl('noteTitle');
+  /* NEVER WHILE THEY ARE TYPING IN IT. Writing the field's own value back
+     into it moves the caret to the end on every keystroke. */
+  if (document.activeElement === field) return;
+  const first = noteEl('noteBody').firstElementChild;
+  field.value = first ? first.textContent.trim() : '';
+}
+
+function renameNote(text) {
+  const body = noteEl('noteBody');
+  if (!body.firstElementChild) body.innerHTML = '<p><br></p>';
+  const first = body.firstElementChild;
+  /* A BLOCK EMPTIED OF TEXT STILL NEEDS A LINE BOX, or the block collapses
+     and the caret has nowhere to sit. */
+  if (text) first.textContent = text;
+  else first.innerHTML = '<br>';
+  saveNote();
 }
 
 function closeNote() {
@@ -215,7 +245,20 @@ function syncTools() {
     button.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
   const block = caretIn('h1,h2,h3,h4,h5,h6');
-  noteEl('noteLevel').value = block ? block.tagName.toLowerCase() : 'p';
+  setLevelValue(block ? block.tagName.toLowerCase() : 'p');
+}
+
+/* ONE WRITER FOR WHAT THE STYLE CONTROL SAYS. The trigger's words and the
+   ticked option are one fact, so a caret move and a pick cannot leave them
+   disagreeing. */
+function setLevelValue(level) {
+  const list = noteEl('noteLevelList');
+  if (!list) return;
+  for (const option of list.querySelectorAll('.multi-option')) {
+    const on = option.dataset.value === level;
+    option.setAttribute('aria-checked', on ? 'true' : 'false');
+    if (on) noteEl('noteLevelValue').textContent = option.textContent;
+  }
 }
 
 function caretIn(selector) {
@@ -298,6 +341,16 @@ document.addEventListener('click', (event) => {
   const tool = event.target.closest?.('.note-tool');
   if (tool) { runMark(tool.dataset.mark); return; }
 
+  /* THE PEN DOES WHAT THE FIELD DOES, so there is one way to rename a note
+     rather than two behaviours to keep in step. It selects the whole title,
+     because a reader pressing it means to replace the name. */
+  if (event.target.closest?.('#noteRename')) {
+    const field = noteEl('noteTitle');
+    field.focus();
+    field.select();
+    return;
+  }
+
   if (event.target.closest?.('#noteDelete') && noteOpen !== null) {
     const id = noteOpen;
     closeNote();
@@ -305,12 +358,20 @@ document.addEventListener('click', (event) => {
   }
 });
 
-document.addEventListener('change', (event) => {
-  if (event.target.id === 'noteLevel') setLevel(event.target.value);
+document.addEventListener('input', (event) => {
+  if (event.target.id === 'noteBody') { paintTitle(); saveNote(); }
+  if (event.target.id === 'noteTitle') renameNote(event.target.value);
 });
 
-document.addEventListener('input', (event) => {
-  if (event.target.id === 'noteBody') saveNote();
+/* ENTER LEAVES THE TITLE AND GOES BACK TO THE TEXT, because a title field
+   holds one line and the next thing a reader wants is the body. */
+document.addEventListener('keydown', (event) => {
+  if (event.target.id !== 'noteTitle') return;
+  if (event.key === 'Enter' || event.key === 'Escape') {
+    event.preventDefault();
+    event.stopPropagation();
+    noteEl('noteBody').focus();
+  }
 });
 
 document.addEventListener('paste', (event) => {
