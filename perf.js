@@ -14,21 +14,72 @@
    IT IS NOT A BENCHMARK OF THE PHONE. Every row runs on the same device in
    the same session, so only the DIFFERENCES between rows mean anything. */
 
-const CASES = [
-  ['as shipped', ''],
-  ['no list mask', '.table-wrap { -webkit-mask-image: none !important; mask-image: none !important }'],
-  ['no containment', '.table-wrap { contain: none !important }'],
-  ['no mask, no containment', '.table-wrap { -webkit-mask-image: none !important; mask-image: none !important; contain: none !important }'],
-  ['no list shadow or radius', '.table-wrap { border-radius: 0 !important } .card, .add-card { box-shadow: none !important }'],
-];
+/* ONE PROFILER, TWO SCENES. Their second report names the notification
+   rather than the filter panel: "the notification dismissal is still not
+   smooth on phones". Both are folds and they move different amounts of the
+   page, so each gets its own driver and its own candidates.
+
+   `?perf` runs the filter fold. `?perf=status` runs the notification. */
+const SCENES = {
+  fold: {
+    title: 'Fold profiler',
+    what: 'It folds the filter panel six times per row.',
+    /* THE FOLD IS DRIVEN BY ITS OWN CONTROL, never by writing the attribute.
+       A probe that sets the end state measures a state change rather than
+       the travel the reader complained about. */
+    async run(sleep) {
+      const funnel = document.querySelector('#filterToggle');
+      funnel.click();
+      await sleep(700);
+      funnel.click();
+      await sleep(700);
+    },
+    cases: [
+      ['as shipped', ''],
+      ['no list mask', '.table-wrap { -webkit-mask-image: none !important; mask-image: none !important }'],
+      ['no containment', '.table-wrap { contain: none !important }'],
+      ['no mask, no containment', '.table-wrap { -webkit-mask-image: none !important; mask-image: none !important; contain: none !important }'],
+      ['no list shadow or radius', '.table-wrap { border-radius: 0 !important } .card, .add-card { box-shadow: none !important }'],
+    ],
+  },
+
+  status: {
+    title: 'Notification profiler',
+    what: 'It shows a message and dismisses it, three times per row.',
+    /* THE MESSAGE IS SHOWN AND DISMISSED THE WAY A READER DOES IT. The cross
+       is the control, and `say` is the door every message comes through. */
+    async run(sleep) {
+      window.say?.('Added to your watchlist.');
+      await sleep(700);
+      document.querySelector('#addStatusDismiss')?.click();
+      await sleep(700);
+    },
+    /* THE NOTIFICATION MOVES THE WHOLE PAGE BELOW IT, which is more than the
+       filter fold moves. So the candidates are about what that travel costs
+       the things underneath, and about how many properties travel at once.
+       Three animate today: the grid track, the margin and the opacity. */
+    cases: [
+      ['as shipped', ''],
+      /* THE ROWS ARE THE COST, and skipping the ones nobody is looking at is
+         the only candidate that moved the number here. 130px is the CONTENT
+         height of a card, which is its 164px box less 34 of padding and
+         borders: `contain-intrinsic-size` states the content size and the
+         browser adds the rest. Stated as 164 the page came out 18.7% too
+         long. At 130 it is 0.18% short. */
+      ['rows skipped off screen', '.card, tbody tr { content-visibility: auto; contain-intrinsic-size: auto 130px }'],
+      ['list: layout paint', '.table-wrap { contain: layout paint !important }'],
+      ['no margin travel', '.status-line { transition: grid-template-rows var(--duration) var(--ease) !important; margin-block-start: var(--space-md) !important }'],
+      ['no clipper fade', '.status-clip { transition: none !important; opacity: 1 !important }'],
+      ['rows skipped, no clipper fade', '.card, tbody tr { content-visibility: auto; contain-intrinsic-size: auto 130px } .status-clip { transition: none !important; opacity: 1 !important }'],
+    ],
+  },
+};
+
+const chosen = /[?&]perf=status/.test(location.search) ? SCENES.status : SCENES.fold;
+const CASES = chosen.cases;
 
 const sheet = document.createElement('style');
 document.head.appendChild(sheet);
-
-/* THE FOLD IS DRIVEN BY ITS OWN CONTROL, never by writing the attribute. A
-   probe that sets the end state measures a state change rather than the
-   travel the reader complained about. */
-const funnel = () => document.querySelector('#filterToggle');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -49,10 +100,7 @@ async function timeOne() {
   requestAnimationFrame(tick);
 
   const start = performance.now();
-  funnel().click();
-  await sleep(700);
-  funnel().click();
-  await sleep(700);
+  await chosen.run(sleep);
   running = false;
 
   const ms = performance.now() - start;
@@ -102,7 +150,7 @@ function panel() {
     + 'padding:12px;border:1px solid #666;border-radius:8px;background:#111;color:#eee;'
     + 'font:12px/1.5 ui-monospace,monospace;max-height:70vh;overflow:auto';
   box.innerHTML = '<div style="display:flex;gap:8px;align-items:center">'
-    + '<strong style="flex:1">Fold profiler</strong>'
+    + `<strong style="flex:1">${chosen.title}</strong>`
     + '<button id="perfRun" style="min-height:44px;padding:0 12px">Run</button>'
     + '<button id="perfCopy" style="min-height:44px;padding:0 12px">Copy</button>'
     + '</div><pre id="perfOut" style="margin:8px 0 0;white-space:pre-wrap"></pre>';
@@ -115,7 +163,7 @@ function panel() {
   say(`rows: ${document.querySelectorAll('tbody tr').length}`
     + `\ndpr: ${devicePixelRatio}`
     + `\nwidth: ${document.documentElement.clientWidth}`
-    + '\n\nPress Run. It folds the filter panel six times per row.');
+    + `\n\nPress Run. ${chosen.what}`);
 
   box.querySelector('#perfRun').addEventListener('click', async () => {
     box.querySelector('#perfRun').disabled = true;

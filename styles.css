@@ -385,7 +385,7 @@ body[data-booting] > main { visibility: hidden }
   width: 100%;
   height: 4px;
   overflow: hidden;
-  border-radius: 2px;
+  border-radius: var(--radius-pill);
   background: var(--surface-raised);
 }
 
@@ -3960,6 +3960,30 @@ dialog menu {
     border: 1px solid var(--line);
     border-radius: var(--radius-sm);
     background: var(--surface);
+
+    /* A CARD NOBODY IS LOOKING AT IS NOT RENDERED. Their report: the
+       notification dismissal is still not smooth on phones. The message
+       changes the page's height on every frame, so every card below it is
+       laid out and painted again, and a long list makes that the whole cost.
+
+       MEASURED WITH THE IN-APP PROFILER at 375 with 413 cards, three
+       interleaved passes, driving the real cross: 23.7 fps as shipped
+       against 113.4 with this, and the worst frame gap 383.4ms against 50.
+       Nothing else moved it. Paint containment on the list gave 29.2,
+       dropping the margin travel 28.6, dropping the clipper's fade 33.5.
+
+       130px IS THE CONTENT HEIGHT, not the card's. `contain-intrinsic-size`
+       states the content box and the browser adds the padding and borders,
+       which here are 34. Stated as the 164 a card measures, the page came
+       out 18.7% too long and the scrollbar lied about it. At 130 it is 0.18%
+       short. `auto` then remembers each card's real height once it has been
+       seen, so a card with three lines of tags corrects itself.
+
+       IT IS THE CARD VIEW'S RULE BECAUSE A TABLE ROW CANNOT BE SIZE
+       CONTAINED. Measured at 1280: identical row height, identical scroll
+       height, no effect at all. Here the row is a grid, so it can. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 130px;
   }
 
   /* A card view is reached by a finger, so hover says nothing here and both

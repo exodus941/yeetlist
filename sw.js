@@ -28,6 +28,7 @@ const SHELL = [
   '/styles.css',
   '/app.js',
   '/drive.js',
+  '/privacy.html',
   '/manifest.webmanifest',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
@@ -49,6 +50,18 @@ self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const names = await caches.keys();
     await Promise.all(names.filter((n) => n !== CACHE).map((n) => caches.delete(n)));
+
+    /* AND THE CACHE HOLDS THE SHELL, NOTHING ELSE. A first version put every
+       same-origin file it fetched in here, including one-off URLs carrying a
+       cache-busting query. That grows without limit and it freezes files
+       nothing refreshes. Anything not in the list is dropped on activate. */
+    const cache = await caches.open(CACHE);
+    const wanted = new Set(SHELL);
+    for (const request of await cache.keys()) {
+      const url = new URL(request.url);
+      if (!wanted.has(url.pathname) || url.search) await cache.delete(request);
+    }
+
     await self.clients.claim();
   })());
 });
@@ -84,13 +97,29 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  /* CACHE FIRST FOR THE SHELL, AND ONLY FOR THE SHELL. A first version
+     answered every same-origin file from the cache and put whatever it
+     fetched there, so a file outside the list was frozen on its first load
+     and never revalidated. Measured on perf.js: an edited copy could not
+     reach the page at all.
+
+     The shell is the set the page compares ETags for, so it is the set that
+     can be refreshed. Anything else is network first with the cache behind
+     it, which is what makes it current online and present offline. */
+  /* ANYTHING OUTSIDE THE SHELL GOES STRAIGHT TO THE NETWORK and is not kept.
+     The shell is the set the page can compare ETags for, so it is the only
+     set that can be refreshed. Keeping anything else froze it on its first
+     load: measured on perf.js, where an edited copy could not reach the page
+     at all. */
+  if (!SHELL.includes(url.pathname) || url.search) return;
+
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    const hit = await cache.match(request);
+    const hit = await cache.match(url.pathname);
     if (hit) return hit;
     try {
       const live = await fetch(request);
-      if (live && live.ok) cache.put(request, live.clone());
+      if (live && live.ok) cache.put(url.pathname, live.clone());
       return live;
     } catch { return Response.error(); }
   })());

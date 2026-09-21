@@ -398,7 +398,27 @@ function ghostState (el, p) {
     }
     return false
   })()
-  return { folded, unchosen, report: !!p.ghost && !folded && !unchosen }
+  /* SKIPPED OFF SCREEN IS A DECLARATION, NOT A FAULT. `content-visibility:
+     auto` tells the browser not to render a subtree while it is out of
+     view, so every element inside one has a box and paints nothing. That is
+     the whole point of it, and it is what a long list uses to stop a fold
+     repainting a thousand rows.
+
+     THE ANCESTOR MUST ACTUALLY BE OUT OF VIEW. A card on screen renders
+     normally, so a genuine ghost inside one still reports. Asking only for
+     the property would blind the check for the whole list. */
+  const skipped = (() => {
+    const vh = innerHeight || document.documentElement.clientHeight;
+    const vw = innerWidth || document.documentElement.clientWidth;
+    for (let n = el.parentElement; n; n = n.parentElement) {
+      if (getComputedStyle(n).contentVisibility !== 'auto') continue
+      const b = n.getBoundingClientRect()
+      const onScreen = b.bottom > 0 && b.top < vh && b.right > 0 && b.left < vw
+      if (!onScreen) return true
+    }
+    return false
+  })()
+  return { folded, unchosen, skipped, report: !!p.ghost && !folded && !unchosen && !skipped }
 }
 
 /* ── THE GHOST PASS IS PROVEN ON EVERY PAGE, NOT REMEMBERED ──
@@ -445,6 +465,14 @@ function proveGhosts () {
           reports. Without the width guard the unchosen clause would silence a
           whole hidden row for sitting near a checkbox. */
     '<label id="l7"><input type="checkbox"><p id="g7" style="visibility:hidden;width:200px;height:24px">a whole row</p></label>',
+    /* 8. A CARD SKIPPED OFF SCREEN. Its child has a box and renders nothing,
+          by declaration, and that is not a fault. The fixture container is
+          already off screen, so the ancestor qualifies. */
+    '<div id="c8" style="content-visibility:auto;contain-intrinsic-size:auto 100px"><p id="g8" style="width:200px;height:24px">skipped</p></div>',
+    /* 9. THE NARROWING. The same property on a card that IS on screen still
+          reports a genuinely hidden child, or the clause would silence the
+          whole list rather than the part nobody is looking at. */
+    '<div id="c9" style="content-visibility:auto;contain-intrinsic-size:auto 100px;position:fixed;left:0;top:0"><p id="g9" style="visibility:hidden;width:200px;height:24px">on screen</p></div>',
   ].join('')
   document.body.appendChild(box)
   const ask = id => {
@@ -460,6 +488,8 @@ function proveGhosts () {
     ['a tick hidden while the box IS checked reports', 'g5', true],
     ['a hidden summary reports, closed or not', 'g6', true],
     ['a wide hidden box beside a checkbox is not a tick', 'g7', true],
+    ['a card skipped off screen is quiet', 'g8', false],
+    ['a hidden child of an ON SCREEN skippable card reports', 'g9', true],
   ]
   const rows = cases.map(([label, id, want]) => {
     const s = ask(id)
@@ -481,8 +511,12 @@ function probe (sel) {
 
   /* Paint before anything else. Measuring the alignment of something nobody
      can see is a waste, and reporting it as fine is worse. */
+  /* ONE SCORER, EVERY CALLER. This asked `p.ghost` directly while the sweep
+     asked `ghostState`, so a clause added to the scorer reached one of them.
+     Measured when the row-skipping clause landed: the sweep went quiet and
+     this reported 415 findings on the same page. */
   const p = paintOf(el)
-  if (p.ghost) return { el: _name(el, 34),
+  if (ghostState(el, p).report) return { el: _name(el, 34),
     paint: p, clean: false,
     findings: ['GHOST: this has a box of ' + p.rect.w + ' by ' + p.rect.h +
                ' and the engine renders none of it. Fix that before measuring anything else.'] }
@@ -1082,8 +1116,8 @@ function sweep (within = null, exclude = null) {
   const PAINT_SEL = 'button, a, input, select, textarea, img, svg, .btn, .nav-item, .badge, .card, li, td, th, h1, h2, h3, h4, h5, h6, p, label, summary'
   for (const el of [...root.querySelectorAll(PAINT_SEL)].filter(el => !skip(el))) {
     const p = paintOf(el)
-    const { folded, unchosen } = ghostState(el, p)
-    if (p.ghost && !folded && !unchosen) out.ghosts.push({
+    const { folded, unchosen, skipped } = ghostState(el, p)
+    if (p.ghost && !folded && !unchosen && !skipped) out.ghosts.push({
       el: name(el), text: (el.textContent || '').trim().slice(0, 20),
       rect: p.rect, why: 'has a box but the engine renders nothing',
     })
