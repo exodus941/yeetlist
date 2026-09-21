@@ -2990,7 +2990,26 @@ function sweep (within = null, exclude = null) {
       const h = box.height + over.top + over.bottom
       const w = box.width + over.left + over.right
       const reached = over.top || over.bottom || over.left || over.right
-      if ((h < floor || w < floor) && !inlineInProse()) out.smallTargets.push({ el: name(measuredOn),
+      /* ── A CONTROL NOBODY CAN SEE IS ABSENT, NOT SMALL ──
+       *
+       * A hidden button measures 0 by 0, and zero is under every floor, so
+       * this reported it as a target 24px short on both axes. Nothing can be
+       * done about it: the repair for a 0x0 target is to show the control,
+       * which is a different decision entirely.
+       *
+       * Measured 21 September 2026 on one app: 2 findings on a clean page,
+       * a button hidden with the `hidden` attribute and one inside a closed
+       * panel. Both correct code, and they were the whole finding list.
+       *
+       * ASK THE ENGINE, NOT THE BOX. `checkVisibility` answers for the
+       * attribute, for `display: none` on any ancestor, and for a collapsed
+       * `content-visibility` subtree. A box of zero on either axis is the
+       * same fact reached a second way, and it catches a control clipped to
+       * nothing by an ancestor that still reports itself visible. */
+      const unseen = !measuredOn.checkVisibility({ checkOpacity: false, checkVisibilityCSS: true })
+        || box.width === 0 || box.height === 0
+
+      if ((h < floor || w < floor) && !inlineInProse() && !unseen) out.smallTargets.push({ el: name(measuredOn),
                                              w: Math.round(w), h: Math.round(h), floor,
                                              axis: h < floor && w < floor ? 'both' : (h < floor ? 'height' : 'width'),
                                              for: coarse ? 'touch' : 'mouse',

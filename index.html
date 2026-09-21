@@ -103,7 +103,7 @@
 
 <main class="shell">
 
-  <header>
+  <header class="page-head">
     <div class="brand">
       <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg></span>
       <span>YeeTlist</span>
@@ -643,8 +643,12 @@
      ========================================================================== -->
 <section id="noteEditor" class="note-editor" hidden aria-label="Note editor">
   <!-- THE TITLE READS FIRST AND THE ACTIONS SIT AT THE FAR END. Their
-       instruction, 21 September 2026. The pen is the affordance: the field
-       is flat until it is focused, so nothing else says it can be typed in.
+       instruction, 21 September 2026.
+
+       AND NO PEN BESIDE IT. It shipped as the affordance and they asked for
+       it to go: clicking the name already does the job, so the button was a
+       second way to reach one field. Their words: "maybe the pen icon isn't
+       necessary at all."
 
        THE TITLE IS THE NOTE'S FIRST HEADING, never a second field beside
        it. Typing here rewrites that heading, and a note with no heading
@@ -653,9 +657,6 @@
     <div class="note-name">
       <input id="noteTitle" class="note-title" type="text" aria-label="Note title"
              placeholder="Untitled note" autocomplete="off" spellcheck="false" />
-      <button id="noteRename" class="btn btn-icon note-pen" type="button" aria-label="Edit the title">
-        <svg class="icon" aria-hidden="true"><use href="#i-pencil"/></svg>
-      </button>
     </div>
     <p id="noteState" class="note-state" role="status">Saved</p>
     <button id="noteBack" class="btn btn-icon" type="button" aria-label="Close the note">

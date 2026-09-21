@@ -479,13 +479,6 @@ body[data-note-open] { overflow: hidden }
 .note-title:hover { border-color: var(--line) }
 .note-title:focus { border-color: #777; background: var(--surface-sunken) }
 
-/* THE PEN IS THE AFFORDANCE, so it fades where the field itself gives no
-   sign. It disappears once the field is focused, because by then the caret
-   says the same thing and the button has nothing left to offer. */
-.note-pen { color: var(--text-muted); flex: 0 0 auto }
-.note-name:focus-within .note-pen { opacity: 0 ; pointer-events: none }
-.note-pen { transition: opacity var(--duration) var(--ease), background-color var(--duration) var(--ease) }
-
 /* A READOUT, NOT A CONTROL, so it takes its own content and no slack. It
    used to take the middle and every pixel between the two buttons. */
 .note-state {
@@ -993,7 +986,16 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
    error. Wrap costs nothing where it fits and is the only thing that gives
    where it does not. The row carries its own auto margin, so a wrapped line
    keeps the end it had beside the brand. */
-header {
+/* `.page-head`, NEVER A BARE `header`. This is the app's own top bar, and a
+   tag selector reaches every header anywhere. The note editor's bar is one,
+   so it took this rule's 24px bottom margin, its `space-between` and its
+   wrap. Measured 21 September 2026: 24px of empty band sat between the title
+   bar and the toolbar, so the reader saw 32px above the toolbar's controls
+   against 8 below and reported the padding as uneven. It was even. The gap
+   above it was not.
+
+   A CLASS CANNOT REACH SOMETHING NOBODY GAVE IT TO. */
+.page-head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -3163,6 +3165,10 @@ tbody tr:last-child td { border-bottom: 0 }
 /* A row plane says what it is. Hover is a pointer, selection is a choice, and
    a selected row under the pointer is both. */
 tbody tr { transition: background-color var(--duration) var(--ease) }
+/* THE WHOLE ROW OPENS IT, so the whole row says so. The cells that do
+   something else carry their own cursor, and a control inside the row states
+   its own. */
+tbody tr { cursor: pointer }
 tbody tr:hover { background: var(--row-hover) }
 tbody tr.row-selected { background: var(--row-selected) }
 
@@ -3975,7 +3981,7 @@ dialog menu {
 
   .sync-words { display: none }
 
-  header { gap: var(--space-sm) }
+  .page-head { gap: var(--space-sm) }
 
   /* The header's actions do not fit beside the brand with their labels on:
      measured 1077px of content in a 375px viewport, 702px of it off screen
@@ -4009,7 +4015,7 @@ dialog menu {
      44px buttons 3.5px below the wordmark's own optical centre.
 
      Baseline is right at wide widths, where the row carries words. */
-  header { align-items: center }
+  .page-head { align-items: center }
 
   .sync-row .btn {
     aspect-ratio: 1;

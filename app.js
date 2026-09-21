@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260921-26';
+const VERSION = '260921-27';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -3005,6 +3005,41 @@ async function drivePush() {
 /* ==========================================================================
    Wiring
    ========================================================================== */
+
+/* ==========================================================================
+   The whole row opens it
+
+   THEIR INSTRUCTION, 21 September 2026: every row opens, not just the title.
+   The exceptions they named are the controls that do something else: the
+   rating stars, the add-tag button and its field, a tag's remove cross, the
+   rename pencil and the delete cross.
+
+   ASK WHETHER THE THING PRESSED IS A CONTROL, never which control it is. A
+   name list approves whatever nobody thought of, and this row gains controls.
+   Anything focusable or pressable answers for itself, which covers all five
+   they named, the selection checkbox, and the title link that already worked.
+
+   THE KEYBOARD PATH IS UNCHANGED. A table row cannot take focus, so the
+   title stays the control a reader tabs to and presses. This is a wider
+   target for a pointer rather than a second way in.
+   ========================================================================== */
+const CONTROLS = 'a, button, input, textarea, select, label, [role="slider"], [tabindex]';
+
+document.addEventListener('click', (event) => {
+  const tr = event.target.closest?.('tbody tr');
+  if (!tr || !tr.dataset.id) return;
+  if (event.target.closest(CONTROLS)) return;
+
+  /* A MODIFIED CLICK BELONGS TO THE BROWSER, and a drag that selected words
+     is not a press. Opening on either would take something away. */
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  if (!getSelection()?.isCollapsed) return;
+
+  const item = videos.find((v) => v.id === tr.dataset.id);
+  if (!item) return;
+  if (listOf(item) === 'notes') return openNote(item.id);
+  window.open(hrefOf(item), '_blank', 'noopener');
+});
 
 $('#addBtn').addEventListener('click', addVideo);
 $('#videoUrl').addEventListener('keydown', (event) => { if (event.key === 'Enter') addVideo(); });

@@ -341,16 +341,6 @@ document.addEventListener('click', (event) => {
   const tool = event.target.closest?.('.note-tool');
   if (tool) { runMark(tool.dataset.mark); return; }
 
-  /* THE PEN DOES WHAT THE FIELD DOES, so there is one way to rename a note
-     rather than two behaviours to keep in step. It selects the whole title,
-     because a reader pressing it means to replace the name. */
-  if (event.target.closest?.('#noteRename')) {
-    const field = noteEl('noteTitle');
-    field.focus();
-    field.select();
-    return;
-  }
-
   if (event.target.closest?.('#noteDelete') && noteOpen !== null) {
     const id = noteOpen;
     closeNote();
