@@ -13,32 +13,10 @@
  * name and run here, so a rewrite of any of them fails this rather than
  * leaving a copy in a test that agrees with itself.
  */
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { appSource, slice as sliceOne } from './slice-app.mjs';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const src = readFileSync(join(root, 'app.js'), 'utf8');
-
-/* A TOP-LEVEL DECLARATION IN THIS FILE STARTS AT COLUMN 0 AND ENDS AT ONE.
-   Counting brackets from the opening line and stopping where the depth
-   returns to zero takes the whole body, nested functions included. */
-function slice(name) {
-  const lines = src.split('\n');
-  const head = new RegExp(`^(?:function|const|let) ${name}\\b`);
-  const start = lines.findIndex((l) => head.test(l));
-  if (start < 0) throw new Error(`notes file guard: no declaration for ${name}`);
-
-  let depth = 0;
-  for (let i = start; i < lines.length; i += 1) {
-    for (const ch of lines[i]) {
-      if (ch === '{' || ch === '(' || ch === '[') depth += 1;
-      if (ch === '}' || ch === ')' || ch === ']') depth -= 1;
-    }
-    if (depth <= 0) return lines.slice(start, i + 1).join('\n');
-  }
-  throw new Error(`notes file guard: ${name} never closes`);
-}
+const src = appSource();
+const slice = (name) => sliceOne(src, name);
 
 const NAMES = [
   'DEAD_TAG', 'PAYLOAD_VERSION', 'sortTags', 'ordered', 'normalise', 'listOf',

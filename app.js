@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260921-30';
+const VERSION = '260921-31';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -198,6 +198,29 @@ const listOf = (v) => {
 let videos = [];
 let tombstones = [];
 let selected = new Set();
+
+/* ==========================================================================
+   A selection per tab, out of one set
+
+   THEIR INSTRUCTION, 21 September 2026: switching tabs keeps every
+   selection, and Delete Selected removes only the rows picked on the tab
+   they are looking at. The other tabs hold theirs until the page is
+   reloaded.
+
+   ONE SET, SCOPED AT EVERY READER. A set per tab would be three things to
+   keep in step with one list of records, and a row deleted on one tab would
+   have to be hunted in the other two. This holds every id and each action
+   asks for the ones on this tab.
+
+   AND A SYNC CANNOT TOUCH IT. The ids come from `videos`, so a record that
+   arrives, changes or leaves moves through here without anybody clearing
+   anything. An id whose record is gone simply stops being returned. */
+const pickedHere = () => videos.filter((v) => listOf(v) === tab && selected.has(v.id)).map((v) => v.id);
+const pickedCount = () => pickedHere().length;
+
+/* THE LIST'S OWN NOUN, because "2 videos selected" over a list of notes is
+   the same fault the delete dialog carried. */
+const nounFor = (n) => LISTS[tab].noun[n === 1 ? 0 : 1].toLowerCase();
 /* Each list keeps its own sort, because they share no columns beyond two.
    One shared key would leave the bookmarks sorted by a duration they have
    none of the moment a reader switched tabs. */
@@ -621,12 +644,15 @@ function renderSelection() {
     box.disabled = filtered.length === 0;
   });
 
-  $('#deleteSelected').disabled = selected.size === 0;
-  $('#tagSelected').disabled = selected.size === 0;
+  /* THIS TAB'S PICKS, NEVER THE WHOLE SET. Both buttons act on the rows in
+     front of the reader, so both are lit by those and nothing else. */
+  const here = pickedCount();
+  $('#deleteSelected').disabled = here === 0;
+  $('#tagSelected').disabled = here === 0;
 
   /* A panel about a selection cannot outlive it. Deselecting the last row
      with the panel open would leave two buttons acting on nothing. */
-  if (bulkOpen && !selected.size) closeBulk();
+  if (bulkOpen && !here) closeBulk();
   else if (bulkOpen) renderBulk();
 }
 
@@ -1328,8 +1354,8 @@ function removePendingTag(tag) {
 }
 
 function applyPendingTags() {
-  if (!pendingTags.length || !selected.size) return;
-  const ids = new Set(selected);
+  const ids = new Set(pickedHere());
+  if (!pendingTags.length || !ids.size) return;
   const added = pendingTags.length;
 
   videos = videos.map((v) =>
@@ -1339,12 +1365,12 @@ function applyPendingTags() {
   pendingTags = [];
   closeBulk({ refocus: true });
   dissolve();
-  say(`Added ${added} tag${added === 1 ? '' : 's'} to ${ids.size} video${ids.size === 1 ? '' : 's'}.`);
+  say(`Added ${added} tag${added === 1 ? '' : 's'} to ${ids.size} ${nounFor(ids.size)}.`);
 }
 
 function clearSelectedTags() {
-  if (!selected.size) return;
-  const ids = new Set(selected);
+  const ids = new Set(pickedHere());
+  if (!ids.size) return;
   const touched = videos.filter((v) => ids.has(v.id) && (v.tags || []).length).length;
   if (!touched) return;
 
@@ -1355,13 +1381,13 @@ function clearSelectedTags() {
 
   closeBulk({ refocus: true });
   dissolve();
-  say(`Cleared the tags from ${touched} video${touched === 1 ? '' : 's'}.`);
+  say(`Cleared the tags from ${touched} ${nounFor(touched)}.`);
 }
 
 function renderBulk() {
-  const count = selected.size;
-  $('#tagBulkCount').textContent =
-    `${count} video${count === 1 ? '' : 's'} selected`;
+  const picked = new Set(pickedHere());
+  const count = picked.size;
+  $('#tagBulkCount').textContent = `${count} ${nounFor(count)} selected`;
 
   $('#tagBulkTags').innerHTML = `
     ${pendingTags.map((t) => `<span class="tag-chip">
@@ -1372,7 +1398,7 @@ function renderBulk() {
     <span class="tag-add" data-expanded="true">
       <label class="tag-input-hit">
         <input class="tag-input" placeholder="Tag name"
-               aria-label="Tags to apply to the selected videos" autocomplete="off"
+               aria-label="Tags to apply to the selected ${escape(nounFor(2))}" autocomplete="off"
                role="combobox" aria-expanded="false" aria-autocomplete="list"
                aria-controls="tagSuggest">
       </label>
@@ -1382,11 +1408,11 @@ function renderBulk() {
   /* Nothing to clear is not the same as nothing selected, and both disable
      it. A button that runs and changes nothing reads as broken. */
   $('#tagBulkClear').disabled =
-    !count || !videos.some((v) => selected.has(v.id) && (v.tags || []).length);
+    !count || !videos.some((v) => picked.has(v.id) && (v.tags || []).length);
 }
 
 function openBulk() {
-  if (bulkOpen || !selected.size) return;
+  if (bulkOpen || !pickedCount()) return;
   bulkOpen = true;
   $('#tagBulkPanel').hidden = false;
   $('#tagSelected').setAttribute('aria-expanded', 'true');
@@ -3081,8 +3107,13 @@ const TAB_STORE = 'yeetlist-tab';
 
 /* A FILTER BELONGS TO THE LIST IT WAS SET ON. Carried across, a tag the other
    list has none of would show an empty table and a menu with no such option
-   to turn off. The selection goes for the same reason: Delete Selected must
-   never act on rows the reader cannot see. */
+   to turn off.
+
+   THE SELECTION DOES NOT GO WITH IT. This comment used to say it did, and
+   for the same reason: Delete Selected must never act on rows the reader
+   cannot see. That reason is answered a better way now. Every reader is
+   scoped to the current tab, so the button acts on what is in front of them
+   whether or not the other tabs hold anything. */
 function showTab(next) {
   if (next === tab || !LISTS[next]) return;
   tab = next;
@@ -3090,7 +3121,9 @@ function showTab(next) {
   activeTags.clear();
   untaggedOnly = false;
   ratingFilter = 'any';
-  selected.clear();
+  /* THE SELECTION SURVIVES THE SWITCH. It used to be cleared here, and every
+     reader is scoped to this tab now, so the other two keep theirs until the
+     page is reloaded. */
   closeBulk();
   searchTerm = '';
   $('#search').value = '';
@@ -3849,7 +3882,7 @@ function collapseTagField(wrap) {
   wrap.querySelector('.tag-input').value = '';
 }
 
-$('#deleteSelected').addEventListener('click', () => openDelete(selected));
+$('#deleteSelected').addEventListener('click', () => openDelete(pickedHere()));
 
 $('#tagSelected').addEventListener('click', () => {
   if (bulkOpen) closeBulk(); else openBulk();

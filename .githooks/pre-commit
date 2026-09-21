@@ -14,6 +14,10 @@ node tools/listing-guard.mjs
 node tools/notes-guard.mjs
 node tools/notes-file-guard.mjs
 
+# A selection per tab, out of one set. Eleven readers share it, and any one
+# of them forgetting to scope acts on rows nobody can see.
+node tools/selection-guard.mjs
+
 # The share patch runs only in CI, where nothing watches it. Its clauses are
 # proven here instead, so a clause that stops firing fails a commit.
 node tools/android-share-fix.mjs --self-test
