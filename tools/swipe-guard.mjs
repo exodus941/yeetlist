@@ -195,7 +195,7 @@ ok('the flag expires on a clock', /event\.timeStamp - swiped > SWIPE_CLICK_MS/.t
 /* ONE WRITER FOR WHICH TAB IS NEXT. The arrows and the swipe read the strip's
    own order, so a fourth tab needs no edit in either. */
 ok('the arrows and the swipe share one stepper',
-  /function stepTab\(by\)/.test(code) && (code.match(/stepTab\(/g) || []).length >= 2);
+  /function stepTab\(by/.test(code) && (code.match(/stepTab\(/g) || []).length >= 2);
 ok('and it reads the strip rather than a list of names',
   /function stepTab[\s\S]{0,200}\$\$\('\.tab'\)/.test(code));
 
@@ -204,8 +204,36 @@ ok('and it reads the strip rather than a list of names',
    left when it's supposed to go right (and vice versa), it's completely
    counterintuitive." I shipped the carousel reading, where the content
    follows the finger. Theirs is the other convention and it is their app. */
-ok('a swipe right steps forward', /stepTab\(dx > 0 \? 1 : -1\)/.test(code),
-  (code.match(/stepTab\(dx[^)]*\)/) || ['none'])[0]);
+ok('a swipe right steps forward', /stepTab\(dx > 0 \? 1 : -1/.test(code),
+  (code.match(/stepTab\(dx[^;]*/) || ['none'])[0]);
+
+/* AND A SWIPE DOES NOT ANIMATE, WHICH IS WHY IT COULD NOT REPEAT. Their
+   report, 22 September 2026: "i can't swipe rapidly between tabs, there is a
+   1-2-second gap after swiping to a new tab during which additional swipes
+   are not accepted. that needs to go."
+
+   A switch runs TWO view transitions at the fold duration, and the browser
+   snapshots the document for each. A second one while the first runs is
+   skipped. On a phone that capture is the gap. */
+ok('a swipe asks for no animation', /stepTab\(dx > 0 \? 1 : -1, \{ animate: false \}\)/.test(code),
+  (code.match(/stepTab\(dx[^;]*/) || ['none'])[0]);
+
+/* AND A CLICK KEEPS IT, because a click carries no motion of its own. */
+{
+  const show = code.slice(code.indexOf('function showTab('),
+    code.indexOf("$('.tabs').addEventListener('click'"));
+  ok('the animation is on by default', /animate = true/.test(show), show.slice(0, 80));
+  ok('and it is skipped when refused', /if \(animate\) dissolve\(/.test(show));
+  ok('the plain path still renders', /else \{ render\(\);/.test(show));
+  /* THE FOCUS STILL LANDS ON EITHER PATH, or the arrow keys lose their place
+     the day somebody turns the animation off for them too. */
+  ok('and it still focuses on the plain path', /else \{ render\(\); if \(focus\)/.test(show));
+}
+
+/* THE STEPPER PASSES THE CHOICE THROUGH rather than deciding it, so the
+   arrows and the swipe can differ without a second stepper. */
+ok('the stepper carries the choice', /function stepTab\(by, how = \{\}\)/.test(code));
+ok('and hands it to showTab', /showTab\(order\[to\]\.dataset\.tab, how\)/.test(code));
 
 /* -- 7. The focus ring belongs to the keyboard ----------------------------- */
 /* Their report: "there's a weird white rectangle showing up around the
@@ -216,9 +244,10 @@ ok('a swipe right steps forward', /stepTab\(dx > 0 \? 1 : -1\)/.test(code),
   const show = code.slice(code.indexOf('function showTab('),
     code.indexOf("$('.tabs').addEventListener('click'"));
   ok('showTab was found', show.length > 200, String(show.length));
-  ok('it takes a focus flag that defaults to off',
-    /function showTab\(next, \{ focus = false \} = \{\} \)?/.test(show)
-    || /function showTab\(next, \{ focus = false \} = \{\}\)/.test(show), show.slice(0, 60));
+  /* ASK FOR THE FLAG, NOT THE WHOLE SIGNATURE. This named every argument, so
+     adding `animate` beside `focus` failed a check about focus. */
+  ok('it takes a focus flag that defaults to off', /focus = false/.test(show),
+    show.slice(0, 80));
   ok('and only focuses when asked', /dissolve\(focus \?/.test(show));
 
   /* AND IT FOCUSES THE TAB THAT IS CURRENT. The old line named youtube or

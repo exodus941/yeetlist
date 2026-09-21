@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-6';
+const VERSION = '260922-7';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -3454,7 +3454,7 @@ const TAB_STORE = 'yeetlist-tab';
    cannot see. That reason is answered a better way now. Every reader is
    scoped to the current tab, so the button acts on what is in front of them
    whether or not the other tabs hold anything. */
-function showTab(next, { focus = false } = {}) {
+function showTab(next, { focus = false, animate = true } = {}) {
   if (next === tab || !LISTS[next]) return;
   tab = next;
   sort = sorts[tab];
@@ -3485,7 +3485,21 @@ function showTab(next, { focus = false } = {}) {
      AND IT FOCUSED THE WRONG TAB. The old line named youtube or links and
      never notes, so switching to Notes put the ring on YouTube. `tab` is the
      one that is current. */
-  dissolve(focus ? () => $('#tab-' + tab).focus() : undefined, 'tab');
+  /* AND A SWIPE DOES NOT ANIMATE, WHICH IS WHY IT COULD NOT REPEAT. Their
+     report, 22 September 2026: "i can't swipe rapidly between tabs, there is
+     a 1-2-second gap after swiping to a new tab during which additional
+     swipes are not accepted. that needs to go."
+
+     A switch runs TWO view transitions at the fold duration: the pill and the
+     whole page cross-fading. The browser snapshots the document for each, and
+     a second `startViewTransition` while one runs is skipped. On a phone that
+     capture is the gap they felt.
+
+     A SWIPE IS ALREADY MOTION. The reader's own finger moved, so a cross-fade
+     adds nothing and costs the next swipe. A click has no motion of its own
+     and keeps it. */
+  if (animate) dissolve(focus ? () => $('#tab-' + tab).focus() : undefined, 'tab');
+  else { render(); if (focus) $('#tab-' + tab).focus(); }
 }
 
 $('.tabs').addEventListener('click', (event) => {
@@ -3508,12 +3522,12 @@ $('.tabs').addEventListener('keydown', (event) => {
 
 /* ONE WRITER FOR "WHICH TAB IS NEXT", read by the arrows above and the swipe
    below. The strip's own order decides, so a fourth tab needs no edit here. */
-function stepTab(by) {
+function stepTab(by, how = {}) {
   const order = $$('.tab');
   const at = order.findIndex((b) => b.dataset.tab === tab);
   const to = at + by;
   if (to < 0 || to >= order.length) return false;
-  showTab(order[to].dataset.tab);
+  showTab(order[to].dataset.tab, how);
   return true;
 }
 
@@ -3631,7 +3645,7 @@ const takeSwipe = (event) => {
      I shipped the other reading, where the content follows the finger the way
      a carousel does. That is one convention, and theirs is the other. This is
      their app. */
-  stepTab(dx > 0 ? 1 : -1);
+  stepTab(dx > 0 ? 1 : -1, { animate: false });
 };
 
 addEventListener('pointermove', takeSwipe, true);
