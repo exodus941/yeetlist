@@ -88,6 +88,21 @@ wants pictures of the app as it runs, and a mockup drawn beside it would be a
 picture of something nobody can install. These were taken from the signed APK
 running on an Android 14 emulator, with data added through the app itself.
 
+## The self-updater and Play cannot both ship
+
+**PLAY FORBIDS AN APP THAT UPDATES ITSELF.** Its Device and Network Abuse
+policy allows an app to change its own code only through Play's own update
+mechanism. The APK checks GitHub on every launch and hands a newer file to
+the system installer, which is exactly what that forbids.
+
+The `.aab` in each release is built from the same project, so it carries the
+updater too. **It cannot be uploaded as it stands.** A Play build needs the
+`Add the updater` step removed from `.github/workflows/android.yml`, and then
+Play's own updates do that job instead.
+
+Nothing is broken today: the app is installed from the release page, where
+self-updating is the only way an update can arrive at all.
+
 ## Data safety form
 
 | Question | Answer |

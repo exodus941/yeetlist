@@ -71,4 +71,23 @@ for (const file of shots) {
     + `${named ? '' : ', and the listing never names it'}`);
 }
 
+/* AND THE PLAY CONFLICT IS STATED WHILE IT EXISTS. Play forbids an app that
+   updates itself outside Play, and the workflow adds exactly that. A reader
+   who uploads the .aab without knowing would be refused, so the listing has
+   to say so for as long as the step is wired. */
+const workflow = (() => {
+  try { return readFileSync('.github/workflows/android.yml', 'utf8'); }
+  catch { return ''; }
+})();
+const updaterWired = workflow.includes('android-updater.mjs');
+const listingWarns = t.includes('PLAY FORBIDS AN APP THAT UPDATES ITSELF');
+if (updaterWired !== listingWarns) {
+  bad += 1;
+  console.error(updaterWired
+    ? 'listing guard: the build adds the self-updater and the listing does not say Play forbids it'
+    : 'listing guard: the listing warns about a self-updater the build no longer adds');
+} else {
+  console.log(`listing guard: self-updater ${updaterWired ? 'wired' : 'absent'}, and the listing agrees`);
+}
+
 process.exit(bad ? 1 : 0);
