@@ -1,0 +1,81 @@
+# THE APK IS BUILT HERE RATHER THAN ON A DESKTOP, and that was not a
+# preference. On the machine this was written on, every JVM fails
+# `Selector.open()` with "Unable to establish loopback connection", in both
+# shells and with the sandbox off. Gradle needs a selector to reach its own
+# daemon, so no Android build can run there at all.
+#
+# It also answers the question a local build cannot: the APK a person installs
+# is built from a commit, by a recipe anybody can read, with a key nobody has
+# to email.
+name: Android
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Bubblewrap
+        run: npm install -g @bubblewrap/cli
+
+      # THE KEY COMES FROM A SECRET AND LEAVES NO TRACE IN THE REPOSITORY.
+      # One key for every build, or an upgrade installs as a different app.
+      - name: Restore the signing key
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/yeetlist.keystore
+
+      # --skipPwaValidation because the manifest is already the thing being
+      # wrapped, and the validator fetches a Lighthouse run this build does
+      # not need.
+      - name: Build
+        working-directory: android
+        env:
+          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: bubblewrap build --skipPwaValidation
+
+      # THE FINGERPRINT IS PRINTED ON EVERY RUN, because the site's
+      # assetlinks.json has to name the key that signed this APK. A mismatch
+      # is silent: the app opens with a browser address bar across the top.
+      - name: Print the signing fingerprint
+        run: |
+          keytool -list -v -keystore android/yeetlist.keystore -alias yeetlist \
+            -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" | grep -i "SHA256:"
+
+      - name: Name the build
+        id: name
+        run: echo "tag=${GITHUB_REF_NAME#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yeetlist-apk
+          path: |
+            android/app-release-signed.apk
+            android/app-release-bundle.aab
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            android/app-release-signed.apk
+            android/app-release-bundle.aab
+          body: |
+            Install `app-release-signed.apk` on the phone. Android asks once
+            for permission to install from this source.
+
+            The `.aab` is the Play Store format and is here for later.
