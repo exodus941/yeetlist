@@ -50,6 +50,14 @@ jobs:
       - name: Restore the signing key
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/yeetlist.keystore
 
+      # THE PROJECT IS DERIVED FROM twa-manifest.json ON EVERY BUILD. Without
+      # this, `build` finds the checksum stale and stops on a question no
+      # runner can answer: "There are changes in twa-manifest.json. Would you
+      # like to apply them?" Exit code 130.
+      - name: Regenerate the project
+        working-directory: android
+        run: bubblewrap update --skipVersionUpgrade
+
       # --skipPwaValidation because the manifest is already the thing being
       # wrapped, and the validator fetches a Lighthouse run this build does
       # not need.
