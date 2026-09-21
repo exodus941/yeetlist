@@ -27,6 +27,14 @@ node tools/import-guard.mjs
 # so every count and both bulk actions read the whole filtered set.
 node tools/pager-guard.mjs
 
+# A swipe changes tabs and must do nothing else. Two clicks competed for it:
+# the rating, and the row that opens its link.
+node tools/swipe-guard.mjs
+
+# The runtime sits beside the count, so it is short. Three units from the
+# largest that is not zero, which answers the no-seconds-in-days rule.
+node tools/runtime-guard.mjs
+
 # The share patch runs only in CI, where nothing watches it. Its clauses are
 # proven here instead, so a clause that stops firing fails a commit.
 node tools/android-share-fix.mjs --self-test

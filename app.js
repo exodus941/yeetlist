@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-2';
+const VERSION = '260922-3';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -47,22 +47,43 @@ const dateOnly = (value) => value
   ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value))
   : '—';
 
-/* Whole words, and a unit is dropped where it is zero. "5 hours 3 minutes 47
-   seconds", never "5 hours 0 minutes 47 seconds".
+/* THE RUNTIME SITS BESIDE THE COUNT, SO IT IS SHORT.
+   Their instruction, 22 September 2026: put the time counter next to the
+   count, and "we can even display it as 5d 23h 34m (in fact if it starts to
+   go into DAYS, remove the seconds display)".
+
+   THREE UNITS, FROM THE LARGEST THAT IS NOT ZERO. That answers their seconds
+   rule by construction rather than by a second test: once days are present
+   the third unit is minutes, so no seconds can appear.
+
+     5d 23h 34m        23h 34m 12s        34m 12s        12s
+
+   A ZERO IN THE MIDDLE STAYS. "5d 0h 34m" is a clock a reader scans by
+   position. Dropping it gives "5d 34m", where the second figure has to be
+   read before it means anything.
+
+   A TRAILING ZERO GOES. "34m 0s" and "5d 23h 0m" carry a unit that says
+   nothing, and cutting it costs the reader no position: the units are
+   labelled, so what is left still reads exactly.
 
    A video whose duration never arrived reads as "—", and seconds() answers 0
    for it. That UNDERSTATES the total rather than hiding it, which is the
    honest way round: the count above still includes that video, so dropping it
    from the sum entirely would make the two lines disagree. */
 const runtime = (total) => {
-  const parts = [
-    [Math.floor(total / 3600), 'hour'],
-    [Math.floor(total / 60) % 60, 'minute'],
-    [total % 60, 'second'],
-  ].filter(([value]) => value > 0);
+  const all = [
+    [Math.floor(total / 86400), 'd'],
+    [Math.floor(total / 3600) % 24, 'h'],
+    [Math.floor(total / 60) % 60, 'm'],
+    [total % 60, 's'],
+  ];
 
-  if (!parts.length) return '0 seconds';
-  return parts.map(([value, unit]) => `${value} ${unit}${value === 1 ? '' : 's'}`).join(' ');
+  const first = all.findIndex(([value]) => value > 0);
+  if (first < 0) return '0s';
+
+  const run = all.slice(first, first + 3);
+  while (run.length > 1 && run[run.length - 1][0] === 0) run.pop();
+  return run.map(([value, unit]) => `${value}${unit}`).join(' ');
 };
 
 const seconds = (value) => String(value ?? '')
@@ -91,7 +112,11 @@ const LISTS = {
   youtube: {
     noun: ['Video', 'Videos'],
     home: 'your watchlist',
-    head: 'Saved',
+    /* NO WORD IN FRONT OF THE NOUN. It read "817 Saved Videos", and their
+       instruction, 22 September 2026, was to drop "Saved" so the runtime can
+       sit beside the count. Measured at 375: the word costs 76.0px, and the
+       pair needs 226.6 against 343 available without it. */
+    head: '',
     runtime: true,
     placeholder: 'Paste a link…',
     fieldName: 'Add a video or bookmark by link',
@@ -3453,6 +3478,128 @@ $('.tabs').addEventListener('keydown', (event) => {
   event.preventDefault();
   showTab(order[(go + order.length) % order.length].dataset.tab);
 });
+
+/* ONE WRITER FOR "WHICH TAB IS NEXT", read by the arrows above and the swipe
+   below. The strip's own order decides, so a fourth tab needs no edit here. */
+function stepTab(by) {
+  const order = $$('.tab');
+  const at = order.findIndex((b) => b.dataset.tab === tab);
+  const to = at + by;
+  if (to < 0 || to >= order.length) return false;
+  showTab(order[to].dataset.tab);
+  return true;
+}
+
+/* ── A SWIPE CHANGES TABS ───────────────────────────────────────────────────
+ *
+ * Their instruction, 22 September 2026: swipe between tabs by swiping
+ * horizontally, anywhere on the screen. They added "i believe it would not
+ * interfere with any of its other operations. correct me if i am wrong."
+ *
+ * THEY WERE RIGHT ABOUT THE LAYOUT AND WRONG ABOUT TWO CLICKS. Measured at
+ * 375px: no sideways page scroll, and 0 elements that can scroll sideways.
+ * Six declare `overflow-x: auto` and none of them overflows. So nothing
+ * competes for the gesture itself.
+ *
+ * WHAT COMPETES IS THE CLICK AT THE END OF IT. A browser fires a click when
+ * the press and the release share a target, whatever distance the pointer
+ * covered between them. Two handlers read that click.
+ *
+ *   - The rating. 12 star controls sit on one screen at 375. Dragging 70px
+ *     across one took a row from 0.5 stars to 5.
+ *   - The row. A click anywhere on a row opens its link.
+ *
+ * A MOUSE DRAG DID NOT OPEN THE ROW, AND THAT PROVES NOTHING ABOUT A FINGER.
+ * The row handler bails while a text selection is live, and a mouse drag over
+ * text makes one. A finger makes none, so the guard that blocked my test does
+ * not exist on the device this is for.
+ *
+ * SO THE SWIPE SWALLOWS ITS OWN CLICK. One capture-phase listener, rather
+ * than a guard added to each handler that reads a click. A third handler
+ * written tomorrow is covered without being remembered.
+ *
+ * TOUCH ONLY. A mouse drag across the page is how a person selects text, and
+ * a desktop reader would lose that. `pointerType` is the declaration.
+ * ------------------------------------------------------------------------ */
+
+/* THE THRESHOLDS, AND EACH ONE ANSWERS A DIFFERENT MISREAD.
+ *
+ * The DISTANCE separates a swipe from a tap that drifted. Android's own slop
+ * is about 8px, and a tab change is expensive enough to want more than that.
+ *
+ * The RATIO is what protects vertical scrolling, which is the gesture this
+ * app is mostly used with. A scroll that wanders 30px sideways over 200px of
+ * travel must not change tabs.
+ *
+ * The TIME separates a swipe from a slow drag, where a reader is reaching for
+ * something rather than flicking. */
+const SWIPE_MIN = 60;
+const SWIPE_RATIO = 2;
+const SWIPE_MS = 600;
+
+/* WHERE A SWIPE MUST NOT START, AND EVERY ENTRY IS A GESTURE SOMEBODY ELSE
+   OWNS. A field and the note body take a drag to move the caret or select.
+   The rating reads a horizontal position. The note editor is full screen, so
+   a swipe there would change a tab nobody can see. */
+const SWIPE_NEVER = 'input, textarea, [contenteditable], [role="slider"], #noteEditor';
+
+let swipe = null;
+
+addEventListener('pointerdown', (event) => {
+  swipe = null;
+  if (event.pointerType !== 'touch' || !event.isPrimary) return;
+  if (event.target.closest?.(SWIPE_NEVER)) return;
+
+  /* A BOX THAT CAN ACTUALLY SCROLL SIDEWAYS OWNS THE GESTURE. Asked as a
+     declaration AND a measurement: a menu declaring `overflow-x: auto` with
+     nothing overflowing is not scrolling anywhere, and six of those are on
+     screen. */
+  for (let el = event.target; el && el !== document.body; el = el.parentElement) {
+    const cs = getComputedStyle(el);
+    if (/auto|scroll/.test(cs.overflowX) && el.scrollWidth > el.clientWidth + 1) return;
+  }
+
+  swipe = { x: event.clientX, y: event.clientY, at: event.timeStamp };
+}, true);
+
+/* RECOGNISED IS NOT THE SAME AS MOVED, and the click is swallowed on the
+   first of the two. There is no wrap, the way Android's own pager has none,
+   so a swipe past the last tab moves nothing. That swipe was still a swipe,
+   and letting its click through would open a row the reader never tapped. */
+let swiped = 0;
+
+addEventListener('pointerup', (event) => {
+  if (!swipe || event.pointerType !== 'touch') return;
+  const dx = event.clientX - swipe.x;
+  const dy = event.clientY - swipe.y;
+  const held = event.timeStamp - swipe.at;
+  swipe = null;
+
+  if (Math.abs(dx) < SWIPE_MIN) return;
+  if (Math.abs(dx) < Math.abs(dy) * SWIPE_RATIO) return;
+  if (held > SWIPE_MS) return;
+
+  swiped = event.timeStamp;
+  /* THE CONTENT FOLLOWS THE FINGER, which is what every phone does. Dragging
+     right brings the tab on the left into view, so the step is backwards. */
+  stepTab(dx > 0 ? -1 : 1);
+}, true);
+
+/* THE CLICK THE SWIPE EARNED IS THE CLICK IT SWALLOWS. Capture phase, so it
+   never reaches the row handler or the rating. `pointercancel` is not enough,
+   because a swipe that completes still fires a click.
+ *
+ * AND THE FLAG EXPIRES, or a swipe that ends over dead space leaves it set
+ * and swallows something else entirely. A click after a swipe arrives in the
+ * same task, so 700ms is generous and still bounded. */
+const SWIPE_CLICK_MS = 700;
+
+addEventListener('click', (event) => {
+  if (!swiped || event.timeStamp - swiped > SWIPE_CLICK_MS) return;
+  swiped = 0;
+  event.preventDefault();
+  event.stopPropagation();
+}, true);
 
 /* Escape only acts where there is something to clear. Swallowed on an empty
    field it would stop every outer Escape from ever reaching its handler. */

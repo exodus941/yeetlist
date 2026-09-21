@@ -1723,28 +1723,30 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   margin: 0 0 var(--space-xl);
 }
 
-/* THE COUNT AND THE RUNTIME SIT ON ONE LINE, AT THE TWO EDGES. Their
-   instruction, 22 September 2026: align the text across the left and right
-   edges, sharing one baseline, rather than stacking the title over the time.
+/* THE COUNT AND THE RUNTIME SIT ON ONE LINE, AND THE RUNTIME IS BESIDE IT.
+   Their instruction, 22 September 2026: put the time counter next to the
+   count. The day before, it was the two edges of the row. It went to the far
+   edge first, then beside the count once "Saved" left the noun and the
+   runtime took its short form.
 
    TEXT BESIDE TEXT TAKES A BASELINE, whatever the two sizes are. The count is
    an h2 and the runtime is a small mono line, so box centring would leave
    them on two different lines of ink.
 
-   `space-between`, NEVER AN AUTO MARGIN ON THE RUNTIME. A margin cannot say
-   "first on this line", so at a width where the row wraps it reads as an
-   indent. `space-between` distributes along each LINE, so one item alone on a
-   line packs at its start.
+   `flex-start`, NOT `space-between`. Spread across the row, the runtime sat
+   at the far edge, which is what they asked to change. Nothing states an auto
+   margin, so there is no slack to place and the declared gap is the whole
+   distance.
 
-   THE DECLARED GAP IS THE FLOOR AT THE WRAP, and the slack is what sits
-   between them on one line. 24 is the section step, and the count has no gap
-   of its own to clear. */
+   IT STILL WRAPS, and the wrapped line still packs at the start. A margin
+   cannot say "first on this line", which cost 85px of false indent on the
+   pager. Measured with their own figures at 375: the pair needs 226.6px
+   against 343 available, so it does not wrap there. A longer library will. */
 .list-words {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2xs) var(--space-xl);
+  gap: var(--space-2xs) var(--space-md);
   min-width: 0;
 }
 
