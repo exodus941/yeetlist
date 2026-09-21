@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-11';
+const VERSION = '260922-12';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -2448,6 +2448,26 @@ function exportFile(scope = 'all') {
   saveText(exportName(scope), bookmarkFile(scope), 'text/html;charset=utf-8');
 }
 
+/* WHAT A FILE BROUGHT, IN THE WORDS OF THE LISTS IT BROUGHT. A yeetlist.md
+   carries videos and bookmarks, a yeetnotes.md carries notes, and either can
+   arrive. Naming a list the file did not hold reads as a fault, so a zero is
+   left out rather than printed. */
+function imported(records = []) {
+  const held = (list) => records.filter((v) => listOf(v) === list).length;
+  const said = [['youtube', 'video', 'videos'], ['links', 'bookmark', 'bookmarks'],
+    ['notes', 'note', 'notes']]
+    .map(([list, one, many]) => [held(list), one, many])
+    .filter(([n]) => n > 0)
+    .map(([n, one, many]) => `${n} ${n === 1 ? one : many}`);
+
+  /* A FILE THAT PARSED AND HELD NOTHING STILL HAS TO SAY SO. An empty
+     export is a real file, and silence about it reads as a failure. */
+  if (!said.length) return 'That file held nothing to import.';
+  const list = said.length === 1 ? said[0]
+    : `${said.slice(0, -1).join(', ')} and ${said[said.length - 1]}`;
+  return `Imported ${list}.`;
+}
+
 /* A YeeTlist export merges. ANYTHING ELSE IS SCANNED FOR LINKS, so a file
    this app never wrote is read rather than refused. Its own payload is tried
    first, because a merge carries tags, dates and tombstones that a scan
@@ -2472,11 +2492,18 @@ function importFile(file) {
         tombstones = merged.deleted;
         save();
         dissolve();
-        /* A YeeTlist file holds both lists, so the count names both. */
-        const clips = videos.filter((v) => listOf(v) === 'youtube').length;
-        const links = videos.length - clips;
-        return toast('ok', `Imported ${clips} ${clips === 1 ? 'video' : 'videos'}`
-          + ` and ${links} ${links === 1 ? 'bookmark' : 'bookmarks'}.`);
+        /* THE COUNT NAMES WHAT THE FILE HELD, AND ONLY THE LISTS IT HELD.
+           Their instruction, 22 September 2026: the import has to take a
+           yeetnotes.md from another export. It always did, and the message
+           said otherwise. Two faults, both measured on a notes file holding
+           six notes.
+
+           IT COUNTED THE WHOLE LIBRARY, not the import. `videos` here is the
+           merged array, so a file carrying one note reported every video
+           already saved. And it had no word for a note: the bookmark figure
+           was everything that is not a video, so six notes read as six
+           bookmarks. */
+        return toast('ok', imported(incoming.videos));
       } catch { /* not a YeeTlist export, so read it for links instead */ }
     }
 

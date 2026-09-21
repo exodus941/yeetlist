@@ -145,6 +145,57 @@ ok('a bare dump is a list', app.listLike(`${A}\n${B}\n${YT}`));
 ok('a titled list is a list', app.listLike(`Some Site - ${A}\nAnother Site - ${B}`));
 ok('an empty file is not a list', !app.listLike(''));
 
+/* ── A NOTES FILE IS AN IMPORT TOO ──────────────────────────────────────
+ *
+ * Their instruction, 22 September 2026: the import has to take a yeetnotes.md
+ * from another YeeTlist export. It always did, and the message said
+ * otherwise. Two faults, both measured on a file holding six notes.
+ *
+ * IT COUNTED THE WHOLE LIBRARY, NOT THE FILE. `videos` at that point is the
+ * MERGED array, so a file carrying one note reported every video already
+ * saved.
+ *
+ * AND IT HAD NO WORD FOR A NOTE. The bookmark figure was everything that is
+ * not a video, so six notes read as six bookmarks.
+ */
+{
+  /* COMMENTS ARE BLANKED, or the prose explaining the fault reads as the
+     code that had it. A wrong line number is worse than none, so they are
+     blanked rather than deleted. */
+  const code = appSource()
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/(^|[^:])\/\/[^\n]*/g, (m, p) => p + ' '.repeat(m.length - p.length));
+  const same = (name, a, b) => ok(name, a === b, `${JSON.stringify(a)} against ${JSON.stringify(b)}`);
+
+  /* THE CLOSING BRACE IS PART OF THE FUNCTION. A slice that stops before it
+     reads fine and will not run, and this one is RUN rather than matched. */
+  const fn = code.slice(code.indexOf('function imported('));
+  const fnBody = fn.slice(0, fn.indexOf('\n}\n') + 3);
+  ok('imported() was found', fnBody.length > 120, String(fnBody.length));
+
+  const say = new Function('listOf', `${fnBody}\nreturn imported;`)(
+    (v) => (v && v.kind === 'note' ? 'notes' : v && v.kind === 'link' ? 'links' : 'youtube'));
+  const rec = (kind) => (kind ? { kind } : {});
+
+  same('a notes file names notes', say([rec('note')]), 'Imported 1 note.');
+  same('and counts them', say([rec('note'), rec('note')]), 'Imported 2 notes.');
+  same('a bookmarks file names bookmarks', say([rec('link')]), 'Imported 1 bookmark.');
+  same('a watchlist names videos', say([rec()]), 'Imported 1 video.');
+  /* A LIST THE FILE DID NOT HOLD IS LEFT OUT. A zero beside a real figure
+     reads as a fault rather than as a fact. */
+  same('two lists read as two', say([rec(), rec('note')]), 'Imported 1 video and 1 note.');
+  same('three read as three', say([rec(), rec('link'), rec('note')]),
+    'Imported 1 video, 1 bookmark and 1 note.');
+  ok('no zero is ever printed', !/0 /.test(say([rec('note')])), say([rec('note')]));
+  /* A FILE THAT PARSED AND HELD NOTHING STILL HAS TO SAY SO. */
+  same('an empty export says so', say([]), 'That file held nothing to import.');
+
+  /* IT READS THE FILE, NEVER THE MERGED LIBRARY. */
+  ok('the caller passes what arrived', /toast\('ok', imported\(incoming\.videos\)\)/.test(code));
+  ok('and no longer counts the library',
+    !/const links = videos\.length - clips/.test(code));
+}
+
 /* -- Verdict ------------------------------------------------------------- */
 let bad = 0;
 for (const c of cases) {
