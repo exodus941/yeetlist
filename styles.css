@@ -1258,6 +1258,14 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
    ========================================================================== */
 
 .add-card {
+  /* THE SECTION STEP, BECAUSE THE TITLE NO LONGER CARRIES IT. This card used
+     to be followed by the list head, whose own top margin made the distance.
+     With the head above it the card met the filter row at 0.00px.
+
+     IT COSTS THE STUCK LAYOUT NOTHING. `--stick-1` is the page padding plus
+     this card's height, so the filter row lands flush under it while both are
+     stuck, and the margin is only ever seen in flow. */
+  margin-block-end: var(--space-xl);
   padding: var(--space-xl);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -1755,10 +1763,18 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   align-items: flex-end;
   justify-content: space-between;
   gap: var(--space-sm) var(--space-lg);
-  /* 24 above, which is 150% of the 16 the tab strip used to stand at, and one
-     step up the scale. 8 below, so the runtime line sits nearer the filter row
-     than the strip above it. */
-  margin: var(--space-xl) 0 var(--space-sm);
+  /* THE TITLE HEADS THE PAGE NOW, so both numbers moved. Their instruction,
+     21 September 2026: the title and the tab selector sit above the link
+     field, in every view.
+
+     NO TOP MARGIN. The page header already publishes 24 below itself, and
+     two writers on one distance give a gap nobody chose. It measured 48.
+
+     24 BELOW, WHICH IS THE SECTION STEP. The old 8 had its reason written
+     beside it: the runtime line sat nearer the filter row than the strip
+     above it. Nothing is below this but the add field now, so that reason
+     is spent. */
+  margin: 0 0 var(--space-xl);
 }
 
 /* THE COUNT AND ITS RUNTIME ARE ONE READOUT, so they take the half-step. At
