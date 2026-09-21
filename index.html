@@ -80,6 +80,16 @@
   <symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" vector-effect="non-scaling-stroke"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" vector-effect="non-scaling-stroke"/></symbol>
+  <!-- THE NOTES SET. Every mark a note's own toolbar needs, drawn on the same
+       24 unit grid and the same stroke as the rest, so the editor's row is
+       not a second icon set wearing the first one's classes. -->
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M15 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" vector-effect="non-scaling-stroke"/><path d="M15 3v5h5" vector-effect="non-scaling-stroke"/><path d="M8 13h8" vector-effect="non-scaling-stroke"/><path d="M8 17h5" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-bold" viewBox="0 0 24 24"><path d="M7 5h6.5a3.5 3.5 0 0 1 0 7H7z" vector-effect="non-scaling-stroke"/><path d="M7 12h7.5a3.5 3.5 0 0 1 0 7H7z" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-italic" viewBox="0 0 24 24"><path d="M15 5h-5" vector-effect="non-scaling-stroke"/><path d="M14 19H9" vector-effect="non-scaling-stroke"/><path d="M14 5l-4 14" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-strike" viewBox="0 0 24 24"><path d="M4 12h16" vector-effect="non-scaling-stroke"/><path d="M16 7a4 3 0 0 0-4-2H10a3 3 0 0 0 0 7" vector-effect="non-scaling-stroke"/><path d="M8 17a4 3 0 0 0 4 2h2a3 3 0 0 0 0-7" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-bullets" viewBox="0 0 24 24"><path d="M9 6h11" vector-effect="non-scaling-stroke"/><path d="M9 12h11" vector-effect="non-scaling-stroke"/><path d="M9 18h11" vector-effect="non-scaling-stroke"/><circle cx="4.5" cy="6" r="1.4"/><circle cx="4.5" cy="12" r="1.4"/><circle cx="4.5" cy="18" r="1.4"/></symbol>
+  <symbol id="i-numbers" viewBox="0 0 24 24"><path d="M10 6h10" vector-effect="non-scaling-stroke"/><path d="M10 12h10" vector-effect="non-scaling-stroke"/><path d="M10 18h10" vector-effect="non-scaling-stroke"/><path d="M4 5.5h1.5V9" vector-effect="non-scaling-stroke"/><path d="M3.6 11.2a1.4 1.4 0 0 1 2.4 1c0 .9-2.4 1.6-2.4 2.6h2.8" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-heading" viewBox="0 0 24 24"><path d="M6 5v14" vector-effect="non-scaling-stroke"/><path d="M18 5v14" vector-effect="non-scaling-stroke"/><path d="M6 12h12" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14" vector-effect="non-scaling-stroke"/><path d="M5 12h14" vector-effect="non-scaling-stroke"/></symbol>
   <!-- ONE PATH FOR BOTH LAYERS. The outline takes the stroke and the filled
        copy above it takes the fill, so a half star is a clip rather than a
@@ -210,6 +220,13 @@
         <span class="btn-label">Add to List</span>
         <svg class="icon" aria-hidden="true"><use href="#i-enter"/></svg>
       </button>
+      <!-- A NOTE IS NOT ADDED BY PASTING A LINK, so the notes tab swaps the
+           field and the button for this one. Hidden rather than built on
+           demand, the way every other panel in this file is. -->
+      <button id="newNote" class="btn btn-primary" type="button" hidden>
+        <span class="btn-label">New Note</span>
+        <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>
+      </button>
     </div>
     <!-- AN EMPTY LIVE REGION, ALWAYS PRESENT. Twenty-four runtime messages
          are written here: reading a video, every add error, the Drive
@@ -320,7 +337,27 @@
         <span>Other Bookmarks</span>
         <span class="tab-count" id="tabCountLinks"></span>
       </button>
+      <button class="tab" id="tab-notes" type="button" role="tab" data-tab="notes"
+              aria-selected="false" aria-controls="listPanel" tabindex="-1">
+        <svg class="icon" aria-hidden="true"><use href="#i-note"/></svg>
+        <span>Notes</span>
+        <span class="tab-count" id="tabCountNotes"></span>
+      </button>
     </div>
+
+    <!-- A STRIP THAT DOES NOT FIT BECOMES A DROPDOWN. This file's own rule,
+         and a third tab is what made it bite: at 375 the three need 427.9px
+         against the 343 the row has. A run of destinations that does not fit
+         is a list, and a list you pick from is a select.
+
+         IT IS A NATIVE SELECT, because a tab strip is one choice from a
+         short closed set and the platform's own control is the one every
+         reader already knows on a phone. The two write the same state. -->
+    <select id="listSelect" class="input list-select" aria-label="Which list">
+      <option value="youtube" data-label="YouTube Watchlist">YouTube Watchlist</option>
+      <option value="links" data-label="Other Bookmarks">Other Bookmarks</option>
+      <option value="notes" data-label="Notes">Notes</option>
+    </select>
   </section>
 
 
@@ -468,7 +505,7 @@
              on this row. Half steps are what a reader gives a video, not what
              they search by: "4 and up" is the question, and offering 4.5 as
              well doubles the list to say the same thing. -->
-        <div class="filters-group">
+        <div class="filters-group" id="rateGroup">
           <span class="filters-label">RATING</span>
           <div class="multi">
             <button class="multi-trigger" id="rateTrigger" type="button"
@@ -575,6 +612,81 @@
 
 </main>
 
+<!-- ==========================================================================
+     The note editor
+
+     FULL SCREEN, THEIR CHOICE. A note is long-form and a phone has one
+     column, so the editor takes the whole surface rather than growing a card
+     in a list.
+
+     RICH TEXT OVER MARKDOWN, also their choice. The box is contenteditable
+     and what it holds is converted to markdown on every change, so the file
+     that syncs is the note and the note is the file.
+
+     IT IS IN THE MARKUP AND HIDDEN, like every other panel here, so the fade
+     guard can see it and it needs nothing built on demand.
+     ========================================================================== -->
+<section id="noteEditor" class="note-editor" hidden aria-label="Note editor">
+  <header class="note-bar">
+    <button id="noteBack" class="btn btn-icon" type="button" aria-label="Close the note">
+      <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+    </button>
+    <p id="noteState" class="note-state" role="status">Saved</p>
+    <button id="noteDelete" class="btn btn-icon btn-danger-outline" type="button" aria-label="Delete this note">
+      <svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>
+    </button>
+  </header>
+
+  <!-- THE TOOLBAR IS A GROUP OF GROUPS, so the gap between the groups beats
+       the gap inside one. Each button states the mark it writes, and the
+       heading control is a select because six levels is a list rather than
+       six more buttons. -->
+  <div class="note-tools" role="toolbar" aria-label="Formatting">
+    <label class="note-level-label" for="noteLevel">Style</label>
+    <select id="noteLevel" class="input note-level" aria-label="Text style">
+      <option value="p">Body</option>
+      <option value="h1">Title</option>
+      <option value="h2">Heading</option>
+      <option value="h3">Subheading</option>
+      <option value="h4">Level 4</option>
+      <option value="h5">Level 5</option>
+      <option value="h6">Level 6</option>
+    </select>
+
+    <div class="note-tool-group">
+      <button class="btn btn-sm btn-icon note-tool" type="button" data-mark="bold" aria-label="Bold" aria-pressed="false">
+        <svg class="icon" aria-hidden="true"><use href="#i-bold"/></svg>
+      </button>
+      <button class="btn btn-sm btn-icon note-tool" type="button" data-mark="italic" aria-label="Italic" aria-pressed="false">
+        <svg class="icon" aria-hidden="true"><use href="#i-italic"/></svg>
+      </button>
+      <!-- STRIKETHROUGH, NOT UNDERLINE. Markdown has no underline, and their
+           choice was the emphasis that travels rather than raw HTML. -->
+      <button class="btn btn-sm btn-icon note-tool" type="button" data-mark="strike" aria-label="Strikethrough" aria-pressed="false">
+        <svg class="icon" aria-hidden="true"><use href="#i-strike"/></svg>
+      </button>
+    </div>
+
+    <div class="note-tool-group">
+      <button class="btn btn-sm btn-icon note-tool" type="button" data-mark="bullets" aria-label="Bulleted list" aria-pressed="false">
+        <svg class="icon" aria-hidden="true"><use href="#i-bullets"/></svg>
+      </button>
+      <button class="btn btn-sm btn-icon note-tool" type="button" data-mark="numbers" aria-label="Numbered list" aria-pressed="false">
+        <svg class="icon" aria-hidden="true"><use href="#i-numbers"/></svg>
+      </button>
+      <button class="btn btn-sm btn-icon note-tool" type="button" data-mark="link" aria-label="Add a link" aria-pressed="false">
+        <svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- THE DOCUMENT. `plaintext-only` is what forces a paste to arrive as
+       text in the browsers that honour it, and the paste handler does the
+       same job in the ones that do not. -->
+  <div id="noteBody" class="note-body dmd" contenteditable="true" role="textbox"
+       aria-multiline="true" aria-label="Note text" spellcheck="true"></div>
+</section>
+
 <!-- One control for one decision. The file type picks the operation: a .md
      or .json merges a YeeTlist export, an .html is read as browser bookmarks
      and its links are sorted into the two lists. -->
@@ -612,6 +724,10 @@
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="/drive.js"></script>
+<!-- BEFORE app.js, because app.js renders on its last line and that render
+     can ask a note for its excerpt. A function declaration is global to the
+     page, so everything the notes need is in place before that happens. -->
+<script src="/notes-ui.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

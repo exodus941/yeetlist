@@ -8,6 +8,12 @@ node tools/fade-guard.mjs .
 
 node tools/listing-guard.mjs
 
+# The notes converter and the notes/watchlist file split. Both run in plain
+# Node, and the file guard evaluates app.js's own functions rather than a
+# copy of them.
+node tools/notes-guard.mjs
+node tools/notes-file-guard.mjs
+
 # The share patch runs only in CI, where nothing watches it. Its clauses are
 # proven here instead, so a clause that stops firing fails a commit.
 node tools/android-share-fix.mjs --self-test

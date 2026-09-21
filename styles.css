@@ -403,6 +403,129 @@ body[data-booting] > main { visibility: hidden }
   text-align: center;
 }
 
+/* ==========================================================================
+   The note editor
+
+   FULL SCREEN, THEIR CHOICE. A note is long-form and a phone has one column,
+   so the editor takes the whole surface rather than growing a card inside a
+   list.
+
+   IT SITS OVER THE APP RATHER THAN REPLACING IT. The list keeps its scroll
+   position, its filters and its selection, so closing a note puts the reader
+   back exactly where they were.
+   ========================================================================== */
+
+.note-editor {
+  position: fixed;
+  inset: 0;
+  z-index: var(--layer-modal);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* THE PAGE UNDER IT DOES NOT SCROLL. A reader flicking through a long note
+   would otherwise drag the list behind it once the note ran out. */
+body[data-note-open] { overflow: hidden }
+
+.note-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-lg);
+  border-bottom: 1px solid var(--line);
+}
+
+/* THE STATE TAKES THE MIDDLE AND THE SLACK, so the two controls sit at the
+   ends and the word between them never moves as it changes. */
+.note-state {
+  flex: 1;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+.note-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  /* THE GAP BETWEEN GROUPS BEATS THE GAP INSIDE ONE, at 16 against 4, which
+     is four to one and clear of the two the rule asks for. Without it the
+     eight controls read as one run and the pairs mean nothing. */
+  gap: var(--space-sm) var(--space-lg);
+  padding: var(--space-sm) var(--space-lg);
+  border-bottom: 1px solid var(--line);
+}
+
+.note-tool-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.note-level-label {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+}
+
+.note-level { width: auto; min-width: 128px }
+
+/* A PRESSED TOOL IS A STATE, AND IT READS OFF aria-pressed RATHER THAN A
+   CLASS. The attribute is what a screen reader hears, so a second marker
+   would be a second thing that can disagree with it.
+
+   THE SELECTED ROW'S OWN FILL, because that is what this system already
+   uses to say "this one is chosen" and a second tint would be a second
+   meaning for one idea. */
+.note-tool[aria-pressed="true"] {
+  background: var(--row-selected);
+  color: var(--text);
+}
+
+/* ONE COLUMN, ONE MEASURE. Prose past about 70 characters costs the reader
+   the line they are on, so the text is capped and centred while the box
+   itself keeps the whole width for its scroll. */
+.note-body {
+  flex: 1;
+  width: min(72ch, 100%);
+  margin-inline: auto;
+  padding: var(--space-xl) var(--space-lg);
+  overflow-y: auto;
+  outline: none;
+}
+
+/* NO RING ON THE DOCUMENT ITSELF. Every other focus ring here marks a
+   control among other controls. This box is the whole screen, and a 2px
+   accent outline around all of it reads as an error rather than as focus.
+
+   THE CARET IS THE INDICATOR, which is what it is for a text box anywhere.
+   It is on screen whenever this has focus, and there is nothing beside it
+   to be confused with. */
+.note-body:focus-visible { outline: none }
+
+/* THE DOCUMENT'S OWN TYPE, because a note is a document. It carries `.dmd`,
+   so every heading, list and link inside it is drawn by the rules the
+   preview already states rather than by a second set written here. */
+.note-body > :first-child { margin-block-start: 0 }
+
+.note-body :where(h1, h2, h3, h4, h5, h6) { margin-block: var(--space-lg) var(--space-sm) }
+.note-body :where(p, ul, ol) { margin-block: 0 var(--space-md) }
+.note-body :where(ul, ol) { padding-inline-start: var(--space-xl) }
+.note-body :where(li) { margin-block-end: var(--space-2xs) }
+.note-body :where(a) { color: var(--accent) }
+.note-body :where(del) { color: var(--text-muted) }
+
+/* AN EMPTY NOTE SAYS WHAT TO DO. A blank screen with a caret is the one
+   state a reader cannot tell from a broken one. */
+.note-body:empty::before,
+.note-body > p:only-child:empty::before {
+  content: 'Write anything. Markdown works.';
+  color: var(--text-quiet);
+  pointer-events: none;
+}
+
 /* A coarse pointer raises the floor. Every control height reads
    max(its own step, --control-floor), so nothing has to remember this. */
 @media (pointer: coarse) {
@@ -490,7 +613,8 @@ body[data-booting] > main { visibility: hidden }
    for at a width nobody stops at. */
 #listRuntime, #searchClear, #state, #tagSuggest, #tagBulkPanel,
 #typedConfirm, #importPanel, #driveConnect, #rateList,
-#driveGroup, #driveAlert, #tagFilterPanel, #sortList, #exportMenu, #filterPanel {
+#driveGroup, #driveAlert, #tagFilterPanel, #sortList, #exportMenu, #filterPanel,
+#newNote, #noteEditor, #rateGroup {
   transition:
     opacity var(--duration) var(--ease),
     display var(--duration) allow-discrete;
@@ -501,6 +625,7 @@ body[data-booting] > main { visibility: hidden }
 #importPanel[hidden], #driveConnect[hidden], #driveGroup[hidden],
 #driveAlert[hidden], #tagFilterPanel[hidden], #sortList[hidden], #exportMenu[hidden],
 #rateList[hidden],
+#newNote[hidden], #noteEditor[hidden], #rateGroup[hidden],
 #filterPanel[hidden] {
   opacity: 0;
 }
@@ -513,6 +638,7 @@ body[data-booting] > main { visibility: hidden }
   #driveGroup:not([hidden]), #driveAlert:not([hidden]),
   #tagFilterPanel:not([hidden]), #sortList:not([hidden]), #exportMenu:not([hidden]),
   #rateList:not([hidden]),
+  #newNote:not([hidden]), #noteEditor:not([hidden]), #rateGroup:not([hidden]),
   #filterPanel:not([hidden]) {
     opacity: 0;
   }
@@ -1419,6 +1545,30 @@ header {
   outline-offset: -1px;
   border-radius: var(--radius-pill);
   background: var(--surface);
+}
+
+/* THE SELECT THE STRIP BECOMES. One of the two is on screen and never both,
+   so a reader meets one control and a screen reader hears one.
+
+   THE STRIP IS THE DEFAULT and this appears, rather than the other way
+   round, because the wide layout is the one every other rule here is
+   written against. */
+.list-select { display: none }
+
+/* A STRIP THAT DOES NOT FIT BECOMES A DROPDOWN, which is this file's own
+   rule and what a third tab finally made bite. Two tabs fit everywhere;
+   three do not.
+
+   MEASURED ON THE REAL STRIP rather than summed. The three pills come to
+   126.30, 184.28 and 101.33 with the short labels, plus two 4px gaps and
+   the group's own 8px of padding: 427.91. The shell gives 32px away at
+   these widths, so the strip runs out at 460.
+
+   The figure is true of these labels. Recompute it if any of the three
+   changes, or if a fourth list is ever added. */
+@media (max-width: 459px) {
+  .tabs { display: none }
+  .list-select { display: block; width: 100% }
 }
 
 /* A TAB NEVER SHRINKS BELOW ITS OWN CONTENT. It wraps its children for the
@@ -2793,6 +2943,18 @@ table { --col-url: 240px }
 
 table[data-list="links"] .col-url { width: var(--col-url) }
 
+/* THE NOTES LIST HAS TWO COLUMNS OF PROSE, so the name states a width and
+   the excerpt takes the remainder. Left auto, the name would take every
+   pixel the other columns gave up and the excerpt would truncate to a word.
+   The excerpt is the one that can lose its tail without costing anything:
+   it is an excerpt already. */
+table { --col-note-name: 260px }
+
+table[data-list="notes"] .col-title { width: var(--col-note-name) }
+table[data-list="notes"] .col-edited { width: var(--col-date) }
+
+.cell-excerpt .truncate { display: block; color: var(--text-muted) }
+
 .cell-url .truncate { display: block }
 
 /* A HEADING THAT WRAPS COSTS ONE LINE. A HEADING THAT SPILLS COVERS THE
@@ -3003,6 +3165,25 @@ tbody tr.row-selected:hover > td:first-child::before { width: var(--select-bar-h
 }
 
 .video-link:hover { color: var(--accent); text-decoration: underline }
+
+/* A NOTE'S NAME IS A BUTTON, because it opens the editor rather than going
+   anywhere, and a button carries a UA box an anchor does not. Measured at
+   375 without this: 180px past the card, because a button's intrinsic width
+   is its content and `min-width: 0` alone does not make it shrink inside a
+   grid cell. It needs the whole width stated and the text clipped in the
+   span, which is what the anchor already does. */
+button.video-link {
+  width: 100%;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+button.video-link .truncate { display: block }
 
 /* Any run that must stay on one line and say so on hover. */
 .truncate {
@@ -4181,6 +4362,35 @@ dialog menu {
   }
   .cell-url .truncate { display: block }
   tr:has(.cell-url) .cell-added { grid-row: 3; justify-self: start }
+
+  /* A NOTE CARD READS TITLE, EXCERPT, THEN ITS TWO DATES. Left unplaced,
+     these two auto-flowed into the max-content columns beside the title, and
+     the excerpt's own nowrap set the width: measured at 375, an 829px table
+     inside a 343px card, 486px past the page with no scroller.
+
+     `min-width: 0` IS WHAT LETS IT TRUNCATE. A grid item floors at its own
+     content, so a nowrap line in a track that can grow simply grows it. */
+  .cell-excerpt {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: stretch;
+    min-width: 0;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+  }
+
+  .cell-edited {
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: start;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+
+  /* THE ADDED DATE MOVES OVER FOR IT, the way it does for an address. Two
+     facts on one line, the edited stamp first because a notes list is
+     sorted by it. */
+  tr:has(.cell-excerpt) .cell-added { grid-row: 3; justify-self: end }
 
   /* Out of flow, so it sizes no track. The insets read the CARD'S padding
      token, so moving the padding moves the button with it.

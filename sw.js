@@ -28,6 +28,8 @@ const SHELL = [
   '/styles.css',
   '/app.js',
   '/drive.js',
+  '/notes-ui.js',
+  '/notes.js',
   '/privacy.html',
   '/manifest.webmanifest',
   '/icons/icon-192.png',

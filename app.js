@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260921-24';
+const VERSION = '260921-25';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -143,6 +143,39 @@ const LISTS = {
       { key: 'remove' },
     ],
   },
+
+  /* THE THIRD LIST HOLDS DOCUMENTS RATHER THAN LINKS, so its add control is
+     a button rather than a field. Everything else is the machinery the other
+     two already use: the same tags, the same rating, the same selection and
+     the same sort. */
+  notes: {
+    noun: ['Note', 'Notes'],
+    head: '',
+    runtime: false,
+    placeholder: '',
+    fieldName: '',
+    add: 'New Note',
+    search: 'Search notes, their text, or tags',
+    empty: {
+      title: 'No Notes Yet',
+      body: 'Write anything here. It syncs with your lists and reads as plain Markdown.',
+      action: 'Write Your First Note',
+      none: 'No Notes Match',
+    },
+    columns: [
+      { key: 'check' },
+      { key: 'title', label: 'NAME', sort: 'title' },
+      { key: 'excerpt', label: 'TEXT' },
+      { key: 'edited', label: 'EDITED', sort: 'editedAt' },
+      { key: 'added', label: 'ADDED', sort: 'addedAt' },
+      /* NO RATING. Their call, and it is the right one: a rating ranks
+         things you are choosing between, and a note is something you wrote.
+         The column, the filter and the sort all read the list's own spec, so
+         dropping it here drops it everywhere. */
+      { key: 'tags', label: 'TAGS' },
+      { key: 'remove' },
+    ],
+  },
 };
 
 /* ONE ROW AT A TIME, AND THE DRAFT LIVES OUT HERE. render() rebuilds every
@@ -154,7 +187,10 @@ let draft = '';
 /* A record written before there were two lists has no kind, and every one of
    those is a video. Reading it here rather than migrating means an old file
    imports unchanged and an old export still opens. */
-const listOf = (v) => (v && v.kind === 'link' ? 'links' : 'youtube');
+const listOf = (v) => {
+  if (v && v.kind === 'note') return 'notes';
+  return v && v.kind === 'link' ? 'links' : 'youtube';
+};
 
 let videos = [];
 let tombstones = [];
@@ -166,6 +202,10 @@ let tab = 'youtube';
 const sorts = {
   youtube: { key: 'addedAt', dir: -1 },
   links: { key: 'addedAt', dir: -1 },
+  /* A NOTE IS SORTED BY WHEN IT CHANGED, not by when it was made. A list of
+     notes is a working surface, and the one touched last is the one being
+     worked on. */
+  notes: { key: 'editedAt', dir: -1 },
 };
 let sort = sorts.youtube;
 /* A set, because the filter is a multiselect. Several tags match ANY of
@@ -238,11 +278,41 @@ function normalise(raw) {
   return { videos: [], deleted: [] };
 }
 
+/* ==========================================================================
+   Which file a record belongs to
+
+   THE WATCHLIST AND THE NOTES ARE TWO FILES. Their instruction, 21 September
+   2026: notes get a separate yeetnotes.md. In memory they stay one array,
+   because the tags, the search, the sort, the selection and the tombstones
+   are machinery both already share. Only the FILE splits.
+
+   A TOMBSTONE CARRIES AN ID AND NOTHING ELSE, so the id has to say which
+   file the deletion belongs in. A note's id begins `note-`. A video's id is
+   eleven characters of YouTube's own alphabet, and a bookmark's id is its
+   address, so neither can collide with that prefix.
+   ========================================================================== */
+const isNoteId = (id) => String(id).startsWith('note-');
+
+/* A GRAVE SAYS WHICH FILE IT BELONGS TO. Every deletion made from here on
+   carries `kind`. One written before this shipped does not, so the id's own
+   prefix answers for those, which is what every note this app has ever
+   created was named. */
+const isNoteGrave = (t) => t.kind === 'note' || isNoteId(t.id);
+const noteRecords = () => videos.filter((v) => listOf(v) === 'notes');
+const otherRecords = () => videos.filter((v) => listOf(v) !== 'notes');
+
 const payload = () => ({
   version: PAYLOAD_VERSION,
   updatedAt: new Date().toISOString(),
-  videos,
-  deleted: tombstones,
+  videos: otherRecords(),
+  deleted: tombstones.filter((t) => !isNoteGrave(t)),
+});
+
+const notesPayload = () => ({
+  version: PAYLOAD_VERSION,
+  updatedAt: new Date().toISOString(),
+  videos: noteRecords(),
+  deleted: tombstones.filter((t) => isNoteGrave(t)),
 });
 
 function save() {
@@ -333,7 +403,10 @@ function filteredVideos() {
     .filter((v) => {
       /* A bookmark's address is searchable, because the name a site gives
          itself is often not the word a reader remembers it by. */
-      const haystack = `${v.title} ${v.channel || ''} ${v.url || ''} `
+      /* A NOTE IS SEARCHED BY ITS WHOLE TEXT, not by its first line. The
+         title is derived from that text, so searching the title alone would
+         miss every word below it. */
+      const haystack = `${v.title} ${v.channel || ''} ${v.url || ''} ${v.body || ''} `
         + `${(v.tags || []).map(hashed).join(' ')}`.toLowerCase();
       const tagged = (activeTags.size === 0 && !untaggedOnly)
         || (v.tags || []).some((t) => activeTags.has(t))
@@ -377,6 +450,21 @@ function render() {
   if (editing !== null && !inTab().some((v) => v.id === editing)) { editing = null; draft = ''; }
 
   const spec = LISTS[tab];
+  /* A NOTE IS NOT ADDED BY PASTING A LINK, so the field and its button give
+     way to one button. Hidden rather than removed, because the field is also
+     where a share arrives and the live region beside it must stay. */
+  const writing = tab === 'notes';
+  $('#videoUrl').hidden = writing;
+  $('#addBtn').hidden = writing;
+  $('#newNote').hidden = !writing;
+
+  /* A FILTER FOR SOMETHING THE LIST CANNOT HOLD IS A CONTROL THAT RETURNS
+     NOTHING. The columns are the list's own declaration of what it has, so
+     the filter reads them rather than naming the tab. A fourth list gets
+     this for free. */
+  const rates = spec.columns.some((c) => c.key === 'rate');
+  $('#rateGroup').hidden = !rates;
+  if (!rates) ratingFilter = 'any';
   const held = inTab();
   const filtered = filteredVideos();
 
@@ -417,6 +505,21 @@ function render() {
      list. */
   $('#tabCountYoutube').textContent = videos.filter((v) => listOf(v) === 'youtube').length;
   $('#tabCountLinks').textContent = videos.filter((v) => listOf(v) === 'links').length;
+  $('#tabCountNotes').textContent = videos.filter((v) => listOf(v) === 'notes').length;
+
+  /* THE SELECT AND THE STRIP SAY THE SAME THING, and only one of them is on
+     screen. Its options carry the counts too, because the strip's counts are
+     half of what a reader is choosing between. */
+  const select = $('#listSelect');
+  for (const option of select.options) {
+    /* THE STRIP'S OWN WORDS, from the markup rather than from the noun. The
+       tab reads "YouTube Watchlist" and its noun is "Videos", so building
+       the label from the noun would give the reader two different names for
+       one list depending on the width. */
+    const n = videos.filter((v) => listOf(v) === option.value).length;
+    option.textContent = `${option.dataset.label} (${n})`;
+  }
+  select.value = tab;
 
   /* The FIELD decides, never searchTerm. A run of spaces is a search nobody
      can see and still something to clear. */
@@ -702,7 +805,13 @@ const CELLS = {
   title: (v) => `<td class="cell-title">${editing === v.id
     ? `<input class="input title-input" data-id="${escape(v.id)}" value="${escape(draft)}"
               aria-label="Name for ${escape(v.url || v.title)}" autocomplete="off" />`
-    : `<a class="video-link" href="${escape(hrefOf(v))}" target="_blank" rel="noopener"
+    : listOf(v) === 'notes'
+      /* A NOTE OPENS HERE RATHER THAN SOMEWHERE ELSE, so it is a button and
+         not an anchor. An anchor with no address is a link to nothing, and
+         a reader who middle-clicks it gets a blank tab. */
+      ? `<button class="video-link note-open" type="button" data-id="${escape(v.id)}"
+         title="${escape(v.title)}"><span class="truncate">${escape(v.title)}</span></button>`
+      : `<a class="video-link" href="${escape(hrefOf(v))}" target="_blank" rel="noopener"
        title="${v.dead ? 'Unavailable on YouTube. ' : ''}${escape(v.title)}"><span
        class="truncate">${escape(v.title)}</span></a>`}
   </td>`,
@@ -737,6 +846,21 @@ const CELLS = {
   up: (v) => `<td class="cell-up">
     <span class="cell-name">Uploaded</span>
     <span class="date-full">${date(v.uploadedAt)}</span><span class="date-day">${dateOnly(v.uploadedAt)}</span>
+  </td>`,
+
+  /* THE FIRST FEW WORDS AFTER THE TITLE, so a list of notes says what each
+     one is about. It reads the MARKDOWN rather than the rendered text: a
+     note is its source, and stripping the marks here would need a second
+     renderer nobody else calls. */
+  excerpt: (v) => `<td class="cell-excerpt">
+    <span class="cell-name">Text</span>
+    <span class="truncate" title="${escape(excerptOf(v))}">${escape(excerptOf(v))}</span>
+  </td>`,
+
+  edited: (v) => `<td class="cell-edited">
+    <span class="cell-name">Edited</span>
+    <span class="date-full">${date(v.editedAt || v.addedAt)}</span><span
+      class="date-day">${dateOnly(v.editedAt || v.addedAt)}</span>
   </td>`,
 
   added: (v) => `<td class="cell-added">
@@ -1697,10 +1821,16 @@ function commitDelete() {
   const at = new Date().toISOString();
   const going = new Set(deletion);
 
+  /* THE TOMBSTONE CARRIES ITS KIND, because that is the one moment the kind
+     is still known. A deletion outlives its record, and the two files are
+     split by kind, so a grave with nothing but an id has to be routed by
+     guessing at the id's shape. Read from the record instead. */
+  const kindOf = new Map(videos.map((v) => [v.id, listOf(v)]));
+
   videos = videos.filter((v) => !going.has(v.id));
   deletion.forEach((id) => {
     tombstones = tombstones.filter((t) => t.id !== id);
-    tombstones.push({ id, at });
+    tombstones.push(kindOf.get(id) === 'notes' ? { id, at, kind: 'note' } : { id, at });
     selected.delete(id);
   });
 
@@ -1747,6 +1877,42 @@ function fileText() {
 }
 
 const cell = (value = '') => String(value).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+
+/* A NOTE FILE IS NOT A TABLE. Above the fence yeetlist.md holds two tables,
+   because a video is a row of fields. A note is a document, so the readable
+   half here is the notes themselves, one after another, exactly as written.
+
+   THE BODY IS VERBATIM. It already carries its own heading, and rewriting it
+   here would be a second renderer to keep true against notes.js.
+
+   A BODY CANNOT CLOSE THE FENCE, because the fence sits below every body and
+   holds nothing but the payload. A note carrying three backticks is
+   therefore ordinary text above it. */
+function notesText() {
+  const notes = noteRecords();
+  const count = `${notes.length} ${notes.length === 1 ? 'note' : 'notes'}`;
+
+  const written = notes.flatMap((n) => {
+    const tags = (n.tags || []).length ? [`> Tags: ${n.tags.map((t) => '#' + t).join(' ')}`, ''] : [];
+    const body = String(n.body || '').replace(/\r\n?/g, '\n').replace(/\s+$/, '');
+    return ['', '---', '', ...tags, ...(body ? [body] : [`# ${n.title || 'Untitled note'}`]), ''];
+  });
+
+  return [
+    '# YeeTlist notes',
+    '',
+    `> ${count}. Written ${new Date().toISOString()} by YeeTlist.`,
+    ...written,
+    '',
+    '<!-- YeeTlist data below. The notes above are for reading; this block is what imports. -->',
+    '',
+    '```json',
+    JSON.stringify(notesPayload(), null, 2),
+    '```',
+    '',
+  ].join('\n');
+}
+
 
 /* THREE SHAPES, ONE READER. The Markdown file fences its payload, the
    bookmark file hides it in a comment, and a bare .json is the payload
@@ -2617,52 +2783,115 @@ async function driveConnect({ interactive = true } = {}) {
   }
 }
 
+/* ==========================================================================
+   Two files, one link
+
+   EACH SLOT IS PULLED AND PUSHED ON ITS OWN, because each is a separate
+   Drive file with its own id and its own stamp. A device that has only ever
+   held videos has no notes file, and that is a normal state rather than a
+   fault.
+   ========================================================================== */
+
+const SLOTS = ['main', 'notes'];
+
+const textFor = (slot) => (slot === 'notes' ? notesText() : fileText());
+const payloadFor = (slot) => (slot === 'notes' ? notesPayload() : payload());
+
+const mineFor = (slot) => (v) => (listOf(v) === 'notes') === (slot === 'notes');
+
+const localFor = (slot) => ({
+  videos: videos.filter(mineFor(slot)),
+  deleted: tombstones.filter((t) => isNoteGrave(t) === (slot === 'notes')),
+});
+
+/* PUT BACK ONLY THIS SLOT'S RECORDS. A notes pull that replaced the whole
+   array would delete every video on the device. */
+function adopt(slot, merged) {
+  const mine = mineFor(slot);
+  videos = [...videos.filter((v) => !mine(v)), ...merged.videos];
+  tombstones = [
+    ...tombstones.filter((t) => isNoteGrave(t) !== (slot === 'notes')),
+    ...merged.deleted,
+  ];
+}
+
+/* COMPARE THE RECORDS, NEVER THE TEXT. This read `fileText() !== text`, and
+   both halves of that file carry a fresh timestamp: a `Written` line above
+   the fence and an `updatedAt` inside it. So the two strings differed on
+   every pull, the guard never once held, and each device answered the other
+   for as long as both were open. That is the exact ping-pong the guard was
+   written to stop.
+
+   Sorted by id, because a merge returns its own order and the file holds
+   the order it was written in. Two identical sets in two orders are not a
+   change anybody made. */
+const digest = (p) => {
+  const byId = (a, b) => String(a.id).localeCompare(String(b.id));
+  return JSON.stringify({
+    videos: [...p.videos].sort(byId),
+    deleted: [...p.deleted].sort(byId),
+  });
+};
+
+/* A SLOT WITH NOTHING IN IT AND NO FILE YET IS NOT CREATED. A reader who has
+   never written a note should not find an empty yeetnotes.md in their Drive.
+   A slot that HAS a file keeps it, because an emptied list is a state worth
+   syncing. */
+const worthCreating = (slot) => {
+  if (slot !== 'notes') return true;
+  const mine = localFor('notes');
+  return mine.videos.length > 0 || mine.deleted.length > 0;
+};
+
+async function pullSlot(slot, made) {
+  const name = DRIVE.fileName(slot);
+  const id = DRIVE.fileId(slot);
+  let found = id ? await DRIVE.meta(id).catch(() => null) : null;
+  if (!found) found = await DRIVE.find(slot);
+
+  if (!found) {
+    if (!worthCreating(slot)) return 0;
+    driveStatus('busy', 'Creating ' + name + '…');
+    const created = await DRIVE.create(slot, textFor(slot));
+    DRIVE.keep(slot, { fileId: created.id, syncedAt: created.modifiedTime });
+    made.push(name);
+    return 0;
+  }
+
+  DRIVE.keep(slot, { fileId: found.id });
+  const text = await DRIVE.read(found.id);
+  const incoming = parseFile(text);
+  const before = videos.length;
+
+  adopt(slot, merge(localFor(slot), incoming));
+  localStorage.setItem(STORE, JSON.stringify({ version: PAYLOAD_VERSION, videos, deleted: tombstones }));
+  DRIVE.keep(slot, { syncedAt: found.modifiedTime });
+
+  if (digest(payloadFor(slot)) !== digest(incoming)) await pushSlot(slot);
+  return videos.length - before;
+}
+
 /* On connect, read whatever is already there and merge it in. A file this app
-   wrote on another device is found by name. One the reader made by hand needs
-   the Picker once, because drive.file cannot see a file nobody handed it. */
+   wrote on another device is found by name. One the reader made by hand is
+   invisible, because drive.file cannot see a file nobody handed it. */
 async function drivePull({ announce = false } = {}) {
   try {
     driveStatus('busy', 'Reading Drive…');
-    let id = DRIVE.fileId();
-    let found = id ? await DRIVE.meta(id).catch(() => null) : null;
-    if (!found) found = await DRIVE.find();
+    const made = [];
+    let gained = 0;
+    for (const slot of SLOTS) gained += await pullSlot(slot, made);
 
-    if (!found) {
-      driveStatus('busy', 'Creating ' + DRIVE.FILENAME + '…');
-      const created = await DRIVE.create(fileText());
-      DRIVE.remember({ fileId: created.id, syncedAt: created.modifiedTime });
-      driveStatus('ok', 'Synced to Drive');
-      if (announce) say(`Created ${DRIVE.FILENAME} in your Drive.`);
-      return;
-    }
-
-    DRIVE.remember({ fileId: found.id });
-    const text = await DRIVE.read(found.id);
-    const incoming = parseFile(text);
-    const before = videos.length;
-    const merged = merge({ videos, deleted: tombstones }, incoming);
-    videos = merged.videos;
-    tombstones = merged.deleted;
-
-    localStorage.setItem(STORE, JSON.stringify({ version: PAYLOAD_VERSION, videos, deleted: tombstones }));
-    DRIVE.remember({ syncedAt: found.modifiedTime });
     dissolve();
     driveStatus('ok', 'Synced to Drive');
 
     if (announce) {
-      const gained = videos.length - before;
-      say(gained > 0
-        ? `Read ${DRIVE.FILENAME} from Drive. ${gained} ${gained === 1 ? 'video' : 'videos'} added.`
-        : `Read ${DRIVE.FILENAME} from Drive. Nothing new.`);
+      if (made.length) say(`Created ${made.join(' and ')} in your Drive.`);
+      else {
+        say(gained > 0
+          ? `Read your Drive files. ${gained} ${gained === 1 ? 'record' : 'records'} added.`
+          : 'Read your Drive files. Nothing new.');
+      }
     }
-
-    /* PUSH ONLY WHAT THE FILE DOES NOT ALREADY HOLD. A write moves the
-       file's stamp, and the watch reads that stamp to decide whether
-       somebody else wrote. Pushing after every pull therefore made each
-       device answer the other for ever: A writes, B notices and writes, A
-       notices and writes. The merge often produces exactly the file that
-       was read, and that case has nothing to send. */
-    if (fileText() !== text) await drivePush();
   } catch (error) {
     driveStatus('error', 'Sync failed');
     say(error.message);
@@ -2712,16 +2941,23 @@ let checking = false;
 async function driveCheck() {
   if (checking || pushing) return;
   if (!DRIVE.connected() || !DRIVE.live()) return;
-  const id = DRIVE.fileId();
-  if (!id) return;
+  /* BOTH FILES, because a note added elsewhere moves only the notes stamp.
+     Asking about the watchlist alone left the notes tab stale until
+     something else happened to trigger a pull. */
+  const watched = SLOTS.filter((slot) => DRIVE.fileId(slot));
+  if (!watched.length) return;
 
   checking = true;
   try {
-    const info = await DRIVE.meta(id);
     /* A STAMP THAT HAS NOT MOVED MEANS NOBODY ELSE WROTE. The value stored
        here is what this device last read or wrote, so a difference is
        somebody else's change and nothing else. */
-    if (info?.modifiedTime && info.modifiedTime !== DRIVE.syncedAt()) await drivePull();
+    let moved = false;
+    for (const slot of watched) {
+      const info = await DRIVE.meta(DRIVE.fileId(slot));
+      if (info?.modifiedTime && info.modifiedTime !== DRIVE.syncedAt(slot)) moved = true;
+    }
+    if (moved) await drivePull();
   } catch { /* No connection, or the token lapsed. The next tick asks again. */
   } finally {
     checking = false;
@@ -2740,15 +2976,21 @@ function watchDrive() {
 document.addEventListener('visibilitychange', watchDrive);
 addEventListener('online', driveCheck);
 
+async function pushSlot(slot) {
+  const id = DRIVE.fileId(slot);
+  if (!id && !worthCreating(slot)) return;
+  const text = textFor(slot);
+  const written = id ? await DRIVE.update(id, text) : await DRIVE.create(slot, text);
+  DRIVE.keep(slot, { fileId: written.id, syncedAt: written.modifiedTime });
+}
+
 async function drivePush() {
   if (!DRIVE.connected() || pushing) return;
   if (!DRIVE.live()) { drivePendingPush = true; return; }
   pushing = true;
   try {
     driveStatus('busy', 'Saving…');
-    const id = DRIVE.fileId();
-    const written = id ? await DRIVE.update(id, fileText()) : await DRIVE.create(fileText());
-    DRIVE.remember({ fileId: written.id, syncedAt: written.modifiedTime });
+    for (const slot of SLOTS) await pushSlot(slot);
     driveStatus('ok', 'Synced to Drive');
   } catch (error) {
     driveStatus('error', 'Sync failed');
@@ -2813,6 +3055,8 @@ $('.tabs').addEventListener('click', (event) => {
   const button = event.target.closest('.tab');
   if (button) showTab(button.dataset.tab);
 });
+
+$('#listSelect').addEventListener('change', (event) => showTab(event.target.value));
 
 /* ONE TAB STOP, AND THE ARROWS MOVE WITHIN IT. Home and End are part of the
    same pattern, and a two-tab strip still answers them. */
@@ -4082,7 +4326,7 @@ takeShare();
 
 /* Only the files that can disagree with each other. An icon is a picture and
    a stale one costs nothing. */
-const SHELL_WATCH = ['/index.html', '/app.js', '/styles.css', '/drive.js'];
+const SHELL_WATCH = ['/index.html', '/app.js', '/styles.css', '/drive.js', '/notes-ui.js', '/notes.js'];
 
 let updateHeld = false;
 let holdTimer = null;

@@ -35,7 +35,24 @@ const DRIVE = (() => {
   }
 
   const SCOPE = 'https://www.googleapis.com/auth/drive.file';
-  const FILENAME = 'yeetlist.md';
+
+  /* TWO FILES, BECAUSE A NOTE IS A DOCUMENT AND A WATCHLIST IS A TABLE.
+     Their instruction, 21 September 2026: notes get a separate yeetnotes.md.
+
+     Each SLOT is one Drive file with its own id and its own stamp. The keys
+     are separate in storage, so a device that has synced the watchlist and
+     not yet the notes holds one id and not the other, rather than one field
+     meaning whichever file was touched last.
+
+     `fileId` and `syncedAt` keep the names they have always had, so an
+     existing link survives this change untouched. */
+  const SLOTS = {
+    main: { name: 'yeetlist.md', idKey: 'fileId', atKey: 'syncedAt' },
+    notes: { name: 'yeetnotes.md', idKey: 'notesFileId', atKey: 'notesSyncedAt' },
+  };
+  const slotOf = (slot) => SLOTS[slot] || SLOTS.main;
+
+  const FILENAME = SLOTS.main.name;
   const REMEMBER = 'yeetlist-drive';
   const API = 'https://www.googleapis.com/drive/v3/files';
   const UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
@@ -74,8 +91,20 @@ const DRIVE = (() => {
   })();
 
   const connected = () => Boolean(remembered()?.connected);
-  const fileId = () => remembered()?.fileId || null;
-  const syncedAt = () => remembered()?.syncedAt || null;
+  const fileId = (slot) => remembered()?.[slotOf(slot).idKey] || null;
+  const syncedAt = (slot) => remembered()?.[slotOf(slot).atKey] || null;
+
+  /* ONE WRITER FOR A SLOT'S TWO FIELDS. Written at each call site instead,
+     the notes pull would have had to name `notesFileId` and the watchlist
+     pull `fileId`, and the one that got it wrong would quietly point both
+     files at one id. */
+  const keep = (slot, { fileId: id, syncedAt: at } = {}) => {
+    const { idKey, atKey } = slotOf(slot);
+    const patch = {};
+    if (id !== undefined) patch[idKey] = id;
+    if (at !== undefined) patch[atKey] = at;
+    remember(patch);
+  };
 
   /* Is there a usable token right now? Being LINKED and being AUTHORISED are
      different facts, and treating them as one is what lost connections on
@@ -226,11 +255,12 @@ const DRIVE = (() => {
   /* drive.file only ever returns files this app owns or was given, so this
      search cannot see the rest of the Drive even though it looks like it
      could. A file the user made by hand is invisible until they pick it. */
-  async function find() {
-    const query = encodeURIComponent(`name = '${FILENAME}' and trashed = false`);
+  async function find(slot) {
+    const name = slotOf(slot).name;
+    const query = encodeURIComponent(`name = '${name}' and trashed = false`);
     const url = `${API}?q=${query}&spaces=drive&orderBy=modifiedTime desc`
       + `&fields=files(id,name,modifiedTime,size)&pageSize=10`;
-    const data = await json(await call(url), 'Looking for ' + FILENAME);
+    const data = await json(await call(url), 'Looking for ' + name);
     return data.files?.[0] || null;
   }
 
@@ -241,13 +271,14 @@ const DRIVE = (() => {
 
   async function read(id) {
     const response = await call(`${API}/${id}?alt=media`);
-    if (!response.ok) throw new Error(`Reading ${FILENAME} failed (${response.status})`);
+    if (!response.ok) throw new Error(`Reading the Drive file failed (${response.status})`);
     return response.text();
   }
 
-  async function create(text) {
+  async function create(slot, text) {
+    const name = slotOf(slot).name;
     const boundary = 'yeet' + Math.random().toString(36).slice(2);
-    const metadata = { name: FILENAME, mimeType: 'text/markdown' };
+    const metadata = { name, mimeType: 'text/markdown' };
     const body = [
       `--${boundary}`,
       'Content-Type: application/json; charset=UTF-8',
@@ -264,9 +295,9 @@ const DRIVE = (() => {
     const data = await json(await call(
       `${UPLOAD}?uploadType=multipart&fields=id,modifiedTime`,
       { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body },
-    ), 'Creating ' + FILENAME);
+    ), 'Creating ' + name);
 
-    remember({ fileId: data.id });
+    keep(slot, { fileId: data.id });
     return data;
   }
 
@@ -274,7 +305,7 @@ const DRIVE = (() => {
     return json(await call(
       `${UPLOAD}/${id}?uploadType=media&fields=id,modifiedTime`,
       { method: 'PATCH', headers: { 'Content-Type': 'text/markdown; charset=UTF-8' }, body: text },
-    ), 'Saving ' + FILENAME);
+    ), 'Saving the Drive file');
   }
 
   /* THE GOOGLE PICKER IS GONE, DELIBERATELY.
@@ -296,8 +327,9 @@ const DRIVE = (() => {
 
   return {
     FILENAME,
+    fileName: (slot) => slotOf(slot).name,
     settings, serverAuth,
-    connected, live, fileId, syncedAt, remember, forget,
+    connected, live, fileId, syncedAt, remember, keep, forget,
 
     /* LINKING IS A REDIRECT, NOT A POPUP, WHERE THE SERVER CAN HOLD A
        REFRESH TOKEN. A redirect needs no gesture and cannot be blocked, and
