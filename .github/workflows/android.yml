@@ -54,9 +54,20 @@ jobs:
       # this, `build` finds the checksum stale and stops on a question no
       # runner can answer: "There are changes in twa-manifest.json. Would you
       # like to apply them?" Exit code 130.
+      #
+      # AND THE VERSION COMES FROM THE TAG AND THE RUN NUMBER. Under
+      # `--skipVersionUpgrade` Bubblewrap writes `versionName ""` into the
+      # gradle file, which is what a phone then shows in Settings. Without the
+      # flag it reads the name from `--appVersionName` and raises the code by
+      # one, so the code is seeded at one below the run number to land on it.
+      # A code that never rises is an app that refuses to upgrade over itself.
       - name: Regenerate the project
         working-directory: android
-        run: bubblewrap update --skipVersionUpgrade
+        env:
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || '0.0.0' }}
+        run: |
+          node -e 'const f="twa-manifest.json", fs=require("fs"); const m=JSON.parse(fs.readFileSync(f,"utf8")); m.appVersionCode=Number(process.env.GITHUB_RUN_NUMBER)-1; fs.writeFileSync(f, JSON.stringify(m,null,2))'
+          bubblewrap update --appVersionName="${TAG#v}"
 
       # --skipPwaValidation because the manifest is already the thing being
       # wrapped, and the validator fetches a Lighthouse run this build does
