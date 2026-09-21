@@ -24,7 +24,33 @@
      name. One drawing, two readers. -->
 <link rel="apple-touch-icon" href="/icons/icon-192.png" />
 </head>
-<body>
+<body data-booting>
+
+<!-- THE APP IS NOT READY UNTIL THE SCRIPT HAS RUN, AND IT USED TO SHOW THAT.
+     Their report, 21 September 2026, with a screenshot: the screen "looks
+     seriously broken" until the list loads. What they saw is this file as the
+     browser first paints it. The filters are open because nothing has folded
+     them, the sort menu is empty because its options are written by script,
+     and every count reads zero.
+
+     SO THE DOCUMENT COVERS ITSELF UNTIL IT IS TRUE. This block is in the
+     markup rather than built by script, or it could not be on screen during
+     the one moment it exists for. `data-booting` on the body is what hides
+     the page under it, so a browser with no script still shows the app
+     rather than a loader that never leaves.
+
+     IT NAMES THE STEP IT IS ON. Their words: "showing the current action
+     (basically each step one by one) below it". -->
+<div id="boot" class="boot" role="status" aria-live="polite">
+  <div class="boot-inner">
+    <svg class="boot-mark" viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
+      <path d="M12 9l12 7-12 7z" fill="var(--accent-ink)"/>
+    </svg>
+    <div class="boot-track"><div class="boot-fill" id="bootFill"></div></div>
+    <p class="boot-step" id="bootStep">Starting</p>
+  </div>
+</div>
 
 <!-- Icon set. Every mark on this page comes from here, because a typed glyph
      takes the text font and carries none of the stroke, size or join the set

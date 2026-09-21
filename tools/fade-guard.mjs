@@ -31,13 +31,27 @@ const css = readFileSync(`${root}/styles.css`, 'utf8');
    backtracks for minutes, which is a guard nobody can run. Each list is found
    by the declaration that states it, and the selector is the text before the
    brace, cut at whichever of the previous rule or comment ends last. */
+/* AND THE LIST IS THE ONE THAT NAMES IDS. The three lists are id lists by
+   construction, so a matching rule with no `#` in its selector is a
+   different rule that happens to fade the same way. The loading cover is
+   exactly that: it carries `transition: opacity ... allow-discrete` and sits
+   earlier in the file, so taking the first match found it and reported that
+   nothing was measured.
+
+   A FILE WITH NO ID LIST AT ALL STILL FAILS, through the branch below. This
+   skips a rule that is not the list, never a list that is empty. */
 const before = (re, from = 0) => {
-  const hit = re.exec(css.slice(from));
-  if (!hit) return null;
-  const at = from + hit.index;
-  const open = css.lastIndexOf('{', at);
-  const prev = Math.max(css.lastIndexOf('}', open), css.lastIndexOf('*/', open));
-  return css.slice(prev + 1, open);
+  const pattern = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g');
+  pattern.lastIndex = 0;
+  const rest = css.slice(from);
+  for (let hit = pattern.exec(rest); hit; hit = pattern.exec(rest)) {
+    const at = from + hit.index;
+    const open = css.lastIndexOf('{', at);
+    const prev = Math.max(css.lastIndexOf('}', open), css.lastIndexOf('*/', open));
+    const selector = css.slice(prev + 1, open);
+    if (selector.includes('#')) return selector;
+  }
+  return null;
 };
 
 const startingAt = css.indexOf('@starting-style');

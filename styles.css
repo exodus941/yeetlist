@@ -331,6 +331,78 @@
   --ease-out: cubic-bezier(0, 0, .2, 1);
 }
 
+/* ==========================================================================
+   The loading screen
+
+   THE PAGE COVERS ITSELF UNTIL IT IS TRUE. Before the script runs, this
+   document shows open filters, an empty sort menu and zero counts, because
+   every one of those is written by script. Their report, with a screenshot:
+   it "looks seriously broken" until the list loads.
+
+   `data-booting` LIVES ON THE BODY AND THE SCRIPT REMOVES IT. In the markup
+   rather than added by script, so it is on screen for the moment it exists
+   for. A browser that runs no script never gets the attribute removed, so
+   the rule is written to fail toward the app: the cover is what hides, never
+   the page.
+   ========================================================================== */
+
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: var(--layer-modal);
+  display: none;
+  place-items: center;
+  background: var(--bg);
+  transition: opacity var(--duration-fold) var(--ease-out), display var(--duration-fold) allow-discrete;
+}
+
+body[data-booting] .boot { display: grid }
+
+/* IT FADES OUT AND NEVER IN. The attribute is in the markup, so the cover is
+   there on the first paint with nothing to animate from. Only its removal
+   runs, which is the one moment worth softening. */
+.boot { opacity: 0 }
+body[data-booting] .boot { opacity: 1 }
+
+/* THE PAGE UNDER IT IS NOT PAINTED EITHER. The cover is opaque, so this
+   costs nothing to look at. It stops a screen reader reading a list that is
+   still zero, and it stops the browser scrolling to a field the cover hides. */
+body[data-booting] > main { visibility: hidden }
+
+.boot-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-lg);
+  width: min(320px, calc(100% - var(--space-xl) * 2));
+}
+
+.boot-mark { width: 48px; height: 48px }
+
+/* A DETERMINATE BAR, BECAUSE THE STEPS ARE COUNTABLE. A spinner says only
+   that something is happening. This says how much of it is left. */
+.boot-track {
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--surface-raised);
+}
+
+.boot-fill {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width var(--duration) var(--ease-out);
+}
+
+.boot-step {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
 /* A coarse pointer raises the floor. Every control height reads
    max(its own step, --control-floor), so nothing has to remember this. */
 @media (pointer: coarse) {

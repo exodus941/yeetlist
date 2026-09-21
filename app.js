@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260921-16';
+const VERSION = '260921-17';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -3873,6 +3873,38 @@ $('#driveDisconnect').addEventListener('click', async () => {
    Start
    ========================================================================== */
 
+/* THE COVER NAMES THE STEP IT IS ON, and the steps are counted so the bar is
+   determinate. A spinner says only that something is happening.
+
+   THE LIST IS WHAT THE COVER WAITS FOR, never the sync. Drive carries on
+   behind the app with the circle saying so, and holding a full screen over a
+   list that is already drawn would be a loader waiting for itself. */
+const BOOT_STEPS = ['Reading your list', 'Restoring your view', 'Drawing the list', 'Ready'];
+let bootAt = 0;
+
+function bootStep(words) {
+  const fill = $('#bootFill');
+  const step = $('#bootStep');
+  if (!fill || !step) return;
+  bootAt = Math.min(bootAt + 1, BOOT_STEPS.length);
+  fill.style.width = `${Math.round((bootAt / BOOT_STEPS.length) * 100)}%`;
+  step.textContent = words;
+}
+
+/* THE ATTRIBUTE GOES AND THE FADE RUNS. `display` is in the transition with
+   allow-discrete, so the cover leaves the layout at the far end rather than
+   the moment the opacity starts. */
+function bootDone() {
+  bootStep(BOOT_STEPS[BOOT_STEPS.length - 1]);
+  document.body.removeAttribute('data-booting');
+}
+
+/* A SCRIPT THAT THROWS MUST NOT LEAVE THE COVER UP. Every fault below this
+   point is one the reader can still work around, and a blank screen is not.
+   The listener is added before any of it runs. */
+addEventListener('error', () => document.body.removeAttribute('data-booting'));
+
+bootStep(BOOT_STEPS[0]);
 load();
 
 $('#brandBuild').textContent = VERSION;
@@ -3885,6 +3917,7 @@ $('.brand').title = `YeeTlist ${VERSION}`;
 
 /* The tab a reader left on is where they meant to be. It is a view rather
    than data, so it stays local and never reaches Drive. */
+bootStep(BOOT_STEPS[1]);
 try {
   const held = localStorage.getItem(TAB_STORE);
   if (LISTS[held]) { tab = held; sort = sorts[tab]; }
@@ -3908,8 +3941,10 @@ if (arrivedWith) {
 }
 
 driveResuming = DRIVE.connected();
+bootStep(BOOT_STEPS[2]);
 renderDrive();
 render();
+bootDone();
 
 /* A RELOAD DOES NOT LOSE THE QUEUE. A row added with no connection is in
    storage with its flag, so the watch restarts and the first attempt is made

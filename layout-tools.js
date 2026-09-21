@@ -141,6 +141,11 @@ function typeMetrics (el) {
     opticalMid: +((capTop + baseline) / 2).toFixed(2),
     ascent: +m.fontBoundingBoxAscent.toFixed(2),
     descent: +m.fontBoundingBoxDescent.toFixed(2),
+    /* THE INK'S OWN BAND, so a caller can ask whether something is BESIDE
+       this run or merely inside the same box. A column stacks its children,
+       and a mark above a sentence is not an icon beside a label. */
+    inkTop: +found.rect.top.toFixed(2),
+    inkBottom: +found.rect.bottom.toFixed(2),
     /* The element, so a caller can ask which pane the run belongs to. Banding
        by vertical overlap alone puts two side-by-side panes on one line, and
        the tool then reports a fault between things nobody would align. */
@@ -589,7 +594,19 @@ function probe (sel) {
     const s = svg.getBoundingClientRect()
     const mid = (s.top + s.bottom) / 2
     const label = typeMetrics(el)
-    if (label) {
+    /* BESIDE, NOT MERELY INSIDE. The reference for a mark is its label only
+       when the two share a row, and sharing a row means the painted boxes
+       overlap vertically. A COLUMN stacks them, and `align-items: center`
+       says nothing about direction: it centres on the cross axis, which a
+       column reads as horizontal.
+
+       Measured on a loading screen: a 48px mark above a bar above a line of
+       text reported the mark 71px above "the optical mid" of a sentence it
+       was never beside. Correct code, and the finding buried the sweep. */
+    const beside = label && s.bottom > label.inkTop && s.top < label.inkBottom
+    if (label && !beside) {
+      out.icon = { dy: null, w: +s.width.toFixed(1), ref: 'stacked, not beside its text' }
+    } else if (label) {
       const dy = mid - label.opticalMid
       out.icon = { dy: +dy.toFixed(2), w: +s.width.toFixed(1), ref: 'label optical mid' }
       if (Math.abs(dy) > 0.75) out.findings.push(
