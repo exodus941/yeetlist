@@ -111,45 +111,60 @@ ok('the excluded set is read, never restated', /closest\?\.\(SWIPE_NEVER\)/.test
    A browser owns a touch gesture until something says otherwise, and once it
    starts scrolling it fires `pointercancel` and sends nothing further. */
 ok('the decision runs on a move', /addEventListener\('pointermove', takeSwipe/.test(code));
-ok('and on the release too, for a flick too short to move',
-  /addEventListener\('pointerup', takeSwipe/.test(code));
-ok('and one function decides for both',
-  (code.match(/addEventListener\('pointer(?:move|up)', takeSwipe/g) || []).length === 2);
+ok('and the release decides where it lands',
+  /addEventListener\('pointerup', dropSwipe/.test(code));
+ok('one function moves it and one lands it',
+  /addEventListener\('pointermove', takeSwipe/.test(code)
+  && /addEventListener\('pointerup', dropSwipe/.test(code));
 
-/* A CANCELLED GESTURE IS OVER, or a later event from the same press acts on a
-   press the browser already took. */
-ok('a cancel clears the gesture',
-  /addEventListener\('pointercancel', \(\) => \{ swipe = null; \}/.test(code));
+/* A CANCELLED GESTURE IS OVER, AND THE PAGES STILL HAVE TO GO HOME. The
+   browser takes a gesture the moment it decides to scroll and sends nothing
+   further, so a drag left mid-travel would stay there. */
+ok('a cancel clears the gesture', /addEventListener\('pointercancel'[\s\S]{0,140}swipe = null/.test(code));
+ok('and it sends the pages home',
+  /addEventListener\('pointercancel'[\s\S]{0,140}endDrag\(false\)/.test(code));
 
-/* ONE STEP PER GESTURE. A finger travelling 300px crosses the threshold on
-   every frame after the first, so the state is cleared before the step. */
-/* READ THE REGION BETWEEN THE LAST TEST AND THE STEP, not the whole
-   function. The time test also clears the gesture, so `lastIndexOf` found
-   that one and this passed with the clear deleted. Proven by mutation. */
-/* START AFTER THE TIME TEST'S OWN BRACE. That test also clears the gesture,
-   so a region opened at the test itself contains its clear and passed with
-   the real one deleted. Twice blind in one guard, the same way both times:
-   a region wider than the question. */
-{
-  const test = decide.indexOf('SWIPE_MS)');
-  const after = test > -1 ? decide.indexOf('}', test) + 1 : -1;
-  const step = decide.indexOf('stepTab(dx > 0');
-  const between = after > 0 && step > after ? decide.slice(after, step) : '';
-  ok('the region before the step was found', between.length > 0, String(between.length));
-  ok('the gesture is cleared in it', between.includes('swipe = null;'),
-    between.replace(/\s+/g, ' ').slice(0, 90));
-}
+/* ONE PICK-UP PER GESTURE. Every frame after the first crosses the same
+   threshold, so the drag is started once and then only moved. */
+ok('the drag is started once', /if \(!drag\) \{[\s\S]{0,400}beginDrag\(dx\)/.test(decide));
+ok('and afterwards it is only moved', /moveDrag\(dx\);\n\};/.test(decide));
+
+/* THE GESTURE KEEPS THE DIRECTION IT STARTED IN. A finger that comes back
+   past its own start has no second page on that side, so the offset is
+   clamped rather than allowed to cross zero. */
+ok('the travel cannot cross its own start',
+  /drag\.sign > 0 \? Math\.max\(0, raw\) : Math\.min\(0, raw\)/.test(code));
 
 /* AND THE STYLESHEET DECLARES THE AXIS SPLIT, which is the other half. This
    one cannot be tested from a synthetic event at all, which is exactly why it
    needs asserting rather than remembering. */
 {
   const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
-  const rules = [...css.matchAll(/touch-action:\s*([^;}]+)/g)].map((m) => m[1].trim());
-  ok('touch-action is declared', rules.length >= 2, rules.join(' | '));
-  ok('it keeps vertical scrolling', rules.every((r) => /\bpan-y\b/.test(r)), rules.join(' | '));
-  ok('and it keeps pinch zoom', rules.every((r) => /\bpinch-zoom\b/.test(r)), rules.join(' | '));
-  ok('it never says none', !rules.some((r) => /\bnone\b/.test(r)), rules.join(' | '));
+  /* AT REST ONLY. A drag in flight takes both axes on purpose, and that rule
+     names the state it belongs to, so it is read separately rather than
+     being allowed to widen this answer. Without the split the `none` it
+     declares would have silenced the whole question. */
+  const blocks = [...css.matchAll(/([^{}]+)\{([^}]*touch-action[^}]*)\}/g)]
+    .map((m) => ({ sel: m[1].trim(), body: m[2] }));
+  const value = (b) => /touch-action:\s*([^;}]+)/.exec(b.body)[1].trim();
+  const rest = blocks.filter((b) => !b.sel.includes('[data-drag]')).map(value);
+  const dragging = blocks.filter((b) => b.sel.includes('[data-drag]')).map(value);
+
+  ok('touch-action is declared', rest.length >= 2, rest.join(' | '));
+  ok('it keeps vertical scrolling', rest.every((r) => /\bpan-y\b/.test(r)), rest.join(' | '));
+  ok('and it keeps pinch zoom', rest.every((r) => /\bpinch-zoom\b/.test(r)), rest.join(' | '));
+  ok('it never says none at rest', !rest.some((r) => /\bnone\b/.test(r)), rest.join(' | '));
+
+  /* AND A DRAG IN FLIGHT TAKES BOTH AXES, or a finger travelling diagonally
+     scrolls the list it is dragging away. */
+  const held = blocks.filter((b) => b.sel.includes('[data-drag]'));
+  ok('a drag in flight takes both axes', dragging.length >= 1, dragging.join(' | '));
+  ok('and it says so by naming none',
+    dragging.length > 0 && dragging.every((r) => r === 'none'), dragging.join(' | '));
+  for (const sel of ['body', '.table-wrap']) {
+    ok(`and it reaches ${sel} while dragging`,
+      held.some((b) => b.sel.includes(sel)), held.map((b) => b.sel).join(' | '));
+  }
   /* THE LIST IS ITS OWN SCROLLER, so a rule on the body does not reach a
      gesture beginning inside it. Read the selector each declaration sits on,
      rather than building a pattern per name. */
@@ -180,11 +195,14 @@ ok('and both halves are stopped',
    version of this passed on a file with the assignment deleted. Ask that both
    exist before comparing where they sit. */
 {
-  const set = code.indexOf('swiped = event.timeStamp');
-  const step = code.indexOf('stepTab(dx > 0');
+  const set = code.indexOf('swiped = event.timeStamp;\n  endDrag(');
+  /* A DECLARATION READS LIKE A CALL. `function endDrag(commit) {` holds the
+     same text, and it comes first, so the first version of this compared the
+     flag against the declaration and reported it late. */
+  const step = code.indexOf('endDrag(commit);');
   ok('the flag is set at all', set > -1);
-  ok('the tab step is there', step > -1);
-  ok('and the flag is set before the step', set > -1 && step > -1 && set < step,
+  ok('the landing is there', step > -1);
+  ok('and the flag is set before the landing', set > -1 && step > -1 && set < step + 1,
     `${set} against ${step}`);
 }
 
@@ -194,18 +212,23 @@ ok('the flag expires on a clock', /event\.timeStamp - swiped > SWIPE_CLICK_MS/.t
 
 /* ONE WRITER FOR WHICH TAB IS NEXT. The arrows and the swipe read the strip's
    own order, so a fourth tab needs no edit in either. */
-ok('the arrows and the swipe share one stepper',
-  /function stepTab\(by/.test(code) && (code.match(/stepTab\(/g) || []).length >= 2);
-ok('and it reads the strip rather than a list of names',
-  /function stepTab[\s\S]{0,200}\$\$\('\.tab'\)/.test(code));
+/* THE STEPPER IS GONE, AND ITS ONE CALLER IS WHY. It existed for the swipe,
+   and the drag reads the strip itself. A function nobody calls reads as a
+   second way to change tabs. */
+ok('nothing is left of the old stepper', !/stepTab/.test(code));
+ok('the drag reads the strip rather than a list of names',
+  /function neighbourTab\(by\)[\s\S]{0,200}\$\$\('\.tab'\)/.test(code));
+ok('and it refuses to step off the end',
+  /function neighbourTab[\s\S]{0,260}to < 0 \|\| to >= order\.length \? null/.test(code));
 
 /* -- 6. The finger's direction is the strip's direction -------------------- */
 /* Their report, 22 September 2026: "the scroll direction is wrong, it's going
    left when it's supposed to go right (and vice versa), it's completely
    counterintuitive." I shipped the carousel reading, where the content
    follows the finger. Theirs is the other convention and it is their app. */
-ok('a swipe right steps forward', /stepTab\(dx > 0 \? 1 : -1/.test(code),
-  (code.match(/stepTab\(dx[^;]*/) || ['none'])[0]);
+ok('a swipe right steps forward', /const sign = dx > 0 \? 1 : -1;/.test(code),
+  (code.match(/const sign = dx[^;]*/) || ['none'])[0]);
+ok('and the tab it lands on is that step', /const to = neighbourTab\(sign\);/.test(code));
 
 /* AND A SWIPE CROSS-FADES AT THE SHORT STEP. Two reports, and the second
    corrected my answer to the first.
@@ -223,10 +246,71 @@ ok('a swipe right steps forward', /stepTab\(dx > 0 \? 1 : -1/.test(code),
    MEASURED WITH THE FADE BACK ON: two switches 60ms apart both land, and the
    tab ends where the second sent it. A second `startViewTransition` while one
    runs is skipped and its callback still runs, so nothing is dropped. */
-ok('a swipe asks for its own animation',
-  /stepTab\(dx > 0 \? 1 : -1, \{ animate: 'swipe' \}\)/.test(code),
-  (code.match(/stepTab\(dx[^;]*/) || ['none'])[0]);
-ok('and it is not the plain one', !/stepTab\(dx[^;]*animate: false/.test(code));
+/* AND THE DRAG REPLACED BOTH OF THOSE ANSWERS. Their ask, 22 September 2026:
+   "make the slide actually stay responsive under the finger."
+
+   A VIEW TRANSITION TAKES ONE PICTURE AND PLAYS A FIXED ANIMATION, so nothing
+   in it can read a finger. The drag mounts the old page itself and moves the
+   pair, which is why the swipe no longer asks showTab to animate. A click and
+   the arrow keys still do, because neither has a finger to follow. */
+ok('the drag switches the tab without an animation',
+  /showTab\(to, \{ animate: false \}\)/.test(code));
+ok('and it puts the old tab back the same way',
+  /showTab\(from, \{ animate: false \}\)/.test(code));
+
+/* -- 7. The pages follow the finger, and the release decides -------------- */
+
+/* THE OLD PAGE IS A COPY, MOUNTED FOR THE GESTURE AND REMOVED AFTER IT. Two
+   lists mounted at rest is the shape that makes a tool measure the surface
+   that is leaving. */
+ok('the old page is a copy of the panel', /panel\.cloneNode\(true\)/.test(code));
+ok('it is out of the accessibility tree', /ghost\.setAttribute\('aria-hidden', 'true'\)/.test(code));
+ok('and it takes no pointer events',
+  /\.panel-ghost \{[\s\S]{0,260}pointer-events: none/.test(
+    readFileSync(new URL('../styles.css', import.meta.url), 'utf8')));
+ok('and every ending removes it', (code.match(/ghost\?\.remove\(\)/g) || []).length >= 1);
+
+/* THE RELEASE IS A SHARE OF THE PANEL, NEVER A DISTANCE. A quarter of the
+   screen means the same thing on every phone. A fast flick commits under it,
+   because a reader who throws the page has decided. */
+ok('the threshold is a share of the width', /Math\.abs\(drag\.dx\) >= drag\.w \* DRAG_COMMIT/.test(code));
+ok('and a flick commits under it', /speed >= DRAG_FLICK/.test(code));
+ok('and the end of the strip can only snap back', /Boolean\(drag\.to\)\s*\n?\s*&&/.test(code));
+
+/* AND THE SETTLE READS THE STYLESHEET'S OWN CURVE, so a change there moves
+   the drag with the click. A second copy of a curve drifts. */
+ok('the curve is read, never restated', /getPropertyValue\('--ease-slide'\)/.test(code));
+ok('and the stylesheet declares it',
+  /--ease-slide: cubic-bezier\(0, 0, \.1, 1\)/.test(
+    readFileSync(new URL('../styles.css', import.meta.url), 'utf8')));
+ok('and the panel slide uses it',
+  /animation-timing-function: var\(--ease-slide\)/.test(
+    readFileSync(new URL('../styles.css', import.meta.url), 'utf8')));
+
+/* THE SETTLE IS AS LONG AS THE DISTANCE LEFT, bounded. A page released one
+   pixel from home does not need the full run to travel that pixel. */
+ok('the settle is bounded at both ends',
+  /Math\.min\(DRAG_MS_MAX, Math\.max\(DRAG_MS_MIN/.test(code));
+ok('and reduced motion skips it', /calmly\(\) \? 0/.test(code));
+
+/* A FILLED ANIMATION OUTLIVES THE STYLE IT REPLACED, AND IT PINNED THE WHOLE
+   LIST OFF SCREEN. `fill: 'forwards'` holds the end frame, which is what
+   stops a snap at the far end, and it also beats the inline transform.
+   Clearing that alone left the panel where the animation had put it.
+
+   A SNAP-BACK ENDS A WHOLE WIDTH AWAY, so it was invisible on a commit and
+   total on a cancel. Measured at 375: the panel sat at x -327 with the right
+   tab selected, so the reader had the correct tab and an empty screen.
+
+   AND THE PROBE HAD CALLED IT CLEAN, because it read `style.transform`. An
+   animation writes neither the inline style nor the stylesheet, so only the
+   computed value answers. */
+ok('the settle is cancelled once it lands', /runs\.forEach\(\(a\) => a\.cancel\(\)\)/.test(code));
+{
+  const end = code.indexOf('runs.forEach((a) => a.cancel())');
+  const clear = code.indexOf("panel.style.transform = ''");
+  ok('and before the inline transform is cleared', end > -1 && clear > end, `${end} against ${clear}`);
+}
 
 /* THE MARK CARRIES THE DIRECTION, because CSS cannot know which way the
    reader went. The strip reads left to right, so a later tab is 'next'. */
@@ -331,13 +415,22 @@ ok('dissolve is told which', /dissolve\([^)]*, kind\)/.test(code));
     /\[data-vt="prev"\]::view-transition-new\(root\) \{ animation: none \}/.test(css));
   ok('nothing slides the root any more', !/view-transition-old\(root\) \{ animation-name: tab-/.test(css));
 
-  ok('a later tab arrives from the right',
-    /\[data-vt="next"\]::view-transition-new\(list-panel\) \{ animation-name: tab-enter-right \}/.test(css));
-  ok('and the old one leaves to the left',
-    /\[data-vt="next"\]::view-transition-old\(list-panel\) \{ animation-name: tab-leave-left \}/.test(css));
+  /* THE CONTENT FOLLOWS THE FINGER. Their ask, 22 September 2026: reverse
+     the slide. The first reading was the filmstrip, where a later tab moved
+     the window right and the pages travelled left. This is the other
+     convention. A swipe right still steps to a later tab. */
+  ok('a later tab arrives from the left',
+    /\[data-vt="next"\]::view-transition-new\(list-panel\) \{ animation-name: tab-enter-left \}/.test(css));
+  ok('and the old one leaves to the right',
+    /\[data-vt="next"\]::view-transition-old\(list-panel\) \{ animation-name: tab-leave-right \}/.test(css));
   ok('going back is the mirror',
-    /\[data-vt="prev"\]::view-transition-new\(list-panel\) \{ animation-name: tab-enter-left \}/.test(css)
-    && /\[data-vt="prev"\]::view-transition-old\(list-panel\) \{ animation-name: tab-leave-right \}/.test(css));
+    /\[data-vt="prev"\]::view-transition-new\(list-panel\) \{ animation-name: tab-enter-right \}/.test(css)
+    && /\[data-vt="prev"\]::view-transition-old\(list-panel\) \{ animation-name: tab-leave-left \}/.test(css));
+  /* AND THE TWO DIRECTIONS NEVER AGREE. A swap that touched one of the four
+     lines would send both pictures the same way. */
+  ok('the two directions are opposites',
+    /"next"\]::view-transition-old\(list-panel\) \{ animation-name: tab-leave-right/.test(css)
+    && /"prev"\]::view-transition-old\(list-panel\) \{ animation-name: tab-leave-left/.test(css));
   /* THE PANEL IS A DIFFERENT HEIGHT ON EVERY TAB, and the group animates
      between the two. Left to stretch, the old list squashes toward the new
      one's height while it slides. */
@@ -416,10 +509,10 @@ ok('dissolve is told which', /dissolve\([^)]*, kind\)/.test(code));
   ok('the animated path resets too', /dissolve\(\(\) => \{ toTop\(\);/.test(show));
 }
 
-/* THE STEPPER PASSES THE CHOICE THROUGH rather than deciding it, so the
-   arrows and the swipe can differ without a second stepper. */
-ok('the stepper carries the choice', /function stepTab\(by, how = \{\}\)/.test(code));
-ok('and hands it to showTab', /showTab\(order\[to\]\.dataset\.tab, how\)/.test(code));
+/* THE ARROWS ASK showTab DIRECTLY, and so does the drag. The stepper that
+   passed a choice between them existed for a swipe that no longer needs it. */
+ok('the arrows ask showTab directly',
+  /\$\('\.tabs'\)\.addEventListener\('keydown'[\s\S]{0,420}showTab\(order\[/.test(code));
 
 /* -- 7. The focus ring belongs to the keyboard ----------------------------- */
 /* Their report: "there's a weird white rectangle showing up around the

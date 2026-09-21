@@ -329,6 +329,19 @@
      distance to cover, and 500ms on those reads as lag rather than motion. */
   --duration-fold: 500ms;
   --ease-out: cubic-bezier(0, 0, .2, 1);
+
+  /* A THIRD CURVE, FOR THE PANEL THAT TRAVELS A WHOLE SCREEN WIDTH. Their
+     ask, 22 September 2026: the slide needs a smoother easing out curve.
+
+     Same rule, softer landing. The first control point is still the origin,
+     so nothing holds the start back. Moving the second from .2 to .1 pulls
+     the tail longer: 55.6% of the distance in the first tenth against 33.6%,
+     and 0.6% left at nine tenths against 1.0%. So it arrives sooner and
+     settles for longer, which is what reads as smooth.
+
+     ONE WRITER. The drag reads this token out of the stylesheet rather than
+     holding a second copy of the curve. */
+  --ease-slide: cubic-bezier(0, 0, .1, 1);
 }
 
 /* ==========================================================================
@@ -1006,7 +1019,7 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
 [data-vt="prev"]::view-transition-old(list-panel),
 [data-vt="prev"]::view-transition-new(list-panel) {
   animation-duration: var(--duration);
-  animation-timing-function: var(--ease-out);
+  animation-timing-function: var(--ease-slide);
   animation-fill-mode: both;
   mix-blend-mode: normal;
   /* THE PANEL IS A DIFFERENT HEIGHT ON EVERY TAB, and the group animates
@@ -1020,10 +1033,18 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   overflow: clip;
 }
 
-[data-vt="next"]::view-transition-old(list-panel) { animation-name: tab-leave-left }
-[data-vt="next"]::view-transition-new(list-panel) { animation-name: tab-enter-right }
-[data-vt="prev"]::view-transition-old(list-panel) { animation-name: tab-leave-right }
-[data-vt="prev"]::view-transition-new(list-panel) { animation-name: tab-enter-left }
+/* THE CONTENT FOLLOWS THE FINGER. Their ask, 22 September 2026: reverse the
+   slide direction.
+
+   The first reading was the filmstrip: the strip runs left to right, so a
+   later tab moved the window right and the pages travelled left. This is the
+   other convention, where the page goes the way the hand went. A swipe right
+   still steps to a later tab, which is their earlier instruction and is
+   unchanged. Only the direction the pictures travel is reversed. */
+[data-vt="next"]::view-transition-old(list-panel) { animation-name: tab-leave-right }
+[data-vt="next"]::view-transition-new(list-panel) { animation-name: tab-enter-left }
+[data-vt="prev"]::view-transition-old(list-panel) { animation-name: tab-leave-left }
+[data-vt="prev"]::view-transition-new(list-panel) { animation-name: tab-enter-right }
 
 /* AND THE PAGE AROUND IT HOLDS STILL. With the panel lifted out, the root's
    own picture is everything else: the bar, the tabs and the footer. Those do
@@ -1041,8 +1062,50 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
 [data-vt="next"]::view-transition-group(list-panel),
 [data-vt="prev"]::view-transition-group(list-panel) {
   animation-duration: var(--duration);
-  animation-timing-function: var(--ease-out);
+  animation-timing-function: var(--ease-slide);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE PANEL FOLLOWS THE FINGER
+   Their ask, 22 September 2026: "make the slide actually stay responsive
+   under the finger ... if i release it past a certain threshold toward the
+   left or the right, it would slide to that tab, otherwise snap back."
+
+   A VIEW TRANSITION CANNOT DO THIS. It snapshots the page and plays a fixed
+   animation, so nothing in it can read a finger. A drag needs both pages
+   mounted at once, which is the one shape a view transition exists to avoid.
+
+   So the drag mounts its own second page: a copy of the panel as it was,
+   fixed over the real one, while the live panel renders the tab being
+   dragged in. The script moves the pair. It removes the copy the moment the
+   gesture ends, so only one list is mounted at rest.
+
+   IT PAINTS NOTHING A READER CAN REACH. The copy is out of the
+   accessibility tree and takes no pointer events, so a tap during the drag
+   lands on the real page underneath.
+   ══════════════════════════════════════════════════════════════════════════ */
+.panel-ghost {
+  position: fixed;
+  z-index: var(--layer-raised);
+  margin: 0;
+  overflow: clip;
+  pointer-events: none;
+  background: var(--bg);
+}
+
+/* THE WHOLE GESTURE IS ONE LAYER EACH, so the browser rasters the two pages
+   once and then only moves them. */
+:root[data-drag] .list-panel,
+.panel-ghost { will-change: transform }
+
+/* AND NOTHING UNDER THE FINGER CROSSES THE PANEL'S EDGE while it travels. */
+:root[data-drag] .list-panel { overflow: clip }
+
+/* ONE AXIS AT A TIME. The page keeps the vertical axis at rest, and the drag
+   takes both the moment it starts. Without this a finger travelling
+   diagonally scrolls the list it is dragging away. */
+:root[data-drag] body,
+:root[data-drag] .table-wrap { touch-action: none }
 
 /* A TOAST IS A NEW NODE, so it has no previous style to come from and
    @starting-style is the whole entrance. Its exit is a `remove()`, and a

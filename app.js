@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-17';
+const VERSION = '260922-18';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -3698,17 +3698,6 @@ $('.tabs').addEventListener('keydown', (event) => {
   showTab(order[(go + order.length) % order.length].dataset.tab, { focus: true });
 });
 
-/* ONE WRITER FOR "WHICH TAB IS NEXT", read by the arrows above and the swipe
-   below. The strip's own order decides, so a fourth tab needs no edit here. */
-function stepTab(by, how = {}) {
-  const order = $$('.tab');
-  const at = order.findIndex((b) => b.dataset.tab === tab);
-  const to = at + by;
-  if (to < 0 || to >= order.length) return false;
-  showTab(order[to].dataset.tab, how);
-  return true;
-}
-
 /* ── A SWIPE CHANGES TABS ───────────────────────────────────────────────────
  *
  * Their instruction, 22 September 2026: swipe between tabs by swiping
@@ -3756,6 +3745,27 @@ const SWIPE_MIN = 60;
 const SWIPE_RATIO = 2;
 const SWIPE_MS = 600;
 
+/* AND A DRAG STARTS EARLIER THAN A SWIPE ENDS. Their ask, 22 September 2026:
+   "make the slide actually stay responsive under the finger."
+ *
+ * A DRAG HAS TWO THRESHOLDS, WHERE A FLICK HAD ONE. The first says the
+ * gesture is horizontal and picks the pages up. Android's own slop is about
+ * 8px, and 12 leaves room for a tap that drifted.
+ *
+ * The second decides the RELEASE, and it is a share of the panel rather than
+ * a distance, because a quarter of the screen means the same thing on every
+ * phone. A fast flick commits under it: a reader who throws the page has
+ * decided, whatever the distance. 0.4px per ms is 150px in the 375ms a short
+ * flick takes. */
+const DRAG_MIN = 12;
+const DRAG_COMMIT = 0.25;
+const DRAG_FLICK = 0.4;
+
+/* THE SETTLE IS AS LONG AS THE DISTANCE LEFT, bounded. A page released one
+   pixel from home does not need 400ms to travel that pixel. */
+const DRAG_MS_MIN = 140;
+const DRAG_MS_MAX = 400;
+
 /* WHERE A SWIPE MUST NOT START, AND EVERY ENTRY IS A GESTURE SOMEBODY ELSE
    OWNS. A field and the note body take a drag to move the caret or select.
    The rating reads a horizontal position. The note editor is full screen, so
@@ -3800,41 +3810,181 @@ let swiped = 0;
  * the browser keeps the vertical axis and hands over the horizontal. This
  * decides the moment the threshold is crossed, so a cancel cannot lose the
  * gesture even where that declaration does not reach. */
+/* ── THE PANEL FOLLOWS THE FINGER ───────────────────────────────────────────
+ *
+ * Their ask, 22 September 2026: "make the slide actually stay responsive
+ * under the finger, like, if i hold down my finger and drag it, it would only
+ * slide as long as i'm dragging it. and if i release it past a certain
+ * threshold toward the left or the right, it would slide to that tab,
+ * otherwise snap back into the current one smoothly."
+ *
+ * A VIEW TRANSITION CANNOT ANSWER THIS. It takes one picture of the page and
+ * plays a fixed animation over it, so nothing in it can read a finger. A drag
+ * needs both pages on screen at once, which is the one shape a view
+ * transition exists to avoid.
+ *
+ * SO THE DRAG MOUNTS ITS OWN SECOND PAGE. A copy of the panel as it was is
+ * fixed over the real one, the live panel renders the tab being dragged in,
+ * and the script moves the pair. The copy is removed the moment the gesture
+ * ends, so only one list is mounted at rest.
+ *
+ * THE DIRECTION IS UNCHANGED. A swipe right still steps to a later tab, and
+ * the pages still travel the way the hand went.
+ *
+ * A TAB CLICK AND THE ARROW KEYS STILL TAKE THE VIEW TRANSITION. Neither has
+ * a finger to follow, so neither needs a second tree. */
+
+/* THE TAB ONE STEP EITHER WAY, or null at the ends of the strip. */
+function neighbourTab(by) {
+  const order = $$('.tab');
+  const at = order.findIndex((b) => b.dataset.tab === tab);
+  const to = at + by;
+  return to < 0 || to >= order.length ? null : order[to].dataset.tab;
+}
+
+let drag = null;
+
+/* ONE WRITER FOR THE CURVE. The stylesheet holds it, so a change there moves
+   the drag with the click. */
+const slideEase = () =>
+  getComputedStyle(document.documentElement).getPropertyValue('--ease-slide').trim()
+  || 'cubic-bezier(0, 0, .1, 1)';
+
+const calmly = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function beginDrag(dx) {
+  const panel = $('#listPanel');
+  if (!panel) return false;
+
+  const sign = dx > 0 ? 1 : -1;
+  const to = neighbourTab(sign);
+  const box = panel.getBoundingClientRect();
+
+  document.documentElement.dataset.drag = '';
+  drag = { sign, to, panel, ghost: null, from: tab, w: box.width || 1, dx: 0, at: 0, last: 0 };
+
+  /* AT THE END OF THE STRIP THERE IS NOTHING TO BRING IN, so the page pulls
+     against the finger and goes back. Android's own pager does the same. */
+  if (!to) return true;
+
+  const ghost = panel.cloneNode(true);
+  ghost.id = 'listGhost';
+  ghost.className = `${panel.className} panel-ghost`;
+  ghost.setAttribute('aria-hidden', 'true');
+  ghost.removeAttribute('role');
+  ghost.style.top = `${box.top}px`;
+  ghost.style.left = `${box.left}px`;
+  ghost.style.width = `${box.width}px`;
+  ghost.style.height = `${box.height}px`;
+  document.body.append(ghost);
+  drag.ghost = ghost;
+
+  /* THE LIVE PANEL BECOMES THE TAB BEING DRAGGED IN, and it starts a whole
+     width away on the side the finger came from. */
+  showTab(to, { animate: false });
+  return true;
+}
+
+function moveDrag(raw) {
+  if (!drag) return;
+  /* THE GESTURE KEEPS THE DIRECTION IT STARTED IN. A finger that comes back
+     past its own start has no second page on that side. */
+  const dx = drag.sign > 0 ? Math.max(0, raw) : Math.min(0, raw);
+  drag.dx = drag.ghost ? dx : dx / 3;
+  drag.panel.style.transform =
+    `translateX(${drag.ghost ? drag.dx - drag.sign * drag.w : drag.dx}px)`;
+  if (drag.ghost) drag.ghost.style.transform = `translateX(${drag.dx}px)`;
+}
+
+/* THE SETTLE. `commit` lands on the tab that was dragged in, and a cancel
+   puts the old one back. */
+function endDrag(commit) {
+  if (!drag) return;
+  const { panel, ghost, sign, w, from, to } = drag;
+  const ease = slideEase();
+
+  const panelTo = ghost ? (commit ? 0 : -sign * w) : 0;
+  const ghostTo = commit ? sign * w : 0;
+  const far = Math.max(Math.abs(panelTo - (ghost ? drag.dx - sign * w : drag.dx)), 1);
+  const ms = calmly() ? 0
+    : Math.min(DRAG_MS_MAX, Math.max(DRAG_MS_MIN, Math.round((far / w) * DRAG_MS_MAX)));
+
+  /* A FILLED ANIMATION OUTLIVES THE STYLE IT REPLACED, AND IT PINNED THE
+     WHOLE LIST OFF SCREEN. `fill: 'forwards'` holds the end frame, which is
+     what stops a snap at the far end. It also beats the inline transform, so
+     clearing that alone left the panel where the animation put it.
+
+     A SNAP-BACK ENDS A WHOLE WIDTH AWAY, so the fault was invisible on a
+     commit and total on a cancel. Measured at 375: the panel sat at x -327
+     with the tab correctly on links, so the reader had the right tab and an
+     empty screen.
+
+     AND MY OWN PROBE HAD REPORTED IT CLEAN, because it read `style.transform`
+     rather than the computed value. An animation writes neither. */
+  const runs = [];
+  const done = () => {
+    runs.forEach((a) => a.cancel());
+    ghost?.remove();
+    panel.style.transform = '';
+    delete document.documentElement.dataset.drag;
+    /* THE PAGES ARE HOME BEFORE THE TAB GOES BACK, so nothing flashes. */
+    if (ghost && !commit && tab !== from) showTab(from, { animate: false });
+  };
+
+  const glide = (el, endAt) => el.animate(
+    [{ transform: el.style.transform || 'translateX(0px)' }, { transform: `translateX(${endAt}px)` }],
+    { duration: ms, easing: ease, fill: 'forwards' },
+  );
+
+  drag = null;
+  if (!ms) return done();
+
+  runs.push(glide(panel, panelTo));
+  if (ghost) runs.push(glide(ghost, ghostTo));
+  Promise.allSettled(runs.map((a) => a.finished)).then(done, done);
+}
+
 const takeSwipe = (event) => {
   if (!swipe || event.pointerType !== 'touch') return;
   const dx = event.clientX - swipe.x;
   const dy = event.clientY - swipe.y;
-  const held = event.timeStamp - swipe.at;
 
-  if (Math.abs(dx) < SWIPE_MIN) return;
-  if (Math.abs(dx) < Math.abs(dy) * SWIPE_RATIO) return;
-  if (held > SWIPE_MS) { swipe = null; return; }
-
-  /* ONE STEP PER GESTURE. A finger travelling 300px crosses the threshold on
-     every frame after the first, and without this it would walk the whole
-     strip in one swipe. */
-  swipe = null;
-  swiped = event.timeStamp;
-  /* THE FINGER'S DIRECTION IS THE STRIP'S DIRECTION. Swipe right and it goes
-     right. Their report, 22 September 2026: "the scroll direction is wrong,
-     it's going left when it's supposed to go right (and vice versa), it's
-     completely counterintuitive."
-
-     I shipped the other reading, where the content follows the finger the way
-     a carousel does. That is one convention, and theirs is the other. This is
-     their app. */
-  stepTab(dx > 0 ? 1 : -1, { animate: 'swipe' });
+  if (!drag) {
+    if (Math.abs(dx) < DRAG_MIN) return;
+    /* THE RATIO PROTECTS THE VERTICAL SCROLL, which is the gesture this app
+       is mostly used with. */
+    if (Math.abs(dx) < Math.abs(dy) * SWIPE_RATIO) { swipe = null; return; }
+    if (!beginDrag(dx)) { swipe = null; return; }
+  }
+  moveDrag(dx);
 };
 
 addEventListener('pointermove', takeSwipe, true);
 
-/* AND `pointerup` STILL ASKS, for a flick short enough that no move event
-   crossed the threshold before the finger left. */
-addEventListener('pointerup', takeSwipe, true);
+const dropSwipe = (event) => {
+  if (!drag) { swipe = null; return; }
+  const dx = event.pointerType === 'touch' && swipe ? event.clientX - swipe.x : drag.dx;
+  const held = swipe ? Math.max(1, event.timeStamp - swipe.at) : SWIPE_MS;
+  const speed = Math.abs(dx) / held;
 
-/* A CANCELLED GESTURE IS OVER. The browser took it, so nothing here should
-   act on a later event from the same press. */
-addEventListener('pointercancel', () => { swipe = null; }, true);
+  /* PAST A QUARTER OF THE PANEL, OR THROWN. Either one is a decision. */
+  const commit = Boolean(drag.to)
+    && (Math.abs(drag.dx) >= drag.w * DRAG_COMMIT || speed >= DRAG_FLICK);
+
+  swipe = null;
+  swiped = event.timeStamp;
+  endDrag(commit);
+};
+
+addEventListener('pointerup', dropSwipe, true);
+
+/* A CANCELLED GESTURE IS OVER, AND THE PAGES STILL HAVE TO GO HOME. The
+   browser takes a gesture the moment it decides to scroll, and it sends
+   nothing further, so a drag left mid-travel would stay there. */
+addEventListener('pointercancel', (event) => {
+  if (drag) { swiped = event.timeStamp; endDrag(false); }
+  swipe = null;
+}, true);
 
 /* THE CLICK THE SWIPE EARNED IS THE CLICK IT SWALLOWS. Capture phase, so it
    never reaches the row handler or the rating. `pointercancel` is not enough,
