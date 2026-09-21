@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260921-14';
+const VERSION = '260921-15';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -4028,9 +4028,111 @@ takeShare();
 /* THE SERVICE WORKER IS WHAT MAKES THE LIST READABLE OFFLINE, and Chrome
    wants one before it offers to install. Registered after load, so it never
    competes with the page's own files for the connection. */
+/* ==========================================================================
+   Taking an update without waiting for one
+
+   THE READER RUNS ONE VERSION OF EVERYTHING. The worker serves the page and
+   its files from the cache, so the two halves of a build can never disagree.
+   What that costs is a way to notice a newer build, and this is it.
+
+   ASK FOR THE HEADER, NOT THE FILE. Vercel answers every static file with an
+   ETag, so a HEAD request says whether a copy is stale and carries no body.
+   Measured: the three shell files are 380KB together, and their ETags are
+   four headers.
+
+   A RELOAD IS NOT FREE, SO IT WAITS FOR A GAP. Reloading under somebody's
+   hands loses what they were typing. It holds until the field is empty and
+   nothing is open, and takes the next chance instead.
+   ========================================================================== */
+
+/* Only the files that can disagree with each other. An icon is a picture and
+   a stale one costs nothing. */
+const SHELL_WATCH = ['/index.html', '/app.js', '/styles.css', '/drive.js'];
+
+let updateHeld = false;
+let holdTimer = null;
+
+/* A RELOAD MID-EDIT IS A LOSS. Anything typed, chosen or opened is work the
+   reader has not finished, and a version is never worth it. */
+function safeToReload() {
+  if ($('#videoUrl')?.value.trim()) return false;
+  if (document.querySelector('dialog[open]')) return false;
+  const focused = document.activeElement;
+  if (focused && focused.matches('input, textarea, select, [contenteditable]')) return false;
+  if (typeof editing !== 'undefined' && editing !== null) return false;
+  return true;
+}
+
+/* A HELD UPDATE ASKS AGAIN ON ITS OWN. Measured: with the field cleared and
+   nothing focused, `safeToReload` read true and the reload never came,
+   because the only triggers were a blur and a tab switch. A reader who
+   simply stops typing fires neither. The timer costs nothing and covers
+   every way a gap can open. */
+function takeUpdate() {
+  if (!updateHeld) return;
+  if (!safeToReload()) {
+    if (!holdTimer) holdTimer = setInterval(takeUpdate, 3000);
+    return;
+  }
+  updateHeld = false;
+  if (holdTimer) { clearInterval(holdTimer); holdTimer = null; }
+  location.reload();
+}
+
+async function checkForUpdate() {
+  if (!('caches' in window) || !navigator.serviceWorker?.controller) return;
+  try {
+    const cache = await caches.open('yeetlist-shell');
+    const stale = await Promise.all(SHELL_WATCH.map(async (path) => {
+      const held = await cache.match(path);
+      if (!held) return false;
+      const live = await fetch(path, { method: 'HEAD', cache: 'no-store' });
+      const a = held.headers.get('etag');
+      const b = live.headers.get('etag');
+      /* NO ETAG ON EITHER SIDE IS NOT A DIFFERENCE. A header the host stops
+         sending would otherwise read as a new build on every launch, and
+         reload the app for ever. */
+      return Boolean(a && b && a !== b);
+    }));
+    if (!stale.some(Boolean)) return;
+
+    await new Promise((resolve) => {
+      const done = (event) => {
+        if (event.data?.type !== 'shell-refreshed') return;
+        navigator.serviceWorker.removeEventListener('message', done);
+        resolve();
+      };
+      navigator.serviceWorker.addEventListener('message', done);
+      navigator.serviceWorker.controller.postMessage({ type: 'refresh-shell' });
+      /* THE WHOLE SET OR NONE OF IT. A reload with half the files replaced is
+         the mismatch this exists to prevent, so a refresh that never answers
+         is left for the next launch. */
+      setTimeout(() => {
+        navigator.serviceWorker.removeEventListener('message', done);
+        resolve('timeout');
+      }, 20000);
+    });
+
+    const cached = await caches.open('yeetlist-shell');
+    const script = await cached.match('/app.js');
+    const live = await fetch('/app.js', { method: 'HEAD', cache: 'no-store' });
+    if (script?.headers.get('etag') !== live.headers.get('etag')) return;
+
+    updateHeld = true;
+    takeUpdate();
+  } catch { /* No connection, or no cache yet. The next launch asks again. */ }
+}
+
+/* The gaps a held reload can use: the reader stops typing, or leaves and
+   comes back. */
+addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') takeUpdate(); });
+document.addEventListener('focusout', () => setTimeout(takeUpdate, 0));
+
 if ('serviceWorker' in navigator) {
   addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => setTimeout(checkForUpdate, 1200))
+      .catch(() => {
       /* A private window refuses registration, and the app works without it.
          A message here would report a fault to a reader who has none. */
     });

@@ -127,9 +127,21 @@ http.createServer(async (req, res) => {
   // parsed a styles.css with the previous commit's rules while curl on the
   // same path returned the new ones. Two instruments disagreeing about one
   // file, and the page wins every argument about what is on screen.
-  res.writeHead(200, {
+  // AN ETAG, BECAUSE THE APP READS ONE. The page asks whether its cached copy
+  // of the shell is stale by comparing this header, and Vercel sends one for
+  // every static file. Without it here the preview cannot exercise the update
+  // path at all, and a check that never fires reads exactly like a passing
+  // one. Derived from the file's own size and mtime, so an edit moves it.
+  const stat = fs.statSync(file);
+  const etag = '"' + stat.size.toString(16) + '-' + Math.floor(stat.mtimeMs).toString(16) + '"';
+  const headers = {
     'Content-Type': types[path.extname(file)] || 'application/octet-stream',
     'Cache-Control': 'no-store, must-revalidate',
-  });
+    'ETag': etag,
+  };
+  // A HEAD carries the headers and no body, which is the whole point of the
+  // check. Piping a body to one is ignored, and answering it here is exact.
+  if (req.method === 'HEAD') { res.writeHead(200, headers); return res.end(); }
+  res.writeHead(200, headers);
   fs.createReadStream(file).pipe(res);
 }).listen(3000, () => console.log('YeeTlist running at http://localhost:3000'));

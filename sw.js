@@ -5,10 +5,14 @@
    thing standing between a reader and their watchlist on a train is the four
    files that draw it. This caches those and nothing else.
 
-   NO VERSION TO BUMP. A constant cache name plus stale-while-revalidate means
-   a changed file is fetched in the background and used on the next load, so
-   nothing has to remember to raise a number. The page itself is network first,
-   so a fresh deploy arrives the moment there is a connection.
+   NO VERSION TO BUMP. A constant cache name, and the page compares ETags to
+   decide when the copies are stale. Nothing has to remember to raise a
+   number, and no build step writes one.
+
+   ONE VERSION AT A TIME. Everything in the shell is served from the cache,
+   so the page and its scripts always come from the same build. The page
+   checks for a newer one after it has loaded and reloads once when it has
+   the whole set.
 
    THE API IS NEVER CACHED. /api/videos answers about a link the reader just
    pasted, and a stale answer there is a wrong title on a new row.
@@ -57,18 +61,20 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return;
 
-  /* A NAVIGATION IS NETWORK FIRST, and that covers the share target too: a
-     shared link arrives as a GET to `/?url=…`, which is a navigation. The
-     cached page answers it when there is no connection, and the query
-     survives, so the link is still added once the list loads. */
+  /* CACHE FIRST, FOR THE PAGE AS WELL AS ITS FILES. The page used to be
+     network first while the scripts were served from the cache, so a launch
+     after a deploy ran a NEW page against OLD code. That is a correctness
+     fault rather than a delay: the two halves of one build can disagree.
+
+     Serving both from the cache means the reader always runs one version of
+     everything. The page itself asks whether a newer one exists and reloads
+     once when it has it, which costs nothing at launch. */
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
-      try {
-        return await fetch(request);
-      } catch {
-        const cache = await caches.open(CACHE);
-        return (await cache.match('/index.html')) || (await cache.match('/')) || Response.error();
-      }
+      const cache = await caches.open(CACHE);
+      const hit = (await cache.match('/index.html')) || (await cache.match('/'));
+      if (hit) return hit;
+      try { return await fetch(request); } catch { return Response.error(); }
     })());
     return;
   }
@@ -76,10 +82,28 @@ self.addEventListener('fetch', (event) => {
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     const hit = await cache.match(request);
-    const live = fetch(request).then((response) => {
-      if (response && response.ok) cache.put(request, response.clone());
-      return response;
-    }).catch(() => null);
-    return hit || (await live) || Response.error();
+    if (hit) return hit;
+    try {
+      const live = await fetch(request);
+      if (live && live.ok) cache.put(request, live.clone());
+      return live;
+    } catch { return Response.error(); }
+  })());
+});
+
+/* THE PAGE HANDS THE NEW COPIES OVER. It is the half that can compare an
+   ETag against the cached one, and doing the writing here keeps one owner
+   for the cache. */
+self.addEventListener('message', (event) => {
+  if (event.data?.type !== 'refresh-shell') return;
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    await Promise.all(SHELL.map(async (url) => {
+      try {
+        const live = await fetch(url, { cache: 'reload' });
+        if (live && live.ok) await cache.put(url, live);
+      } catch { /* the reader keeps the copy they have */ }
+    }));
+    event.source?.postMessage({ type: 'shell-refreshed' });
   })());
 });
