@@ -1,0 +1,48 @@
+{
+  "packageId": "app.vercel.yeetlist.twa",
+  "host": "yeetlist.vercel.app",
+  "name": "YeeTlist",
+  "launcherName": "YeeTlist",
+  "display": "standalone",
+  "themeColor": "#0f0f0f",
+  "themeColorDark": "#0f0f0f",
+  "navigationColor": "#0f0f0f",
+  "navigationColorDark": "#0f0f0f",
+  "navigationDividerColor": "#0f0f0f",
+  "navigationDividerColorDark": "#0f0f0f",
+  "backgroundColor": "#0f0f0f",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://yeetlist.vercel.app/icons/icon-512.png",
+  "maskableIconUrl": "https://yeetlist.vercel.app/icons/icon-maskable-512.png",
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://yeetlist.vercel.app/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://yeetlist.vercel.app/",
+  "minSdkVersion": 21,
+  "orientation": "default",
+  "signingKey": {
+    "path": "./yeetlist.keystore",
+    "alias": "yeetlist"
+  },
+  "shareTarget": {
+    "action": "https://yeetlist.vercel.app/",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "splashScreenFadeOutDuration": 300
+}

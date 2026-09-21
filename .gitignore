@@ -16,3 +16,21 @@ yeetlist*.md
 .env*.local
 .vercel
 .DS_Store
+
+# The signing key and its password never reach the repository. Both live in
+# %LOCALAPPDATA%\yeetlist-android, and the build in CI writes the keystore
+# from a repository secret.
+android/*.keystore
+android/keystore-password.txt
+
+# Gradle's own working files. Everything here is rebuilt from twa-manifest.json.
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+
+# The signed output, published as a release asset rather than committed. A
+# 4MB binary in the history is a 4MB binary for ever.
+android/*.apk
+android/*.aab
+android/*.idsig
