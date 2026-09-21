@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-15';
+const VERSION = '260922-16';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -1019,6 +1019,12 @@ function renderChrome(spec) {
     button.setAttribute('aria-selected', on ? 'true' : 'false');
     button.tabIndex = on ? 0 : -1;
   });
+
+  /* ONE PANEL, SO IT IS NAMED BY WHICHEVER TAB IS CURRENT. Every tab already
+     carried `aria-controls="listPanel"` and no such element existed, so the
+     reference went nowhere. The panel exists now, and a tabpanel that never
+     says which tab it belongs to is the same hole one step along. */
+  $('#listPanel')?.setAttribute('aria-labelledby', `tab-${tab}`);
 }
 
 /* The header is set in caps by the stylesheet, so the menu needs the words

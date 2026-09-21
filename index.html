@@ -255,6 +255,22 @@
     </button>
   </div>
 
+  <!-- ==========================================================================
+       THE PANEL THE TABS SWITCH, AND THE ONLY THING THAT SLIDES
+
+       Their report, 22 September 2026: "why is it sliding the entire page? i
+       only want the section BELOW THE TABS to slide, not everything!"
+
+       The slide was named on the ROOT, which is the whole document, so the
+       title bar, the tab strip and the footer travelled with the list. Only
+       this box changes between tabs, so only this box moves.
+
+       AND THE TABS ALREADY POINTED HERE. Every one carries
+       `aria-controls="listPanel"` and no such element existed, so the
+       reference went nowhere for as long as it has been written.
+       ========================================================================== -->
+  <div id="listPanel" class="list-panel" role="tabpanel" aria-labelledby="tab-youtube">
+
   <section class="list-head">
     <!-- THE LIVE REGION IS THE WORDS, NEVER THE ROW. A tablist inside one
          would announce both tabs on every switch. -->
@@ -624,6 +640,10 @@
     <div id="pagerNav" class="pager-nav"></div>
   </nav>
 
+  </div><!-- /#listPanel -->
+
+  <!-- THE FOOTER SITS OUTSIDE IT, because it says the same thing on every
+       tab. Sliding a line that does not change is motion with no meaning. -->
   <footer id="sync-note">
     <!-- TWO FILES, BECAUSE THE NOTES SPLIT OFF. Their instruction, 22
          September 2026: the footer has to name yeetnotes.md as well. It said

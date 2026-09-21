@@ -252,13 +252,52 @@ ok('dissolve is told which', /dissolve\([^)]*, kind\)/.test(code));
   ok('the four travels are declared',
     ['tab-leave-left', 'tab-enter-right', 'tab-leave-right', 'tab-enter-left']
       .every((k) => css.includes(`@keyframes ${k}`)));
+  /* ── ONLY THE PANEL MOVES ──────────────────────────────────────────────
+   *
+   * Their report, 22 September 2026: "why is it sliding the entire page? i
+   * only want the section BELOW THE TABS to slide, not everything!"
+   *
+   * The name was on the ROOT, which is the whole document, so the title bar,
+   * the tab strip and the footer travelled with the list. */
+  const markup = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  ok('the panel carries the name', /\.list-panel \{ view-transition-name: list-panel \}/.test(css));
+  ok('and the markup has one', /id="listPanel" class="list-panel"/.test(markup));
+  /* ── AN ABSENT MARKER IS NOT AN EARLY ONE ─────────────────────────────
+   *
+   * This compared two offsets. `indexOf` answers -1 when it finds nothing,
+   * and -1 is before everything, so deleting the panel's closing tag passed
+   * the check that exists to catch exactly that. Proven by removing it: the
+   * run stayed green. Ask that each marker EXISTS, then compare. */
+  const shuts = markup.indexOf('</div><!-- /#listPanel -->');
+  const opens = markup.indexOf('id="listPanel"');
+  const strip = markup.indexOf('class="tabs"');
+  const foot = markup.indexOf('<footer id="sync-note">');
+  ok('the panel opens and closes', opens >= 0 && shuts > opens, `${opens} then ${shuts}`);
+  ok('the footer is outside it', shuts >= 0 && foot > shuts, `${shuts} then ${foot}`);
+  ok('the tab strip is outside it too', strip >= 0 && strip < opens, `${strip} then ${opens}`);
+  /* AND THE TABS POINT AT IT. Every one carries `aria-controls="listPanel"`
+     and no such element existed, so the reference went nowhere. */
+  ok('it is the panel the tabs name', /role="tabpanel"/.test(markup));
+  ok('and it says which tab it belongs to',
+    /\$\('#listPanel'\)\?\.setAttribute\('aria-labelledby', `tab-\$\{tab\}`\)/.test(code));
+  /* AND THE PAGE AROUND IT HOLDS STILL, rather than cross-fading against a
+     picture identical to itself. */
+  ok('the rest of the page does not animate',
+    /\[data-vt="prev"\]::view-transition-new\(root\) \{ animation: none \}/.test(css));
+  ok('nothing slides the root any more', !/view-transition-old\(root\) \{ animation-name: tab-/.test(css));
+
   ok('a later tab arrives from the right',
-    /\[data-vt="next"\]::view-transition-new\(root\) \{ animation-name: tab-enter-right \}/.test(css));
+    /\[data-vt="next"\]::view-transition-new\(list-panel\) \{ animation-name: tab-enter-right \}/.test(css));
   ok('and the old one leaves to the left',
-    /\[data-vt="next"\]::view-transition-old\(root\) \{ animation-name: tab-leave-left \}/.test(css));
+    /\[data-vt="next"\]::view-transition-old\(list-panel\) \{ animation-name: tab-leave-left \}/.test(css));
   ok('going back is the mirror',
-    /\[data-vt="prev"\]::view-transition-new\(root\) \{ animation-name: tab-enter-left \}/.test(css)
-    && /\[data-vt="prev"\]::view-transition-old\(root\) \{ animation-name: tab-leave-right \}/.test(css));
+    /\[data-vt="prev"\]::view-transition-new\(list-panel\) \{ animation-name: tab-enter-left \}/.test(css)
+    && /\[data-vt="prev"\]::view-transition-old\(list-panel\) \{ animation-name: tab-leave-right \}/.test(css));
+  /* THE PANEL IS A DIFFERENT HEIGHT ON EVERY TAB, and the group animates
+     between the two. Left to stretch, the old list squashes toward the new
+     one's height while it slides. */
+  ok('each picture keeps its own size', /object-fit: none/.test(slide) && /object-position: top left/.test(slide),
+    slide.slice(0, 60));
   /* THE TRAVEL IS A WHOLE PAGE, so the distance is the whole width. */
   ok('each travels the full width',
     (css.match(/translateX\((?:-)?100%\)/g) || []).length === 4,
@@ -270,8 +309,10 @@ ok('dissolve is told which', /dissolve\([^)]*, kind\)/.test(code));
 
   /* THE PILL KEEPS PACE WITH THE PAGE. At the fold's 500ms it was still
      gliding under a list that had finished arriving. */
-  ok('the pill matches the page',
-    /\[data-vt="next"\]::view-transition-group\(tab-pill\),\s*\n\s*\[data-vt="prev"\]::view-transition-group\(tab-pill\) \{\s*\n\s*animation-duration: var\(--duration\)/.test(css));
+  ok('the pill matches the panel',
+    /\[data-vt="next"\]::view-transition-group\(tab-pill\),[\s\S]{0,220}animation-duration: var\(--duration\)/.test(css));
+  ok('and so does the panel itself',
+    /\[data-vt="prev"\]::view-transition-group\(list-panel\)[\s\S]{0,80}animation-duration: var\(--duration\)/.test(css));
   ok('and the switch never takes the fold', !/data-vt[^\n]*\n?[^}]*--duration-fold/.test(css));
 
   /* ── A SLIDE IS TRAVEL, SO REDUCED MOTION GETS THE CROSS-FADE BACK ───── */

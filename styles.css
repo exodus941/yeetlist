@@ -735,14 +735,14 @@ body[data-note-open] { overflow: hidden }
      the platform itself makes under this setting, and it is what this file
      already does for the fold. The two pages fade rather than move, and the
      `plus-lighter` blend comes back with them so the overlap reads right. */
-  [data-vt="next"]::view-transition-old(root),
-  [data-vt="prev"]::view-transition-old(root) { animation-name: -ua-view-transition-fade-out }
-  [data-vt="next"]::view-transition-new(root),
-  [data-vt="prev"]::view-transition-new(root) { animation-name: -ua-view-transition-fade-in }
-  [data-vt="next"]::view-transition-old(root),
-  [data-vt="next"]::view-transition-new(root),
-  [data-vt="prev"]::view-transition-old(root),
-  [data-vt="prev"]::view-transition-new(root) { mix-blend-mode: plus-lighter }
+  [data-vt="next"]::view-transition-old(list-panel),
+  [data-vt="prev"]::view-transition-old(list-panel) { animation-name: -ua-view-transition-fade-out }
+  [data-vt="next"]::view-transition-new(list-panel),
+  [data-vt="prev"]::view-transition-new(list-panel) { animation-name: -ua-view-transition-fade-in }
+  [data-vt="next"]::view-transition-old(list-panel),
+  [data-vt="next"]::view-transition-new(list-panel),
+  [data-vt="prev"]::view-transition-old(list-panel),
+  [data-vt="prev"]::view-transition-new(list-panel) { mix-blend-mode: plus-lighter }
 
   /* THE FOLD IS A TRAVEL, so it goes. The opacity and the display flip stay,
      which is the cross-fade the platform keeps under this setting. app.js
@@ -991,25 +991,55 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
 @keyframes tab-leave-right { to   { transform: translateX(100%) } }
 @keyframes tab-enter-left  { from { transform: translateX(-100%) } }
 
-[data-vt="next"]::view-transition-old(root),
-[data-vt="next"]::view-transition-new(root),
-[data-vt="prev"]::view-transition-old(root),
-[data-vt="prev"]::view-transition-new(root) {
+/* ONLY THE PANEL MOVES. Their report, 22 September 2026: "why is it sliding
+   the entire page? i only want the section BELOW THE TABS to slide, not
+   everything!"
+
+   The name was on the ROOT, which is the whole document, so the title bar,
+   the tab strip and the footer travelled with the list. Naming this box
+   lifts it out of the root's own picture, so the two are drawn separately
+   and only this one is told to move. */
+.list-panel { view-transition-name: list-panel }
+
+[data-vt="next"]::view-transition-old(list-panel),
+[data-vt="next"]::view-transition-new(list-panel),
+[data-vt="prev"]::view-transition-old(list-panel),
+[data-vt="prev"]::view-transition-new(list-panel) {
   animation-duration: var(--duration);
   animation-timing-function: var(--ease-out);
   animation-fill-mode: both;
   mix-blend-mode: normal;
+  /* THE PANEL IS A DIFFERENT HEIGHT ON EVERY TAB, and the group animates
+     between the two. Left to stretch, the old list squashes toward the new
+     list's height while it slides, which reads as a collapse rather than a
+     departure. Each picture keeps its own size and hangs from the top. */
+  height: 100%;
+  width: 100%;
+  object-fit: none;
+  object-position: top left;
+  overflow: clip;
 }
 
-[data-vt="next"]::view-transition-old(root) { animation-name: tab-leave-left }
-[data-vt="next"]::view-transition-new(root) { animation-name: tab-enter-right }
-[data-vt="prev"]::view-transition-old(root) { animation-name: tab-leave-right }
-[data-vt="prev"]::view-transition-new(root) { animation-name: tab-enter-left }
+[data-vt="next"]::view-transition-old(list-panel) { animation-name: tab-leave-left }
+[data-vt="next"]::view-transition-new(list-panel) { animation-name: tab-enter-right }
+[data-vt="prev"]::view-transition-old(list-panel) { animation-name: tab-leave-right }
+[data-vt="prev"]::view-transition-new(list-panel) { animation-name: tab-enter-left }
 
-/* THE PILL KEEPS PACE WITH THE PAGE. At the fold's 500ms it was still
+/* AND THE PAGE AROUND IT HOLDS STILL. With the panel lifted out, the root's
+   own picture is everything else: the bar, the tabs and the footer. Those do
+   not change between tabs, so they are told not to animate at all rather
+   than cross-fading against themselves. */
+[data-vt="next"]::view-transition-old(root),
+[data-vt="next"]::view-transition-new(root),
+[data-vt="prev"]::view-transition-old(root),
+[data-vt="prev"]::view-transition-new(root) { animation: none }
+
+/* THE PILL KEEPS PACE WITH THE PANEL. At the fold's 500ms it was still
    gliding under a list that had finished arriving. */
 [data-vt="next"]::view-transition-group(tab-pill),
-[data-vt="prev"]::view-transition-group(tab-pill) {
+[data-vt="prev"]::view-transition-group(tab-pill),
+[data-vt="next"]::view-transition-group(list-panel),
+[data-vt="prev"]::view-transition-group(list-panel) {
   animation-duration: var(--duration);
   animation-timing-function: var(--ease-out);
 }
