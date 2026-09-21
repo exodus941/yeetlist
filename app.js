@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-7';
+const VERSION = '260922-8';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -2330,6 +2330,47 @@ const EXPORT_FILE = {
   links: 'yeetlist-bookmarks.html',
   all: 'yeetlist.html',
 };
+
+/* ---- the Android installer ----------------------------------------------- */
+
+/* THE NEWEST RELEASE CARRIES THE NEWEST APK, so nothing here holds a version.
+   Their instruction, 22 September 2026: add an option to download the latest
+   APK, called "Download APK Installer", in both the web and the app.
+
+   THE SAME SOURCE THE APP'S OWN UPDATER READS. One page names the newest
+   build, so a figure typed here could disagree with what the phone installs.
+
+   THE APK, NEVER THE BUNDLE. A release carries both, and an `.aab` is the
+   Play Store's format and cannot be installed on a phone. The updater on the
+   device makes the same choice, for the same reason.
+
+   IT OPENS THE FILE RATHER THAN FETCHING IT. A download of several megabytes
+   through this page would need it held in memory first, and the browser
+   already knows how to save a file from a link. */
+const APK_REPO = 'exodus941/yeetlist';
+
+async function downloadApk() {
+  say('Finding the newest installer…');
+  try {
+    const answer = await fetch(`https://api.github.com/repos/${APK_REPO}/releases/latest`, {
+      headers: { Accept: 'application/vnd.github+json' },
+    });
+    if (!answer.ok) throw new Error(`GitHub answered ${answer.status}`);
+
+    const release = await answer.json();
+    const apk = (release.assets || []).find((a) => a.name?.endsWith('.apk'));
+    if (!apk?.browser_download_url) throw new Error('that release carries no installer');
+
+    /* A NEW TAB, because a navigation would leave the app. `noopener` is what
+       stops the opened page reaching back into this one. */
+    window.open(apk.browser_download_url, '_blank', 'noopener');
+    say(`Downloading ${apk.name}. Android asks once before it installs.`);
+  } catch (error) {
+    /* NAME THE CAUSE. Every one of these is something the reader can act on:
+       no connection, or a release that has not finished building. */
+    say(`The installer could not be found: ${error.message}.`);
+  }
+}
 
 function exportFile(scope = 'all') {
   const blob = new Blob([bookmarkFile(scope)], { type: 'text/html' });
@@ -4649,7 +4690,11 @@ $('#exportMenu').addEventListener('click', (event) => {
   if (!item) return;
   openExport(false);
   $('#exportBtn').focus();
-  exportFile(item.dataset.scope);
+  /* TWO KINDS OF ITEM IN ONE MENU. Three write a file out of the lists and
+     one fetches the installer, so the attribute says which rather than the
+     position. A fourth scope added tomorrow needs no edit here. */
+  if (item.dataset.get === 'apk') downloadApk();
+  else exportFile(item.dataset.scope);
 });
 
 /* ARROWS MOVE, ENTER AND SPACE PRESS, ESCAPE LEAVES. A menu is one tab stop,

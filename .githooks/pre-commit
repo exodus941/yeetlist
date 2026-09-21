@@ -35,6 +35,11 @@ node tools/swipe-guard.mjs
 # largest that is not zero, which answers the no-seconds-in-days rule.
 node tools/runtime-guard.mjs
 
+# One menu, two kinds of item. Three write a file out of the lists and one
+# fetches the Android installer, and a release carries both the .apk and the
+# .aab that cannot be installed on a phone.
+node tools/export-guard.mjs
+
 # The share patch runs only in CI, where nothing watches it. Its clauses are
 # proven here instead, so a clause that stops firing fails a commit.
 node tools/android-share-fix.mjs --self-test

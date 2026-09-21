@@ -198,6 +198,12 @@
             <li class="multi-option" role="menuitem" tabindex="-1" data-scope="youtube">YouTube</li>
             <li class="multi-option" role="menuitem" tabindex="-1" data-scope="links">Bookmarks</li>
             <li class="multi-option" role="menuitem" tabindex="-1" data-scope="all">Everything</li>
+            <!-- A SEPARATOR IS A REAL ITEM WITH NO ROLE, so nothing announces
+                 it. The three above write a file out of the lists. This one
+                 fetches the Android installer, which is a different kind of
+                 thing entirely. -->
+            <li class="multi-sep" aria-hidden="true"></li>
+            <li class="multi-option" role="menuitem" tabindex="-1" data-get="apk">Download APK Installer</li>
           </ul>
         </span>
       </span>
