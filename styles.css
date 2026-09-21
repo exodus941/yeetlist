@@ -1723,13 +1723,28 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   margin: 0 0 var(--space-xl);
 }
 
-/* THE COUNT AND ITS RUNTIME ARE ONE READOUT, so they take the half-step. At
-   4 the second line read as a caption under the title rather than as the rest
-   of the same sentence. */
+/* THE COUNT AND THE RUNTIME SIT ON ONE LINE, AT THE TWO EDGES. Their
+   instruction, 22 September 2026: align the text across the left and right
+   edges, sharing one baseline, rather than stacking the title over the time.
+
+   TEXT BESIDE TEXT TAKES A BASELINE, whatever the two sizes are. The count is
+   an h2 and the runtime is a small mono line, so box centring would leave
+   them on two different lines of ink.
+
+   `space-between`, NEVER AN AUTO MARGIN ON THE RUNTIME. A margin cannot say
+   "first on this line", so at a width where the row wraps it reads as an
+   indent. `space-between` distributes along each LINE, so one item alone on a
+   line packs at its start.
+
+   THE DECLARED GAP IS THE FLOOR AT THE WRAP, and the slack is what sits
+   between them on one line. 24 is the section step, and the count has no gap
+   of its own to clear. */
 .list-words {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2xs);
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2xs) var(--space-xl);
   min-width: 0;
 }
 
@@ -1738,9 +1753,10 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
    a different one on purpose: it is a readout under a title rather than a
    number inside a sentence.
 
-   The gap is 2px against the 16px above the block, so the two lines read as
-   one group rather than as a heading with a stray paragraph under it. */
+   The row gap is 2px, which only paints at the width where the runtime drops
+   onto its own line. On one line the distance is the slack. */
 .list-runtime {
+  margin: 0;
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
