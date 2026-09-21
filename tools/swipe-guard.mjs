@@ -199,7 +199,78 @@ ok('the arrows and the swipe share one stepper',
 ok('and it reads the strip rather than a list of names',
   /function stepTab[\s\S]{0,200}\$\$\('\.tab'\)/.test(code));
 
-/* -- 6. The markup still has three tabs to step between -------------------- */
+/* -- 6. The finger's direction is the strip's direction -------------------- */
+/* Their report, 22 September 2026: "the scroll direction is wrong, it's going
+   left when it's supposed to go right (and vice versa), it's completely
+   counterintuitive." I shipped the carousel reading, where the content
+   follows the finger. Theirs is the other convention and it is their app. */
+ok('a swipe right steps forward', /stepTab\(dx > 0 \? 1 : -1\)/.test(code),
+  (code.match(/stepTab\(dx[^)]*\)/) || ['none'])[0]);
+
+/* -- 7. The focus ring belongs to the keyboard ----------------------------- */
+/* Their report: "there's a weird white rectangle showing up around the
+   selected tab." showTab moved focus on every switch, and the shared ring is
+   a 2px white outline. A pointer switch paints nothing, so it only showed on
+   a swipe. */
+{
+  const show = code.slice(code.indexOf('function showTab('),
+    code.indexOf("$('.tabs').addEventListener('click'"));
+  ok('showTab was found', show.length > 200, String(show.length));
+  ok('it takes a focus flag that defaults to off',
+    /function showTab\(next, \{ focus = false \} = \{\} \)?/.test(show)
+    || /function showTab\(next, \{ focus = false \} = \{\}\)/.test(show), show.slice(0, 60));
+  ok('and only focuses when asked', /dissolve\(focus \?/.test(show));
+
+  /* AND IT FOCUSES THE TAB THAT IS CURRENT. The old line named youtube or
+     links and never notes, so switching to Notes put the ring on YouTube. */
+  ok('it focuses the current tab', /\$\('#tab-' \+ tab\)\.focus\(\)/.test(show), 'tab');
+  ok('and names no tab by hand', !/tab === 'links' \? 'links' : 'youtube'/.test(show));
+
+  /* THE ARROWS ASK FOR IT, because they move the selection without moving
+     focus and a keyboard reader would lose their place. */
+  /* READ THE KEYDOWN HANDLER, because the call carries brackets of its own
+     and `[^)]*` cannot cross them. */
+  const onKeys = code.slice(code.indexOf("$('.tabs').addEventListener('keydown'"));
+  ok('the arrow keys ask for focus',
+    onKeys.slice(0, 500).includes('{ focus: true }'), onKeys.slice(0, 60));
+  /* AND NOTHING ELSE DOES. A click focuses the tab by itself, and a swipe is
+     a pointer. */
+  ok('nothing else asks for it',
+    (code.match(/\{ focus: true \}/g) || []).length === 1,
+    String((code.match(/\{ focus: true \}/g) || []).length));
+}
+
+/* -- 8. The sync mark turns while it is busy ------------------------------- */
+/* Their instruction: have the sync icon rotate, or swap it for a turning
+   throbber. No second icon, because the refresh mark is already a circle of
+   arrows. */
+{
+  ok('driveStatus writes the busy mark',
+    /toggleAttribute\('data-busy', state === 'busy'\)/.test(code));
+  /* ONE WRITER. Every state passes through driveStatus, so the attribute
+     cannot disagree with the words beside it. */
+  ok('and nothing else writes it',
+    (code.match(/data-busy/g) || []).length === 1,
+    String((code.match(/data-busy/g) || []).length));
+  ok('something still reports a wait', (code.match(/driveStatus\('busy'/g) || []).length >= 4,
+    String((code.match(/driveStatus\('busy'/g) || []).length));
+
+  const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+  ok('the mark turns', /#driveSync\[data-busy\] \.icon \{ animation: sync-turn/.test(css));
+  ok('the turn is steady rather than eased', /sync-turn 1s linear infinite/.test(css));
+  ok('and it loops', /sync-turn[^}]*infinite/.test(css));
+  ok('the turn is a whole circle', /@keyframes sync-turn \{ to \{ rotate: 360deg \} \}/.test(css));
+  /* THE MARK TURNS, NEVER THE BUTTON, or the label and the border turn too. */
+  ok('the button itself does not turn', !/#driveSync\[data-busy\] \{[^}]*animation/.test(css));
+  /* AND UNDER REDUCED MOTION IT STILL SAYS SOMETHING, rather than looking
+     idle through the whole wait. */
+  const reduce = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: reduce)'));
+  ok('it fades where motion is refused', /#driveSync\[data-busy\] \.icon \{ animation: pulse/.test(reduce));
+  ok('and the turn is behind no-preference',
+    /no-preference\)[^@]*#driveSync\[data-busy\] \.icon \{ animation: sync-turn/.test(css));
+}
+
+/* -- 9. The markup still has three tabs to step between -------------------- */
 {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   const tabs = (html.match(/class="tab"/g) || []).length;

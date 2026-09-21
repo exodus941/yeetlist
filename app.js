@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-5';
+const VERSION = '260922-6';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -3012,9 +3012,23 @@ let driveAvailable = null;
 let pendingTags = [];
 let bulkOpen = false;
 
+/* THE MARK TURNS WHILE IT IS BUSY. Their instruction, 22 September 2026:
+   have the sync icon rotate, or swap it for a turning throbber.
+
+   NO SECOND ICON, because the refresh mark is already a circle of arrows.
+   Turning it says the same thing as a throbber and needs no new drawing.
+
+   ONE WRITER, WHICH IS THIS FUNCTION. Every state already passes through
+   here, so the attribute cannot disagree with the words beside it. Six calls
+   pass 'busy' and each one is a real wait: connecting, creating a file,
+   reading Drive and saving.
+
+   THE STYLESHEET DECIDES WHETHER IT MOVES, so reduced motion stops it in one
+   place rather than here. */
 function driveStatus(state, words) {
   $('#syncDot').dataset.state = state;
   $('#syncWords').textContent = words;
+  $('#driveSync').toggleAttribute('data-busy', state === 'busy');
 }
 
 /* Name the cause, or the reader is left holding a code. Each of these has a
@@ -3440,7 +3454,7 @@ const TAB_STORE = 'yeetlist-tab';
    cannot see. That reason is answered a better way now. Every reader is
    scoped to the current tab, so the button acts on what is in front of them
    whether or not the other tabs hold anything. */
-function showTab(next) {
+function showTab(next, { focus = false } = {}) {
   if (next === tab || !LISTS[next]) return;
   tab = next;
   sort = sorts[tab];
@@ -3455,10 +3469,23 @@ function showTab(next) {
   $('#search').value = '';
   try { localStorage.setItem(TAB_STORE, tab); } catch { /* a private window */ }
 
-  /* The pill already faded, because its fill is a property on a node that
-     survives. The rows are rebuilt, so they need the dissolve. `tab` is what
-     gives this one the switcher's own duration. */
-  dissolve(() => $('#tab-' + (tab === 'links' ? 'links' : 'youtube')).focus(), 'tab');
+  /* THE FOCUS RING IS FOR A KEYBOARD, AND A SWIPE IS NOT ONE. Their report,
+     22 September 2026: "there's a weird white rectangle showing up around the
+     selected tab. where did that even come from?"
+
+     It came from here. This moved focus onto the tab on every switch, and the
+     shared ring is a 2px white outline. A pointer switch shows nothing,
+     because a browser only paints that ring when the last input was not a
+     pointer. A swipe is a pointer, and Chrome still counted it as keyboard
+     input, so the ring appeared on the phone and never on a click.
+
+     So only the arrow keys ask for it. A click focuses the tab by itself, and
+     a swipe should move nothing.
+
+     AND IT FOCUSED THE WRONG TAB. The old line named youtube or links and
+     never notes, so switching to Notes put the ring on YouTube. `tab` is the
+     one that is current. */
+  dissolve(focus ? () => $('#tab-' + tab).focus() : undefined, 'tab');
 }
 
 $('.tabs').addEventListener('click', (event) => {
@@ -3476,7 +3503,7 @@ $('.tabs').addEventListener('keydown', (event) => {
   const go = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: order.length - 1 }[event.key];
   if (go === undefined) return;
   event.preventDefault();
-  showTab(order[(go + order.length) % order.length].dataset.tab);
+  showTab(order[(go + order.length) % order.length].dataset.tab, { focus: true });
 });
 
 /* ONE WRITER FOR "WHICH TAB IS NEXT", read by the arrows above and the swipe
@@ -3596,9 +3623,15 @@ const takeSwipe = (event) => {
      strip in one swipe. */
   swipe = null;
   swiped = event.timeStamp;
-  /* THE CONTENT FOLLOWS THE FINGER, which is what every phone does. Dragging
-     right brings the tab on the left into view, so the step is backwards. */
-  stepTab(dx > 0 ? -1 : 1);
+  /* THE FINGER'S DIRECTION IS THE STRIP'S DIRECTION. Swipe right and it goes
+     right. Their report, 22 September 2026: "the scroll direction is wrong,
+     it's going left when it's supposed to go right (and vice versa), it's
+     completely counterintuitive."
+
+     I shipped the other reading, where the content follows the finger the way
+     a carousel does. That is one convention, and theirs is the other. This is
+     their app. */
+  stepTab(dx > 0 ? 1 : -1);
 };
 
 addEventListener('pointermove', takeSwipe, true);

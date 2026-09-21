@@ -4008,6 +4008,44 @@ th.amount { text-align: end }
 @keyframes pulse { 50% { opacity: .45 } }
 
 /* ==========================================================================
+   The sync mark turns while it is busy
+
+   Their instruction, 22 September 2026: have the sync icon rotate, or swap it
+   for a turning throbber.
+
+   NO SECOND ICON. The refresh mark is already a circle of arrows, so turning
+   it says what a throbber says and needs no new drawing. app.js writes the
+   attribute from `driveStatus`, which every state already passes through.
+
+   THE TURN IS STEADY, NOT EASED. An eased loop reads as a stutter, because
+   the eye sees it slow at the same point on every pass. `linear` is what a
+   throbber wants, and it is the one place in this file that asks for it.
+
+   ONE SECOND A TURN. Faster reads as alarm and slower reads as stuck.
+   ========================================================================== */
+
+/* THE MARK TURNS, NEVER THE BUTTON. Turning the button would take its label
+   and its border with it. The mark is centred in its own box, so a rotation
+   about that centre moves no layout. */
+@media (prefers-reduced-motion: no-preference) {
+  #driveSync[data-busy] .icon { animation: sync-turn 1s linear infinite }
+}
+
+/* AND UNDER REDUCED MOTION IT STILL SAYS SOMETHING. A mark that cannot turn
+   would leave the button looking idle through the whole wait, so it fades
+   instead. The platform replaces motion rather than removing the signal. */
+@media (prefers-reduced-motion: reduce) {
+  #driveSync[data-busy] .icon { animation: pulse 1.4s var(--ease) infinite }
+}
+
+/* A BUSY CONTROL IS NOT A PRESSABLE ONE, and the cursor says so. It stays
+   reachable and keeps its ring, because `disabled` would drop it out of the
+   tab order mid-wait. */
+#driveSync[data-busy] { cursor: progress }
+
+@keyframes sync-turn { to { rotate: 360deg } }
+
+/* ==========================================================================
    Footer
    ========================================================================== */
 
