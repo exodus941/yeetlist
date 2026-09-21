@@ -1,0 +1,24 @@
+# EVERY FILE CHECKS OUT WITH LF, ON EVERY MACHINE.
+#
+# `core.autocrlf` is true on this machine, so a checkout rewrote app.js,
+# index.html and styles.css with CRLF line endings. The checks match on `\n`,
+# so a two-line pattern stopped matching and five of them failed on code that
+# had not changed. Measured 22 September 2026: the swipe checks went from 108
+# of 108 to 103, and two other guards crashed on a slice that came back empty.
+#
+# NOTHING WAS WRONG WITH THE CODE. A clone on a Windows machine would have
+# seen the same, so this was never only a local accident.
+#
+# THE REPO IS TEXT AND IT IS LF. That is what the files hold, it is what the
+# checks read, and it is what the browser is served.
+* text=auto eol=lf
+
+# Binary, so git never touches the bytes.
+*.png binary
+*.webp binary
+*.jpg binary
+*.ico binary
+*.apk binary
+*.aab binary
+*.keystore binary
+*.jar binary

@@ -1199,6 +1199,37 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   max-width: 1380px;
   margin: auto;
   padding: var(--page-pad) var(--space-2xl) var(--space-3xl);
+
+  /* THE FOOTER HUGS THE BOTTOM WHEN NOTHING SCROLLS. Their idea, 22
+     September 2026: "what if you set the footer to just hug the bottom of
+     the viewport if there is no scrolling required?"
+
+     Measured at 375x1200 with no notes: the page came to 979 and left 221px
+     of empty screen under the footer. The column fills the viewport instead,
+     and the footer takes whatever is spare.
+
+     `min-height`, NEVER `height`. A long list has to grow past the viewport,
+     and the locked layout below states its own fixed height for the one case
+     that must not. */
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+/* THE PANEL IS THE COLUMN THAT FILLS IT. Wrapping the list broke the locked
+   layout, because `.table-wrap` takes `flex: 1` from its parent and its
+   parent had been the shell. Measured at 1536x900 before this: the shell held
+   its 900, the scroller sat at its content height of 783, and the document
+   scrolled to 1250 when a locked app scrolls nothing.
+
+   `min-height: 0` is what lets it shrink under its own content. Without it
+   the column pushes past the viewport and gives the document its scrollbar
+   back, which is the same fault one box along. */
+.list-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 /* ==========================================================================
@@ -4380,8 +4411,14 @@ th.amount { text-align: end }
    Footer
    ========================================================================== */
 
+/* AN AUTO MARGIN PUSHES AND PADDING SPACES, so the two are not the same
+   property here. The distance above the footer was a margin, and an auto
+   margin consumes the free space rather than holding a minimum. Stated as
+   both, the moment the column fills up the margin collapses and the footer
+   touches the list. The padding cannot be consumed. */
 footer {
-  margin-top: var(--space-xl);
+  margin-block-start: auto;
+  padding-block-start: var(--space-xl);
   color: var(--text-muted);
   font-size: var(--text-xs);
 }

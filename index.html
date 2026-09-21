@@ -640,10 +640,20 @@
     <div id="pagerNav" class="pager-nav"></div>
   </nav>
 
-  </div><!-- /#listPanel -->
+  <!-- THE FOOTER IS INSIDE THE PANEL, AND IT HAS TO BE. I put it outside on
+       the grounds that its words never change, which was true and not the
+       question. Its POSITION changes, because it sits under a panel whose
+       height is different on every tab.
 
-  <!-- THE FOOTER SITS OUTSIDE IT, because it says the same thing on every
-       tab. Sliding a line that does not change is motion with no meaning. -->
+       Outside, it belonged to the picture that does not move. Measured at
+       375x812 with no notes: it held at 2541 for the whole slide and then
+       jumped 1688px to 853. Their report: "this is what i meant when i said
+       the footer snaps up when the swipe is completed on the empty page."
+
+       Inside, it travels with the list it sits under, so each picture holds
+       a footer already in the right place. Their instruction named this from
+       the start: the section BELOW THE TABS slides, and this is below the
+       tabs. -->
   <footer id="sync-note">
     <!-- TWO FILES, BECAUSE THE NOTES SPLIT OFF. Their instruction, 22
          September 2026: the footer has to name yeetnotes.md as well. It said
@@ -655,6 +665,8 @@
     It asks for the narrowest access Google offers: it can see only the files it created, never the rest of your Drive.
     Export and import still work without connecting anything.
   </footer>
+
+  </div><!-- /#listPanel -->
 
 </main>
 

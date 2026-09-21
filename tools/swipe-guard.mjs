@@ -273,8 +273,53 @@ ok('dissolve is told which', /dissolve\([^)]*, kind\)/.test(code));
   const strip = markup.indexOf('class="tabs"');
   const foot = markup.indexOf('<footer id="sync-note">');
   ok('the panel opens and closes', opens >= 0 && shuts > opens, `${opens} then ${shuts}`);
-  ok('the footer is outside it', shuts >= 0 && foot > shuts, `${shuts} then ${foot}`);
-  ok('the tab strip is outside it too', strip >= 0 && strip < opens, `${strip} then ${opens}`);
+  ok('the tab strip is outside it', strip >= 0 && strip < opens, `${strip} then ${opens}`);
+
+  /* ── THE FOOTER TRAVELS WITH THE LIST ──────────────────────────────────
+   *
+   * I put it outside on the grounds that its words never change. That was
+   * true and it was not the question: its POSITION changes, because it sits
+   * under a panel whose height is different on every tab.
+   *
+   * Outside, it belonged to the picture that does not move. Measured at
+   * 375x812 with no notes: it held at 2541 for the whole slide, then jumped
+   * 1688px to 853. Their report: "the footer snaps up when the swipe is
+   * completed on the empty page." */
+  ok('the footer travels with the list', foot >= 0 && foot > opens && foot < shuts,
+    `opens ${opens}, footer ${foot}, shuts ${shuts}`);
+
+  /* ── THE PANEL IS THE COLUMN THAT FILLS THE PAGE ──────────────────────
+   *
+   * Wrapping the list broke the locked layout. `.table-wrap` takes `flex: 1`
+   * from its parent, and its parent had been the shell. Measured at 1536x900
+   * before the repair: the shell held its 900, the scroller sat at its
+   * content height of 783, and the document scrolled to 1250 when a locked
+   * app scrolls nothing. */
+  /* EVERY RULE ON IT, NOT THE FIRST. One states the transition name and
+     another the column, so a match that stops at the first reports the
+     column missing while it sits twenty lines up. */
+  const panelRule = [...css.matchAll(/\.list-panel \{[^}]*\}/g)].map((m) => m[0]).join('\n');
+  ok('the panel is a column', /flex-direction: column/.test(panelRule), panelRule.slice(0, 70));
+  ok('and it fills what is left', /flex: 1/.test(panelRule));
+  /* `min-height: 0` is what lets a flex item shrink under its own content. */
+  ok('and it may shrink under its content', /min-height: 0/.test(panelRule));
+
+  /* ── THE FOOTER HUGS THE BOTTOM WHEN NOTHING SCROLLS ──────────────────
+   *
+   * Their idea, 22 September 2026. Measured at 375x1200 with no notes: the
+   * page came to 979 and left 221px of empty screen under the footer. */
+  const shellRule = (css.match(/\.shell \{[\s\S]*?\n\}/) || [''])[0];
+  ok('the page fills the viewport', /min-height: 100dvh/.test(shellRule), shellRule.slice(-70));
+  /* `min-height`, NEVER `height`. A long list has to grow past the viewport. */
+  ok('and a long list still grows past it', !/\n  height: 100dvh/.test(shellRule));
+  ok('the shell is a column', /flex-direction: column/.test(shellRule));
+
+  const footRule = (css.match(/\nfooter \{[^}]*\}/) || [''])[0];
+  ok('the footer takes the slack', /margin-block-start: auto/.test(footRule), footRule.slice(0, 70));
+  /* AN AUTO MARGIN PUSHES AND PADDING SPACES. Stated as both, the margin
+     collapses the moment the column fills and the footer touches the list. */
+  ok('and its own distance is padding', /padding-block-start: var\(--space-xl\)/.test(footRule));
+  ok('never a margin as well', !/margin-top: var\(--space/.test(footRule));
   /* AND THE TABS POINT AT IT. Every one carries `aria-controls="listPanel"`
      and no such element existed, so the reference went nowhere. */
   ok('it is the panel the tabs name', /role="tabpanel"/.test(markup));

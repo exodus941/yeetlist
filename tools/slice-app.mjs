@@ -14,7 +14,18 @@ import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-export const appSource = () => readFileSync(join(root, 'app.js'), 'utf8');
+/* ONE LINE ENDING, WHATEVER THE CHECKOUT GAVE. Every check here matches on
+   `\n`, and a Windows checkout can hand back `\r\n`. Measured 22 September
+   2026: after one checkout, five swipe checks failed and two other guards
+   crashed on a slice that came back empty, on code that had not changed.
+
+   `.gitattributes` pins the working tree to LF, which is the real fix. This
+   is the belt: a guard that reads a file somebody dragged in from elsewhere
+   should not report a fault that is only a line ending. */
+export const readText = (name) =>
+  readFileSync(join(root, name), 'utf8').replace(/\r\n?/g, '\n');
+
+export const appSource = () => readText('app.js');
 
 /* A TOP-LEVEL DECLARATION IN THIS FILE STARTS AT COLUMN 0 AND ENDS AT ONE.
    Counting brackets from the opening line and stopping where the depth
