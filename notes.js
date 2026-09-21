@@ -501,7 +501,14 @@ body {
   font-size: 16px;
   line-height: 1.5;
 }
-main { width: min(72ch, 100%); margin-inline: auto }
+/* ONE MEASURE, ONE OWNER. The footer sits under the note, so it shares the
+   note's own left margin rather than the page's.
+
+   A ch RESOLVES AGAINST THE ELEMENT'S OWN FONT, so the measure cannot sit on
+   both boxes. Stated on each, the 12px footer got a 72ch of its own and came
+   out 77.63px inside the note's left edge. The wrapper carries it once, at
+   the body size, and both boxes then start on one line. */
+.sheet { width: min(72ch, 100%); margin-inline: auto }
 h1, h2, h3, h4, h5, h6 { margin: 24px 0 8px; line-height: 1.2 }
 h1 { font-size: 32px }
 h2 { font-size: 24px }
@@ -542,8 +549,10 @@ footer {
 </style>
 </head>
 <body>
+<div class="sheet">
 <main>${markdownToHtml(md)}</main>
-<footer>Written with YeeTlist.</footer>
+<footer>Written with <a href="https://yeetlist.vercel.app">YeeTlist</a>.</footer>
+</div>
 </body>
 </html>
 `;

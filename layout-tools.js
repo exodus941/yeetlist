@@ -2093,7 +2093,26 @@ function sweep (within = null, exclude = null) {
            * page edges and the stack reported two lefts, 193 and 161. The
            * 161 was the band arriving exactly where it was sent. */
           const bleeds = parseFloat(ccs.marginLeft) < 0 || parseFloat(ccs.marginRight) < 0
-          return !bleeds
+          if (bleeds) return false
+
+          /* ── A CHILD THAT CENTRES ITSELF MUST HAVE ITS OWN LEFT EDGE ──
+           *
+           * `margin-inline: auto` on a capped child is the one-column
+           * measure every document uses, and it is a decision rather than a
+           * drift. `getComputedStyle` cannot report it: an auto margin comes
+           * back as the USED pixels, so the declaration is invisible here.
+           *
+           * Equal positive margins on both sides is what that auto resolves
+           * to, and nothing else lands on it to the half pixel. An author
+           * who typed two equal margins made the same decision anyway.
+           *
+           * Measured 22 September 2026 on a note editor at 1536: the bar and
+           * the toolbar at left 0, and the 72ch note column at 433, reported
+           * as two lefts on correct code. */
+          const ml = parseFloat(ccs.marginLeft) || 0
+          const mr = parseFloat(ccs.marginRight) || 0
+          const centres = ml > 0.5 && mr > 0.5 && Math.abs(ml - mr) < 0.5
+          return !centres
         })
         .map(c => Math.round(c.getBoundingClientRect().left))
       if (new Set(ls).size > 1) out.edges.push({ stack: name(el), lefts: [...new Set(ls)] })
@@ -2477,7 +2496,21 @@ function sweep (within = null, exclude = null) {
        * A swatch IS its colour. There is no glyph whose squareness could be
        * the question. Ask for the mark. */
       const hasMark = !!el.querySelector('svg, img, .icon, .dot')
-      if (hasMark && !words && r.width > 0 && r.height > 0 && Math.abs(r.width - r.height) > 1) {
+      /* ── A CONTROL TOLD TO FILL ITS LINE IS NOT A LONE ICON BUTTON ──
+       *
+       * The rule is about an oblong standing by itself, which reads as a
+       * button whose label failed to load. A run of equal segments filling a
+       * row is a different pattern, and the row says so: `flex-grow` above
+       * zero is the declaration that this control was told to take the
+       * slack. A lone square icon button grows by nothing.
+       *
+       * Measured on a note editor folded to two rows: four marks at 83x44
+       * and three at 53x44, every one of them the instructed shape, and the
+       * six findings buried the surface. Read the DECLARATION rather than
+       * the rectangle, which is the same repair this file makes elsewhere
+       * for a centred child and a leading icon. */
+      const told = parseFloat(cs.flexGrow) > 0
+      if (hasMark && !words && !told && r.width > 0 && r.height > 0 && Math.abs(r.width - r.height) > 1) {
         out.other.push({
           el: name(el),
           finding: 'icon-only control is not square: ' +

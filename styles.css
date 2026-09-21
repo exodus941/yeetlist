@@ -530,6 +530,75 @@ body[data-note-open] { overflow: hidden }
    option's wording changes. */
 .multi.note-level { width: 168px; flex: 0 0 auto }
 
+/* THE HAMBURGER ONLY EXISTS WHERE THE BAR RAN SHORT, so it is absent by
+   default and the two actions sit in the bar as themselves. */
+#noteMenu { display: none }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE EDITOR FOLDS TO TWO ROWS. Their instruction, 22 September 2026: the
+   download and the delete go into a hamburger, the four marks take one full
+   row, and the style control shares the next row with the three lists.
+
+   THE THRESHOLD IS THE TOOLBAR'S OWN SUM, AND THERE ARE TWO OF THEM, because
+   a mark is 36px under a mouse and 44 under a finger. Measured:
+
+     mouse   168 + 16 + (36*4 + 4*3) + 16 + (36*3 + 4*2) + 32 = 504
+     finger  168 + 16 + (44*4 + 4*3) + 16 + (44*3 + 4*2) + 32 = 560
+
+   ONE NUMBER WOULD BE WRONG ON ONE OF THEM. At 504 for both, a finger at
+   520px kept the flat row, the lists wrapped on their own and sat at the
+   left with 348px of empty bar beside them. Measured on that exact state:
+   the group at 16 to 156 inside a 504px bar.
+
+   GRID, NOT A WRAPPER PER ROW. The markup order is the wide order, and two
+   line wrappers would either reorder it or need dissolving at every other
+   width. Placement says which line each group is on and changes no markup.
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 503px), (pointer: coarse) and (max-width: 559px) {
+  #noteGet,
+  #noteDelete { display: none }
+  #noteMenu { display: inline-flex }
+
+  .note-tools {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    /* ONE STEP BETWEEN THE GROUPS, against the 4px inside each one. That is
+       two to one, which is the bar. */
+    gap: var(--space-sm);
+  }
+
+  .note-marks { grid-column: 1 / -1; grid-row: 1 }
+  .note-lists { grid-column: 2; grid-row: 2 }
+
+  /* IT KEEPS ITS MEASURED 168. Left at `auto` the grid gave it its
+     min-content and it came out 77.4px, which clips "Level 3 (Subheading)"
+     at 165.72. A control that cannot show its own value is broken, and that
+     is the fault this same session fixed on the sort trigger. */
+  .multi.note-level { grid-column: 1; grid-row: 2 }
+
+  /* AND BELOW THE WIDTH WHERE THE PAIR FITS, EACH TAKES ITS OWN LINE. Two
+     sums again, for the same reason:
+
+       mouse   168 + 8 + (36*3 + 4*2) + 32 = 324
+       finger  168 + 8 + (44*3 + 4*2) + 32 = 348
+
+     Under that the three list marks fall to 26.7px each at 296. */
+  @media (max-width: 323px), (pointer: coarse) and (max-width: 347px) {
+    .multi.note-level { grid-column: 1 / -1; grid-row: 2; width: 100% }
+    .note-lists { grid-column: 1 / -1; grid-row: 3 }
+  }
+
+  /* A STRETCHED MARK IS NO LONGER A SQUARE, so the ratio has to go. Left in
+     place it reads the grown WIDTH and sets the height to match: at four
+     buttons across 343px that is an 82px tall toolbar row. The height token
+     stays the single writer. */
+  .note-tool-group > .note-tool {
+    flex: 1 1 0;
+    aspect-ratio: auto;
+    min-width: 0;
+  }
+}
+
 /* A PRESSED TOOL IS A STATE, AND IT READS OFF aria-pressed RATHER THAN A
    CLASS. The attribute is what a screen reader hears, so a second marker
    would be a second thing that can disagree with it.
@@ -2378,6 +2447,27 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
 
 .sort-field .multi { flex: 1; width: auto }
 
+/* A CONTROL MUST BE ABLE TO SHOW ITS OWN VALUE, AND THIS ONE COULD NOT.
+   Measured at 296: the trigger stood 44.4px wide and its value span 0, so the
+   sort control painted a chevron and no words at all. It is the flexible
+   thing in its row, so every pixel the row ran short came out of it.
+
+   THE THRESHOLD IS THE ROW'S OWN SUM, measured rather than picked. The
+   trigger needs its widest value: 12 + 78 + 8 + 14 + 12 + 2 = 126. The field
+   needs the label and its gap: 50.6 + 8 + 126 = 184.6. The row needs the
+   field, the Select All pair and the filter button with two gaps:
+   184.6 + 16 + 85 + 16 + 44 = 345.6. The bar is the viewport less 32px of
+   shell padding, so the flat row fits at 377.6 and no narrower.
+
+   IT COLLAPSES BY RULE, NEVER BY flex-wrap ALONE. The field takes a full
+   line, which is the rule for anything left on its own, and the pair below it
+   sits flush at both edges. */
+@media (max-width: 378px) {
+  .sort-bar { flex-wrap: wrap }
+  .sort-field { flex: 1 1 100% }
+  .sort-bar #filterToggle { margin-inline-start: auto }
+}
+
 /* ==========================================================================
    The controls stay while the list scrolls
 
@@ -3933,8 +4023,15 @@ th.amount { text-align: end }
 /* A DOWNLOAD IS NEITHER DESTRUCTIVE NOR A SAVE, so it takes the neutral
    hover the rename does. Held open it stays lit, because the menu belonging
    to it is on screen and nothing else says which button opened it. */
+/* A DESTRUCTIVE ITEM IN A MENU SAYS SO IN ITS COLOUR. It sits under a rule,
+   so the separation is stated twice: by the gap above it and by the hue. */
+.multi-option.multi-danger { color: var(--danger-quiet) }
+.multi-option.multi-danger:hover { background: #2a1414; color: var(--danger-quiet) }
+
 .row-get:hover { color: var(--text); background: var(--row-hover) }
-.row-get[aria-expanded="true"] { color: var(--text); background: var(--row-selected) }
+.row-get[aria-expanded="true"],
+#noteGet[aria-expanded="true"],
+#noteMenu[aria-expanded="true"] { color: var(--text); background: var(--row-selected) }
 
 /* THE MENU IS FIXED TO THE WINDOW, NOT TO THE ROW. A table cell clips, and
    the list is its own scroller, so a menu placed inside either one is cut
@@ -3985,7 +4082,9 @@ th.amount { text-align: end }
   /* THE HELD BUTTON LOSES ITS ONLY MARKER HERE, because this mode disregards
      an authored background outright. An outline survives it and costs no
      layout, so it cannot move the pair the row measured. */
-  .row-get[aria-expanded="true"] { outline: 1px solid Highlight; outline-offset: -3px }
+  .row-get[aria-expanded="true"],
+  #noteGet[aria-expanded="true"],
+  #noteMenu[aria-expanded="true"] { outline: 1px solid Highlight; outline-offset: -3px }
 }
 
 /* ==========================================================================
@@ -4678,7 +4777,28 @@ dialog menu {
   /* THE ADDED DATE MOVES OVER FOR IT, the way it does for an address. Two
      facts on one line, the edited stamp first because a notes list is
      sorted by it. */
-  tr:has(.cell-excerpt) .cell-added { grid-row: 3; justify-self: end }
+  /* A NOTE CARD SHOWS ONE DATE, AND THE DOWNLOAD SHARES ITS LINE. Their
+     instruction, 22 September 2026: show the last updated date on the left
+     and put the download button at its right, across the card.
+
+     THE TWO DATES PAINTED OVER EACH OTHER BEFORE THIS. Measured at 296:
+     edited ink 61 to 188.3, added ink 135.7 to 263, on one 18px band, so
+     52.59px of one date was drawn on top of the other. Dropping the added
+     stamp answers that by construction rather than by a threshold.
+
+     THE ADDED DATE IS STILL IN THE MARKUP, so the sort menu and the screen
+     reader keep it. Only the card stops painting it. */
+  tr:has(.cell-excerpt) .cell-added { display: none }
+
+  /* IT LEAVES LINE 1 FOR THIS LINE, so the title clears one mark rather than
+     two and the delete cross keeps the corner on its own. Being in flow it
+     sizes its own track, which is what puts it at the card's end edge. */
+  tr:has(.cell-excerpt) .cell-get {
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: end;
+    align-self: center;
+  }
 
   /* Out of flow, so it sizes no track. The insets read the CARD'S padding
      token, so moving the padding moves the button with it.
@@ -4696,8 +4816,7 @@ dialog menu {
      band's centre sits a little above the line box's, and for this face at
      this size that is 0.36px: under the whole pixel a repair needs. */
   .cell-remove,
-  .cell-edit,
-  .cell-get {
+  .cell-edit {
     position: absolute;
     display: flex;
     align-items: center;
@@ -4720,23 +4839,21 @@ dialog menu {
 
      The block axis keeps the full floor, because nothing is competing there.
 
-     TWO LISTS HOLD A PAIR NOW, AND THE SECOND CELL DECIDES IT RATHER THAN A
-     LIST NAME. A bookmark carries a rename beside its delete and a note
-     carries a download, so the rule asks which cell is there. Named after
-     one of them it would have left the notes list with two marks 0px apart. */
-  tr:is(:has(.cell-edit), :has(.cell-get)) {
+     ONLY THE BOOKMARK CARD HOLDS A PAIR HERE. A note's download shares the
+     date line instead, so its delete cross has the corner to itself and
+     takes the plain floor. */
+  tr:has(.cell-edit) {
     --row-pair: max(
       calc(var(--mark) + 20px),
       max(var(--target-mouse), var(--control-floor))
     );
   }
 
-  .cell-edit,
-  .cell-get {
+  .cell-edit {
     inset-inline-end: calc(var(--space-lg) + var(--row-pair));
   }
 
-  tr:is(:has(.cell-edit), :has(.cell-get)) :is(.row-edit, .row-get, .row-remove)::after {
+  tr:has(.cell-edit) :is(.row-edit, .row-remove)::after {
     inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2))
            min(0px, calc((100% - var(--row-pair)) / 2));
   }
@@ -4744,7 +4861,7 @@ dialog menu {
   /* The title shares line 1 with BOTH marks, so it clears two of them. It
      publishes the distance because the field that replaces it has to read it
      back: an absolute inset resolves against the padding box. */
-  tr:is(:has(.cell-edit), :has(.cell-get)) .cell-title {
+  tr:has(.cell-edit) .cell-title {
     --title-reserve: calc(
       (var(--mark) + var(--row-pair)) / 2 + var(--row-pair) + var(--space-sm)
     );

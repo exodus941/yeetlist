@@ -208,6 +208,26 @@ const same = (name, a, b) => ok(name, a === b, `${JSON.stringify(a)} against ${J
   ok('it fetches nothing at all', !/<(?:script|link|img|iframe)\b/i.test(page));
   ok('it says what wrote it', page.includes('YeeTlist'));
 
+  /* THE FOOTER SHARES THE NOTE'S LEFT MARGIN, and one box owns the measure.
+     Their instruction, 22 September 2026. A `ch` resolves against the
+     element's own font, so the same rule on both put the 12px footer 77.63px
+     inside the 16px note. The wrapper carries it once. */
+  ok('one box owns the measure', /\.sheet \{ width: min\(72ch, 100%\); margin-inline: auto \}/.test(page));
+  ok('and the note and the footer are both inside it',
+    /<div class="sheet">[\s\S]*<main>[\s\S]*<\/main>[\s\S]*<footer>[\s\S]*<\/footer>[\s\S]*<\/div>/.test(page));
+  /* BLANK THE COMMENTS FIRST. The prose explaining this rule names both
+     elements and the measure, so a scan of the raw text reads the
+     explanation as the code it forbids. */
+  const rules = page.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  ok('neither states a measure of its own',
+    !/\bmain[^{]*\{[^}]*72ch/.test(rules) && !/\bfooter[^{]*\{[^}]*72ch/.test(rules),
+    (rules.match(/\b(?:main|footer)[^{]*\{[^}]*72ch/) || [''])[0].slice(0, 80));
+
+  /* AND THE NAME IN IT IS A LINK. Their instruction, the same day. */
+  ok('the footer links to the site',
+    /<footer>Written with <a href="https:\/\/yeetlist\.vercel\.app">YeeTlist<\/a>\.<\/footer>/.test(page),
+    page.slice(page.indexOf('<footer>'), page.indexOf('</footer>') + 9));
+
   /* A NOTE CANNOT INJECT MARKUP INTO ITS OWN PAGE. */
   const nasty = noteToHtmlPage('<script>x</script>', 'a <img src=x onerror=1> b');
   ok('a title cannot carry a tag', !/<script>/.test(nasty), nasty.slice(nasty.indexOf('<title>'), 80));
@@ -295,6 +315,156 @@ const same = (name, a, b) => ok(name, a === b, `${JSON.stringify(a)} against ${J
   ok('the open button is marked', /\.row-get\[aria-expanded="true"\]/.test(css));
   ok('and it keeps that mark in forced colors',
     /forced-colors: active\)[\s\S]{0,400}row-get\[aria-expanded="true"\]/.test(css));
+}
+
+/* -- 10. The editor's own download --------------------------------------- */
+{
+  /* Their instruction, 22 September 2026: the download exists in the note
+     editor too, beside the close button. */
+  const bar = html.slice(html.indexOf('<header class="note-bar">'),
+    html.indexOf('</header>', html.indexOf('<header class="note-bar">')));
+  ok('the editor bar carries a download', /id="noteGet"/.test(bar), 'noteGet');
+  ok('it opens the same menu', /aria-controls="noteGetMenu"/.test(bar));
+  ok('it says it opens a menu', /id="noteGet"[\s\S]{0,200}aria-haspopup="menu"/.test(bar));
+  ok('it is named for a reader', /aria-label="Download this note"/.test(bar));
+  /* BESIDE THE CLOSE BUTTON, and before it, so the destructive delete keeps
+     the far end on its own. */
+  ok('it sits beside the close button',
+    bar.indexOf('id="noteGet"') < bar.indexOf('id="noteBack"'), 'order');
+  ok('and the delete is still last',
+    bar.indexOf('id="noteBack"') < bar.indexOf('id="noteDelete"'), 'order');
+
+  /* IT CARRIES NO id, because it always means the note that is open. A copy
+     written onto it is a second answer that can go stale. */
+  ok('the editor button names no note', !/id="noteGet"[^>]*data-id/.test(bar));
+  /* THREE BUTTONS OPEN ONE MENU: a note's row, the editor's download, and
+     the hamburger the whole bar folds into. */
+  ok('the handler reaches all three buttons',
+    /closest\?\.\('\.row-get, #noteGet, #noteMenu'\)/.test(ui));
+  ok('and falls back to the open note', /getMenu\.button\.dataset\.id \|\| noteOpen/.test(ui));
+  ok('it acts on nothing with no note', /if \(!id\) return;/.test(ui));
+}
+
+/* -- 11. The note card shows one date, and the download shares its line --- */
+{
+  /* Their instruction, 22 September 2026: show the last updated date on the
+     left, and the download button at its right across the card. */
+  ok('the card paints one date only', /tr:has\(\.cell-excerpt\) \.cell-added \{ display: none \}/.test(css));
+  const placed = (css.match(/tr:has\(\.cell-excerpt\) \.cell-get \{[^}]*\}/) || [''])[0];
+  ok('the download sits on the date line', /grid-row: 3/.test(placed), placed.slice(0, 90));
+  ok('and at the card’s end edge', /justify-self: end/.test(placed));
+  ok('it is centred on that line', /align-self: center/.test(placed));
+
+  /* IT LEFT LINE 1, so the note row is not a pair and must not take the pair
+     spacing. Only the bookmark card holds two marks up there. */
+  ok('only the bookmark card holds a pair', !/:has\(\.cell-get\)\)? \{[\s\S]{0,60}--row-pair/.test(css));
+  ok('the pair rule names the rename cell', /tr:has\(\.cell-edit\) \{\s*--row-pair/.test(css));
+  ok('and the title reserves for one mark on a note',
+    /tr:has\(\.cell-edit\) \.cell-title \{/.test(css) && !/cell-get\) \.cell-title/.test(css));
+}
+
+/* -- 12. The editor folds to two rows ------------------------------------ */
+{
+  /* Their instruction, 22 September 2026: download and delete inside a
+     hamburger, the four marks on one full-width row, and the style control
+     sharing the next row with the three lists. */
+  const bar = html.slice(html.indexOf('<header class="note-bar">'),
+    html.indexOf('</header>', html.indexOf('<header class="note-bar">')));
+  ok('the bar carries a hamburger', /id="noteMenu"/.test(bar));
+  ok('it is a square with no words', !/>[A-Za-z]/.test(bar.slice(bar.indexOf('id="noteMenu"'),
+    bar.indexOf('</button>', bar.indexOf('id="noteMenu"')))), 'no label');
+  /* IT ONLY EXISTS WHERE THE BAR RAN SHORT. */
+  ok('it is absent by default', /#noteMenu \{ display: none \}/.test(css));
+  ok('and the two actions fold into it',
+    /#noteGet,\s*#noteDelete \{ display: none \}[\s\S]{0,80}#noteMenu \{ display: inline-flex \}/.test(css));
+
+  /* THE MENU HOLDS THE THREE FORMATS AND THE DELETE, flat. A download that
+     opened a second menu would cost a press and say nothing new. */
+  ok('the menu adds a delete for the hamburger', /button\.id !== 'noteMenu'\) return formats/.test(ui));
+  ok('under a rule', /multi-sep[^`]*aria-hidden="true"/.test(ui));
+  ok('and it says it is destructive', /multi-option multi-danger/.test(ui));
+  ok('the danger item has its own colour', /\.multi-option\.multi-danger \{ color: var\(--danger-quiet\) \}/.test(css));
+  /* IT CLOSES THE NOTE FIRST, or the editor sits open over a record that has
+     gone. */
+  ok('the delete closes the note first',
+    /action === 'delete'\) \{ closeNote\(\); openDelete\(\[id\]\); return; \}/.test(ui));
+
+  /* THE TWO GROUPS ARE NAMED, so the narrow layout can place each one. */
+  ok('the marks group is named', /class="note-tool-group note-marks"/.test(html));
+  ok('the lists group is named', /class="note-tool-group note-lists"/.test(html));
+
+  /* TWO SUMS, BECAUSE A MARK IS 36 UNDER A MOUSE AND 44 UNDER A FINGER. One
+     number left a finger at 520px with the lists wrapped on their own. */
+  ok('the fold reads both pointers',
+    /@media \(max-width: 503px\), \(pointer: coarse\) and \(max-width: 559px\)/.test(css));
+  ok('and so does the third row',
+    /@media \(max-width: 323px\), \(pointer: coarse\) and \(max-width: 347px\)/.test(css));
+
+  /* THE MARKS TAKE A FULL LINE AND THE PAIR SHARES THE NEXT. */
+  ok('the marks span the row', /\.note-marks \{ grid-column: 1 \/ -1; grid-row: 1 \}/.test(css));
+  ok('the lists sit beside the style control', /\.note-lists \{ grid-column: 2; grid-row: 2 \}/.test(css));
+  ok('the style control keeps its measured width',
+    /\.multi\.note-level \{ grid-column: 1; grid-row: 2 \}/.test(css)
+    && /\.multi\.note-level \{ width: 168px/.test(css));
+
+  /* A STRETCHED MARK IS NO LONGER A SQUARE, so the ratio has to go or the
+     height reads the grown width. */
+  const stretch = (css.match(/\.note-tool-group > \.note-tool \{[^}]*\}/) || [''])[0];
+  ok('the marks stretch', /flex: 1 1 0/.test(stretch), stretch.slice(0, 80));
+  ok('and the square ratio is released', /aspect-ratio: auto/.test(stretch));
+}
+
+/* -- 13. The title is its own field -------------------------------------- */
+{
+  /* Their instruction, 22 September 2026: "changing the title of a blank
+     note should not automatically change its first line too!", then "the
+     title is a separate thing!"
+     Measured before: typing "Groceries" into a blank note's title left the
+     body as <p>Groceries</p> and the file as "Groceries". */
+  const rename = ui.slice(ui.indexOf('function renameNote('));
+  const body = rename.slice(0, rename.indexOf('\n}\n'));
+  ok('renameNote was found', body.length > 10, String(body.length));
+  /* IT NEVER TOUCHES THE BODY. That is the whole fault. */
+  ok('renaming writes nothing into the note',
+    !/noteBody/.test(body) && !/firstElementChild/.test(body) && !/textContent/.test(body), body);
+  ok('it only asks for a save', /saveNote\(\)/.test(body));
+
+  const save = ui.slice(ui.indexOf('function saveNote('));
+  const sbody = save.slice(0, save.indexOf('\n}\n'));
+  ok('the save reads the field', /noteEl\('noteTitle'\)\.value\.trim\(\)/.test(sbody));
+  /* THE STORED NAME, AND A DISPLAY NAME DERIVED FROM IT. A note with no name
+     of its own is still named in the list by its own first line. */
+  ok('the stored name wins', /const title = name \|\| NOTES\.titleOf\(body\)/.test(sbody));
+  ok('an empty name is no name', /if \(name\) note\.name = name; else delete note\.name/.test(sbody));
+  ok('the list name is stored too', /note\.title = title/.test(sbody));
+
+  /* THE FIELD SHOWS THE STORED NAME AND NOTHING ELSE. Showing the derived
+     one would freeze it the moment a reader edited the first line. */
+  const paint = ui.slice(ui.indexOf('function paintTitle('));
+  const pbody = paint.slice(0, paint.indexOf('\n}\n'));
+  ok('the field shows the stored name', /field\.value = note\?\.name \|\| ''/.test(pbody), pbody.slice(-90));
+  ok('and never the body', !/noteBody/.test(pbody), pbody);
+
+  /* A NOTE WITH NO NAME TAKES ITS FIRST LINE, ONCE, ON CLOSE. Their
+     instruction: "if no title is added, it inherits one from the first line
+     of the note as soon as it's closed". */
+  const adopt = ui.slice(ui.indexOf('function adoptTitle('));
+  const abody = adopt.slice(0, adopt.indexOf('\n}\n'));
+  ok('adoptTitle was found', abody.length > 60, String(abody.length));
+  ok('it runs on close', /saveNote\(\{ now: true \}\);\s*adoptTitle\(\);/.test(ui));
+  /* ONCE. A note that already has a name keeps it, or the title goes back to
+     tracking the body, which is the fault this whole change removes. */
+  ok('a named note keeps its name', /if \(!note \|\| note\.name/.test(abody), abody.slice(0, 90));
+  /* AND AN EMPTY NOTE INHERITS NOTHING, because there is no first line. */
+  ok('an empty note inherits nothing', /if \(!line\) return;/.test(abody));
+  ok('it stores both names', /note\.name = NOTES\.titleOf\(note\.body\)/.test(abody)
+    && /note\.title = note\.name/.test(abody));
+
+  /* AND THE FILE CARRIES IT, above the note the way the tags are. Left in
+     the payload alone, a person reading yeetnotes.md saw no name. */
+  ok('the notes file states the name', /> Name: \$\{cell\(n\.name\)\}/.test(code));
+  ok('and a named empty note needs no invented heading',
+    /n\.name \? \[\] : \[`# \$\{n\.title \|\| 'Untitled note'\}`\]/.test(code));
 }
 
 /* -- Verdict --------------------------------------------------------------- */

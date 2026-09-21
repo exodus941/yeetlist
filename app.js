@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-10';
+const VERSION = '260922-11';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -2182,9 +2182,15 @@ function notesText() {
   const count = `${notes.length} ${notes.length === 1 ? 'note' : 'notes'}`;
 
   const written = notes.flatMap((n) => {
+    /* A NAME THE READER GAVE THE NOTE IS NOT PART OF THE NOTE, so it sits
+       above it as a quoted line the way the tags do. Without this it lived
+       in the payload alone and a person reading the file saw no name at
+       all. */
+    const named = n.name ? [`> Name: ${cell(n.name)}`, ''] : [];
     const tags = (n.tags || []).length ? [`> Tags: ${n.tags.map((t) => '#' + t).join(' ')}`, ''] : [];
     const body = String(n.body || '').replace(/\r\n?/g, '\n').replace(/\s+$/, '');
-    return ['', '---', '', ...tags, ...(body ? [body] : [`# ${n.title || 'Untitled note'}`]), ''];
+    return ['', '---', '', ...named, ...tags,
+      ...(body ? [body] : (n.name ? [] : [`# ${n.title || 'Untitled note'}`])), ''];
   });
 
   return [

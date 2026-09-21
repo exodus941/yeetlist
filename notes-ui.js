@@ -91,36 +91,65 @@ async function openNote(id) {
 
 /* ── The title ──────────────────────────────────────────────────────────
  *
- * THE FIELD EDITS THE NOTE'S FIRST BLOCK, and nothing else. `titleOf` reads
- * the first heading, or the first line where there is none, so whatever the
- * field shows is what that function will return. One name, one place.
+ * THE TITLE IS ITS OWN FIELD. Their instruction, 22 September 2026: "the
+ * title is a separate thing!", after "changing the title of a blank note
+ * should not automatically change its first line too!"
  *
- * THAT IS ALSO THEIR SECOND RULE: a note added without a title takes its
- * first line as the title. It always did, and now the field says so.
+ * IT USED TO EDIT THE NOTE'S FIRST BLOCK. Measured on a blank note: typing
+ * "Groceries" in the field left the body as `<p>Groceries</p>` and the file
+ * as "Groceries". The name a reader gave the note became the note's first
+ * sentence, which nobody typed.
+ *
+ * SO IT IS STORED, IN `name`, AND THE BODY IS NEVER TOUCHED. The list still
+ * needs a name for a note that has none, so `title` stays the DISPLAY name
+ * and falls back to the body's own first heading or first line. Two fields,
+ * one of them derived, rather than one field doing two jobs.
  */
 function paintTitle() {
   const field = noteEl('noteTitle');
   /* NEVER WHILE THEY ARE TYPING IN IT. Writing the field's own value back
      into it moves the caret to the end on every keystroke. */
   if (document.activeElement === field) return;
-  const first = noteEl('noteBody').firstElementChild;
-  field.value = first ? first.textContent.trim() : '';
+  const note = videos.find((v) => v.id === noteOpen);
+  /* THE STORED NAME AND NOTHING ELSE. Showing the derived one here would
+     freeze it: a reader editing the first line would find the field still
+     holding the old words, with no way to tell which was which. The
+     placeholder already says "Untitled note". */
+  field.value = note?.name || '';
 }
 
-function renameNote(text) {
-  const body = noteEl('noteBody');
-  if (!body.firstElementChild) body.innerHTML = '<p><br></p>';
-  const first = body.firstElementChild;
-  /* A BLOCK EMPTIED OF TEXT STILL NEEDS A LINE BOX, or the block collapses
-     and the caret has nowhere to sit. */
-  if (text) first.textContent = text;
-  else first.innerHTML = '<br>';
+/* THE FIELD IS THE SOURCE WHILE THE EDITOR IS OPEN, so this only asks for a
+   save. Writing the record here as well would be a second writer for one
+   value, and it would write on every keystroke. */
+function renameNote() {
   saveNote();
+}
+
+/* A NOTE WITH NO NAME TAKES ITS FIRST LINE, ONCE, ON CLOSE. Their
+   instruction, 22 September 2026: "if no title is added, it inherits one
+   from the first line of the note as soon as it's closed".
+
+   ONCE, AND ONLY ON CLOSE. Adopting it on every keystroke would put the
+   title back to tracking the body, which is the thing they asked to stop.
+   After this the name is stored, so editing the first line leaves it alone.
+
+   AN EMPTY NOTE INHERITS NOTHING, because there is no first line to take.
+   `titleOf` answers "Untitled note" for one, and storing that would be a
+   name nobody chose. */
+function adoptTitle() {
+  const note = videos.find((v) => v.id === noteOpen);
+  if (!note || note.name || !NOTES) return;
+  const line = String(note.body || '').trim();
+  if (!line) return;
+  note.name = NOTES.titleOf(note.body);
+  note.title = note.name;
+  save();
 }
 
 function closeNote() {
   if (noteOpen === null) return;
   saveNote({ now: true });
+  adoptTitle();
   noteOpen = null;
   noteEl('noteEditor').hidden = true;
   delete document.body.dataset.noteOpen;
@@ -157,14 +186,21 @@ function saveNote({ now = false } = {}) {
   if (!note) return;
 
   const body = NOTES.htmlToMarkdown(noteEl('noteBody'));
+  /* THE STORED NAME, AND THE DISPLAY NAME DERIVED FROM IT. A note with no
+     name of its own is still named in the list, by its own first line. */
+  const name = noteEl('noteTitle').value.trim();
+  const title = name || NOTES.titleOf(body);
   noteEl('noteState').textContent = 'Saved';
   /* NOTHING CHANGED IS NOT A SAVE. Moving the caret fires an input event in
      some engines, and writing then would move the edited stamp, re-sort the
      list and push to Drive for a keystroke nobody made. */
-  if (body === note.body) return;
+  if (body === note.body && name === (note.name || '') && title === note.title) return;
 
   note.body = body;
-  note.title = NOTES.titleOf(body);
+  /* AN EMPTY NAME IS NO NAME, so the field is not stored as an empty string
+     that would read as a title somebody chose. */
+  if (name) note.name = name; else delete note.name;
+  note.title = title;
   note.editedAt = new Date().toISOString();
   save();
 }
@@ -253,15 +289,20 @@ function getMenuBox() {
   list.setAttribute('aria-label', 'Download this note');
   list.tabIndex = -1;
   list.hidden = true;
-  list.innerHTML = NOTE_FORMATS.map(([key, label]) => `<li class="multi-option" role="menuitem"
-    tabindex="-1" data-format="${key}">${label}</li>`).join('');
   document.body.append(list);
 
   list.addEventListener('click', (event) => {
     const item = event.target.closest('.multi-option');
     if (!item || !getMenu.button) return;
-    const id = getMenu.button.dataset.id;
+    /* THE ROW BUTTON NAMES ITS NOTE. The editor's buttons carry no id,
+       because they always mean the note that is open, and a copy written
+       onto one would be a second answer that can go stale. */
+    const id = getMenu.button.dataset.id || noteOpen;
     closeGet();
+    if (!id) return;
+    /* THE DELETE CLOSES THE NOTE FIRST, the same way the header button does,
+       so the editor is not left open over a record that has gone. */
+    if (item.dataset.action === 'delete') { closeNote(); openDelete([id]); return; }
     downloadNote(id, item.dataset.format);
   });
 
@@ -286,9 +327,23 @@ function getMenuBox() {
   return list;
 }
 
+/* THE ITEMS DEPEND ON WHICH BUTTON OPENED IT. A download offers the three
+   formats. The hamburger is where the whole bar folded, so it offers those
+   same three and the delete under a rule. One menu rather than two, because
+   two would be two places to keep the formats true. */
+function getMenuItems(button) {
+  const formats = NOTE_FORMATS.map(([key, label]) => `<li class="multi-option" role="menuitem"
+    tabindex="-1" data-format="${key}">${label}</li>`).join('');
+  if (button.id !== 'noteMenu') return formats;
+  return `${formats}<li class="multi-sep" aria-hidden="true"></li>`
+    + `<li class="multi-option multi-danger" role="menuitem" tabindex="-1"
+         data-action="delete">Delete Note</li>`;
+}
+
 function openGet(button) {
   const list = getMenuBox();
   getMenu.button = button;
+  list.innerHTML = getMenuItems(button);
   list.hidden = false;
   button.setAttribute('aria-expanded', 'true');
   placeGet();
@@ -525,7 +580,7 @@ function flatten() {
 document.addEventListener('click', (event) => {
   /* THE DOWNLOAD MENU CLOSES ON ANY CLICK THAT IS NOT ITS OWN. It is asked
      first, because the press that opens it must not immediately close it. */
-  const get = event.target.closest?.('.row-get');
+  const get = event.target.closest?.('.row-get, #noteGet, #noteMenu');
   if (get) {
     const same = getMenu.button === get && !getMenu.el?.hidden;
     closeGet();
@@ -553,7 +608,7 @@ document.addEventListener('click', (event) => {
 
 document.addEventListener('input', (event) => {
   if (event.target.id === 'noteBody') { paintTitle(); saveNote(); }
-  if (event.target.id === 'noteTitle') renameNote(event.target.value);
+  if (event.target.id === 'noteTitle') renameNote();
 });
 
 /* ENTER LEAVES THE TITLE AND GOES BACK TO THE TEXT, because a title field
