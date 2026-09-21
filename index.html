@@ -89,6 +89,7 @@
   <symbol id="i-strike" viewBox="0 0 24 24"><path d="M4 12h16" vector-effect="non-scaling-stroke"/><path d="M16 7a4 3 0 0 0-4-2H10a3 3 0 0 0 0 7" vector-effect="non-scaling-stroke"/><path d="M8 17a4 3 0 0 0 4 2h2a3 3 0 0 0 0-7" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-bullets" viewBox="0 0 24 24"><path d="M9 6h11" vector-effect="non-scaling-stroke"/><path d="M9 12h11" vector-effect="non-scaling-stroke"/><path d="M9 18h11" vector-effect="non-scaling-stroke"/><circle cx="4.5" cy="6" r="1.4"/><circle cx="4.5" cy="12" r="1.4"/><circle cx="4.5" cy="18" r="1.4"/></symbol>
   <symbol id="i-numbers" viewBox="0 0 24 24"><path d="M10 6h10" vector-effect="non-scaling-stroke"/><path d="M10 12h10" vector-effect="non-scaling-stroke"/><path d="M10 18h10" vector-effect="non-scaling-stroke"/><path d="M4 5.5h1.5V9" vector-effect="non-scaling-stroke"/><path d="M3.6 11.2a1.4 1.4 0 0 1 2.4 1c0 .9-2.4 1.6-2.4 2.6h2.8" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="M9 7l-5 5 5 5" vector-effect="non-scaling-stroke"/><path d="M15 7l5 5-5 5" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-heading" viewBox="0 0 24 24"><path d="M6 5v14" vector-effect="non-scaling-stroke"/><path d="M18 5v14" vector-effect="non-scaling-stroke"/><path d="M6 12h12" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14" vector-effect="non-scaling-stroke"/><path d="M5 12h14" vector-effect="non-scaling-stroke"/></symbol>
   <!-- ONE PATH FOR BOTH LAYERS. The outline takes the stroke and the filled
@@ -195,9 +196,14 @@
             <svg class="icon multi-chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
           </button>
           <ul class="multi-panel multi-list" id="exportMenu" role="menu" aria-label="Export" tabindex="-1" hidden>
-            <li class="multi-option" role="menuitem" tabindex="-1" data-scope="youtube">YouTube</li>
+            <!-- EACH ITEM NAMES WHAT IT WRITES. Their instruction,
+                 22 September 2026: "YouTube" became "YouTube Links" and
+                 "Everything" became "All Links", because a fourth item now
+                 writes the notes and "Everything" would have been a lie. -->
+            <li class="multi-option" role="menuitem" tabindex="-1" data-scope="youtube">YouTube Links</li>
             <li class="multi-option" role="menuitem" tabindex="-1" data-scope="links">Bookmarks</li>
-            <li class="multi-option" role="menuitem" tabindex="-1" data-scope="all">Everything</li>
+            <li class="multi-option" role="menuitem" tabindex="-1" data-scope="all">All Links</li>
+            <li class="multi-option" role="menuitem" tabindex="-1" data-scope="notes">All Notes</li>
             <!-- A SEPARATOR IS A REAL ITEM WITH NO ROLE, so nothing announces
                  it. The three above write a file out of the lists. This one
                  fetches the Android installer, which is a different kind of
@@ -693,6 +699,11 @@
         <li class="multi-option" role="menuitemradio" tabindex="-1" data-value="h4" aria-checked="false">Level 4</li>
         <li class="multi-option" role="menuitemradio" tabindex="-1" data-value="h5" aria-checked="false">Level 5</li>
         <li class="multi-option" role="menuitemradio" tabindex="-1" data-value="h6" aria-checked="false">Level 6</li>
+        <!-- A WHOLE BLOCK OF CODE IS A LEVEL, NOT A MARK. It replaces the
+             paragraph rather than colouring part of it, which is what every
+             other item in this list does. -->
+        <li class="multi-sep" aria-hidden="true"></li>
+        <li class="multi-option" role="menuitemradio" tabindex="-1" data-value="pre" aria-checked="false">Code Block</li>
       </ul>
     </div>
 
@@ -707,6 +718,13 @@
            choice was the emphasis that travels rather than raw HTML. -->
       <button class="btn btn-icon note-tool" type="button" data-mark="strike" aria-label="Strikethrough" aria-pressed="false">
         <svg class="icon" aria-hidden="true"><use href="#i-strike"/></svg>
+      </button>
+      <!-- MONO TEXT IS A MARK, THE SAME WAY BOLD IS. Their instruction,
+           22 September 2026: switch between regular text and code text.
+           Markdown offers two shapes for it. This one is the run inside a
+           sentence, and the style menu holds the whole-block one. -->
+      <button class="btn btn-icon note-tool" type="button" data-mark="code" aria-label="Code text" aria-pressed="false">
+        <svg class="icon" aria-hidden="true"><use href="#i-code"/></svg>
       </button>
     </div>
 

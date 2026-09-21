@@ -109,6 +109,17 @@ const round = [
   ['a heading over a list', '## Shopping\n\n- Milk\n- Bread'],
   ['two lists of different kinds', '- One\n\n1. Two'],
   ['a mark inside a list item', '- A **bold** item'],
+  /* THE MONO SET. Their instruction, 22 September 2026: the editor can
+     switch between regular text and code text. Markdown offers two shapes
+     and both are here. */
+  ['a code span', 'Run `npm test` first.'],
+  ['a code span holding a star', 'The glob is `*.js` here.'],
+  ['a code span holding an underscore', 'Read `file_name` now.'],
+  ['a code block', '\x60\x60\x60\nconst a = 1;\nconst b = 2;\n\x60\x60\x60'],
+  ['a code block under a heading', '# Setup\n\n\x60\x60\x60\nnpm i\n\x60\x60\x60'],
+  ['a code block holding markdown', '\x60\x60\x60\n# not a heading\n- not a list\n\x60\x60\x60'],
+  ['a code block holding a blank line', '\x60\x60\x60\none\n\ntwo\n\x60\x60\x60'],
+  ['prose after a code block', '\x60\x60\x60\ncode\n\x60\x60\x60\n\nAfter.'],
 ];
 
 for (const [name, md] of round) same(`round trip: ${name}`, toMd(markdownToHtml(md)), md);
@@ -156,6 +167,41 @@ same('arithmetic survives', toMd(markdownToHtml('2 \\* 3 \\* 4 is 24')), '2 \\* 
 same('a stray underscore survives', toMd('<p>file_name_here</p>'), 'file\\_name\\_here');
 ok('an unclosed marker is literal', inlineToHtml('a * b') === 'a * b', inlineToHtml('a * b'));
 ok('four stars are not empty bold', !/<strong>/.test(inlineToHtml('****')), inlineToHtml('****'));
+
+/* ── Code text ───────────────────────────────────────────────────────────
+ *
+ * A SNIPPET IS VERBATIM, which is the whole reason it exists. So nothing in
+ * it is escaped, nothing in it is read as a marker, and a code block's line
+ * breaks and blank lines are kept exactly.
+ */
+same('a code span survives untouched', toMd('<p>Run <code>a_b *c*</code> now.</p>'),
+  'Run \x60a_b *c*\x60 now.');
+same('a star in a code span stays a star',
+  inlineToHtml('a \x60*b*\x60 c'), 'a <code>*b*</code> c');
+same('a code span cannot inject markup',
+  inlineToHtml('\x60<img src=x>\x60'), '<code>&lt;img src=x&gt;</code>');
+same('an empty code span writes nothing', toMd('<p>a<code></code>b</p>'), 'ab');
+/* THE FENCE GROWS PAST WHAT IS INSIDE IT, or the span closes early. */
+ok('a span holding a backtick takes a longer fence',
+  toMd('<p><code>a \x60 b</code></p>') === '\x60\x60a \x60 b\x60\x60',
+  toMd('<p><code>a \x60 b</code></p>'));
+ok('a block holding three backticks takes four',
+  toMd('<pre><code>\x60\x60\x60</code></pre>').startsWith('\x60\x60\x60\x60'),
+  toMd('<pre><code>\x60\x60\x60</code></pre>'));
+/* A BLOCK IS NOT A SPAN, even though both are drawn in the mono face. */
+ok('a code block reads as a block', /<pre><code>/.test(markdownToHtml('\x60\x60\x60\nx\n\x60\x60\x60')),
+  markdownToHtml('\x60\x60\x60\nx\n\x60\x60\x60'));
+same('a fence language is not kept', toMd(markdownToHtml('\x60\x60\x60js\nvar a;\n\x60\x60\x60')),
+  '\x60\x60\x60\nvar a;\n\x60\x60\x60');
+same('an unclosed fence still keeps its text', toMd(markdownToHtml('\x60\x60\x60\nhalf typed')),
+  '\x60\x60\x60\nhalf typed\n\x60\x60\x60');
+same('a code block keeps its indentation',
+  toMd(markdownToHtml('\x60\x60\x60\nif (a) {\n  b();\n}\n\x60\x60\x60')),
+  '\x60\x60\x60\nif (a) {\n  b();\n}\n\x60\x60\x60');
+ok('code in pasted text is markdown', looksLikeMarkdown('run \x60npm i\x60'));
+ok('a code block in pasted text is markdown', looksLikeMarkdown('\x60\x60\x60\nx\n\x60\x60\x60'));
+/* THE TITLE IS WORDS, so a fence is never one. */
+same('a code span in a title reads as its words', titleOf('# The \x60npm\x60 way'), 'The npm way');
 
 /* A NOTE NAMES ITSELF. */
 same('the first heading is the title', titleOf('# My note\n\nBody'), 'My note');

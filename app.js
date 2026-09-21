@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-9';
+const VERSION = '260922-10';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -203,6 +203,10 @@ const LISTS = {
          The column, the filter and the sort all read the list's own spec, so
          dropping it here drops it everywhere. */
       { key: 'tags', label: 'TAGS' },
+      /* A NOTE CAN BE TAKEN AWAY ON ITS OWN, so it carries a download beside
+         its delete. Only this list does: a video or a bookmark is a link,
+         and there is no document to write. */
+      { key: 'get' },
       { key: 'remove' },
     ],
   },
@@ -536,6 +540,11 @@ function filteredVideos() {
    ========================================================================== */
 
 function render() {
+  /* A MENU OPENED AGAINST A ROW CANNOT OUTLIVE THAT ROW. Every row is
+     rebuilt here, so the button a floating menu was placed against is about
+     to be detached and the menu would sit over nothing. */
+  closeGet();
+
   /* A FILTER THAT LEAVES THE MENU HAS TO TURN ITSELF OFF. Tag the last bare
      video and the option goes, so the filter would sit on with nothing on
      screen to show it or clear it. The tags already retire this way. */
@@ -971,6 +980,7 @@ function renderChrome(spec) {
     }
     if (c.key === 'remove') return `<th class="col-remove" scope="col"><span class="sr-only">Remove</span></th>`;
     if (c.key === 'edit') return `<th class="col-edit" scope="col"><span class="sr-only">Rename</span></th>`;
+    if (c.key === 'get') return `<th class="col-get" scope="col"><span class="sr-only">Download</span></th>`;
     /* THE KEY IS AN ATTRIBUTE, NOT A CLASS. fitTags() has to find this cell
        to read its own label's ink, and a `col-tags` class here would be a
        second writer on the width the colgroup already states. */
@@ -1137,6 +1147,20 @@ const CELLS = {
         </label>
       </span>
     </div>
+  </td>`,
+
+  /* A NOTE IS A DOCUMENT, SO IT CAN BE TAKEN AWAY ON ITS OWN. Their
+     instruction, 22 September 2026: a download button left of the delete
+     icon, opening a menu of MD, HTML and TXT.
+
+     THE MENU IS NOT IN THE ROW. Eight hundred rows would be eight hundred
+     hidden menus, and a menu inside a cell is cut off by the table's own
+     clipping. One floating menu is opened against whichever button was
+     pressed, the way the tag suggestions already work. */
+  get: (v) => `<td class="cell-get">
+    <button class="row-get" data-id="${escape(v.id)}" type="button"
+            aria-haspopup="menu" aria-expanded="false" aria-controls="noteGetMenu"
+            aria-label="Download ${escape(v.title)}">${icon('download')}</button>
   </td>`,
 
   /* THE SAME MARK, A DIFFERENT JOB. While a name is being edited this button
@@ -2325,11 +2349,46 @@ function bookmarkFile(scope) {
   ].join('\n');
 }
 
-const EXPORT_FILE = {
-  youtube: 'yeetlist-youtube.html',
-  links: 'yeetlist-bookmarks.html',
-  all: 'yeetlist.html',
+/* EVERY DOWNLOAD IS STAMPED WITH THE MOMENT IT WAS TAKEN. Their instruction,
+   22 September 2026, naming all five shapes. A folder of exports sorts by
+   name into the order they were made, and two taken the same day do not
+   overwrite each other.
+
+   LOCAL TIME, NEVER UTC. The stamp answers "when did I save this", which is
+   a question about the reader's own clock. An ISO string would put a
+   download made at nine in the evening under the next day's date. */
+function stamp(at = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(at.getFullYear() % 100)}${pad(at.getMonth() + 1)}${pad(at.getDate())}`
+    + `-${pad(at.getHours())}${pad(at.getMinutes())}`;
+}
+
+/* THE SCOPE NAMES THE FILE, AND THE STAMP LEADS IT. Notes are a Markdown
+   file because a note IS Markdown; the three link lists are bookmark files a
+   browser can read back. */
+const EXPORT_PART = {
+  youtube: ['YeeTlist-YouTube', 'html'],
+  links: ['YeeTlist-Bookmarks', 'html'],
+  all: ['YeeTlist-All', 'html'],
+  notes: ['YeeTlist-Notes', 'md'],
 };
+
+const exportName = (scope) => {
+  const [part, ext] = EXPORT_PART[scope] || EXPORT_PART.all;
+  return `${stamp()}-${part}.${ext}`;
+};
+
+/* ONE WRITER FOR EVERY DOWNLOAD. Six of them now: three link lists, the
+   notes file, and a single note in three formats. Each one built its own
+   anchor before, and a revoke missed in one of them leaks the whole file. */
+function saveText(name, text, type) {
+  const link = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([text], { type })),
+    download: name,
+  });
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
 
 /* ---- the Android installer ----------------------------------------------- */
 
@@ -2372,14 +2431,15 @@ async function downloadApk() {
   }
 }
 
+/* FOUR SCOPES, TWO FILE SHAPES. The notes scope writes the same Markdown
+   that syncs to Drive, which is the file their instruction names. It asks
+   `notesText` rather than rebuilding it, so the download and the sync cannot
+   say different things. */
 function exportFile(scope = 'all') {
-  const blob = new Blob([bookmarkFile(scope)], { type: 'text/html' });
-  const link = Object.assign(document.createElement('a'), {
-    href: URL.createObjectURL(blob),
-    download: EXPORT_FILE[scope] || EXPORT_FILE.all,
-  });
-  link.click();
-  URL.revokeObjectURL(link.href);
+  if (scope === 'notes') {
+    return saveText(exportName('notes'), notesText(), 'text/markdown;charset=utf-8');
+  }
+  saveText(exportName(scope), bookmarkFile(scope), 'text/html;charset=utf-8');
 }
 
 /* A YeeTlist export merges. ANYTHING ELSE IS SCANNED FOR LINKS, so a file

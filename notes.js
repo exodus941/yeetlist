@@ -58,6 +58,22 @@ export function inlineToHtml(text) {
       continue;
     }
 
+    /* CODE IS LITERAL, so nothing inside it opens anything else. A star in a
+       snippet is a star, which is why this is read before the emphasis
+       markers. The fence is a run of backticks and the closer is a run of
+       the same length, so a snippet holding one can still be written.
+
+       \x60 IS A BACKTICK, WRITTEN AS AN ESCAPE ON PURPOSE. A lone backtick
+       makes this file's count odd, and the syntax guard reads an odd count
+       as a template literal left open. */
+    const span = /^(\x60+)([^\n]*?)\1(?!\x60)/.exec(rest);
+    if (span && span[2].trim()) {
+      flush();
+      out.push(`<code>${esc(span[2].trim())}</code>`);
+      i += span[0].length;
+      continue;
+    }
+
     const pair = [['**', 'strong'], ['~~', 'del'], ['*', 'em'], ['_', 'em']]
       .find(([mark]) => rest.startsWith(mark));
     if (pair) {
@@ -95,6 +111,8 @@ export function markdownToHtml(md) {
   const out = [];
   let list = null;      // 'ul' or 'ol' while one is open
   let para = [];
+  let fence = null;     // the opening run of backticks while a block is open
+  let code = [];
 
   const closePara = () => {
     if (!para.length) return;
@@ -106,6 +124,17 @@ export function markdownToHtml(md) {
 
   for (const raw of lines) {
     const line = raw.replace(/\s+$/, '');
+
+    /* THE FENCE IS ASKED FIRST, because everything inside it is verbatim. A
+       blank line, a star and a hash are all plain text in a code block, and
+       every rule below would read them as structure. */
+    const edge = /^(\x60{3,})\s*\S*\s*$/.exec(line.trim());
+    if (fence) {
+      if (edge && edge[1].length >= fence.length) { out.push(codeBlock(code)); fence = null; code = []; }
+      else code.push(raw);
+      continue;
+    }
+    if (edge) { close(); fence = edge[1]; code = []; continue; }
 
     if (!line.trim()) { close(); continue; }
 
@@ -130,9 +159,14 @@ export function markdownToHtml(md) {
     closeList();
     para.push(line.trim());
   }
+  /* AN UNCLOSED FENCE IS STILL A CODE BLOCK. Somebody typing one has not
+     finished it yet, and dropping the lines would lose what they wrote. */
+  if (fence) out.push(codeBlock(code));
   close();
   return out.join('');
 }
+
+const codeBlock = (lines) => `<pre><code>${esc(lines.join('\n'))}</code></pre>`;
 
 /* ── HTML to markdown ───────────────────────────────────────────────────── */
 
@@ -168,6 +202,13 @@ function inlineToMd(node) {
   const tag = node.tagName.toLowerCase();
   if (tag === 'br') return '\n';
 
+  /* A CODE SPAN'S TEXT IS VERBATIM, so it is never escaped and never read
+     for markers. The fence is one backtick longer than the longest run
+     inside it, which is how a snippet holding one survives the round trip.
+     A space pads it where the text starts or ends with a backtick, or the
+     two runs would join and the span would close in the wrong place. */
+  if (tag === 'code') return codeSpan(rawText(node));
+
   const inner = [...node.childNodes].map(inlineToMd).join('');
 
   if (tag === 'a') {
@@ -189,6 +230,34 @@ function inlineToMd(node) {
   const tail = /\s*$/.exec(inner)[0];
   const core = inner.slice(lead.length, inner.length - tail.length);
   return `${lead}${MARK[means]}${core}${MARK[means]}${tail}`;
+}
+
+/* THE TEXT INSIDE A NODE, WALKED RATHER THAN ASKED FOR. `textContent` is a
+   DOM property, and this file is read by a plain Node test whose nodes carry
+   only what the walker needs. A converter that asks for one property the
+   test cannot supply is a converter proven on one engine. */
+function rawText(node) {
+  if (node.nodeType === 3) return String(node.nodeValue ?? '');
+  if (node.nodeType !== 1) return '';
+  if (node.tagName.toLowerCase() === 'br') return '\n';
+  return [...node.childNodes].map(rawText).join('');
+}
+
+/* ONE WRITER FOR THE FENCE LENGTH. A span and a block both need a run longer
+   than anything inside them, and two implementations of that would drift. */
+const longestRun = (text) => (String(text).match(/\x60+/g) || [])
+  .reduce((n, run) => Math.max(n, run.length), 0);
+
+function codeSpan(text) {
+  /* THE ZERO-WIDTH CHARACTER COMES OUT. The editor puts one inside a new
+     empty code element so the caret has somewhere to sit, and it is not
+     whitespace to `trim`, so an untouched span would write a fence around
+     an invisible character. */
+  const flat = String(text).replace(/​/g, '').replace(/\s+/g, ' ');
+  if (!flat.trim()) return '';
+  const bar = '\x60'.repeat(longestRun(flat) + 1);
+  const pad = /^\x60|\x60$/.test(flat) ? ' ' : '';
+  return `${bar}${pad}${flat}${pad}${bar}`;
 }
 
 const BLOCKS = new Set(['p', 'div', 'ul', 'ol', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
@@ -218,6 +287,16 @@ export function htmlToMarkdown(root) {
 
       const tag = node.tagName.toLowerCase();
       if (tag === 'br') continue;
+
+      /* A CODE BLOCK IS A FENCE, AND ITS TEXT IS VERBATIM. Nothing in it is
+         escaped, nothing in it is read for markers, and the line breaks are
+         the whole point, so they are kept. */
+      if (tag === 'pre') {
+        const text = rawText(node).replace(/\r\n?/g, '\n').replace(/\n+$/, '');
+        const bar = '\x60'.repeat(Math.max(3, longestRun(text) + 1));
+        out.push(bar, ...(text ? text.split('\n') : []), bar, '');
+        continue;
+      }
 
       /* A HEADING HOLDING BLOCKS IS MALFORMED, AND THE BLOCKS WIN. An editor
          produces this whenever a paste lands inside a heading that was left
@@ -259,8 +338,32 @@ export function htmlToMarkdown(root) {
 
   walk(root);
 
-  /* One blank line between blocks, none at either end. */
-  return out.join('\n').replace(/\n{3,}/g, '\n\n').replace(/^\n+|\n+$/g, '');
+  return tidy(out);
+}
+
+/* One blank line between blocks, none at either end.
+
+   IT SKIPS INSIDE A FENCE, because a code block may hold two blank lines on
+   purpose and collapsing them changes what it says. A text pass over the
+   whole thing could not tell the two cases apart. */
+function tidy(lines) {
+  const out = [];
+  let fence = null;
+
+  for (const line of lines.join('\n').split('\n')) {
+    const edge = /^(\x60{3,})/.exec(line);
+    if (fence) {
+      out.push(line);
+      if (edge && edge[1].length >= fence.length) fence = null;
+      continue;
+    }
+    if (edge) { fence = edge[1]; out.push(line); continue; }
+    if (!line.trim() && (!out.length || !out[out.length - 1].trim())) continue;
+    out.push(line);
+  }
+
+  while (out.length && !out[out.length - 1].trim()) out.pop();
+  return out.join('\n');
 }
 
 /* ── The list's own title ───────────────────────────────────────────────── */
@@ -287,6 +390,165 @@ export function titleOf(md, fallback = 'Untitled note') {
   return fallback;
 }
 
+/* ── Markdown to plain text ─────────────────────────────────────────────
+ *
+ * THEIR INSTRUCTION, 22 September 2026: the TXT download strips all
+ * formatting and offers a barebones file.
+ *
+ * SO THE MARKUP GOES AND THE CONTENT STAYS. A star, a hash and a backtick
+ * are formatting. A link's address is not: it is the one thing in a note
+ * that cannot be worked out from what is left, so it is kept in brackets
+ * after the words. A bullet keeps a dash and a numbered item keeps its
+ * number, because a list with neither is a run of lines nobody can read.
+ */
+export function markdownToText(md) {
+  const lines = String(md ?? '').replace(/\r\n?/g, '\n').split('\n');
+  const out = [];
+  let fence = null;
+
+  for (const raw of lines) {
+    const line = raw.replace(/\s+$/, '');
+    const edge = /^(\x60{3,})\s*\S*\s*$/.exec(line.trim());
+
+    /* A CODE BLOCK IS ALREADY PLAIN TEXT. Only its fence comes off, and the
+       indentation inside it is what the code MEANS. */
+    if (fence) {
+      if (edge && edge[1].length >= fence.length) fence = null;
+      else out.push(raw);
+      continue;
+    }
+    if (edge) { fence = edge[1]; continue; }
+
+    const head = /^#{1,6}\s+(.*)$/.exec(line);
+    if (head) { out.push(inlineToText(head[1])); continue; }
+
+    const bullet = /^(\s*)[-*+]\s+(.*)$/.exec(line);
+    if (bullet) { out.push(`${bullet[1]}- ${inlineToText(bullet[2])}`); continue; }
+
+    const number = /^(\s*)(\d+)[.)]\s+(.*)$/.exec(line);
+    if (number) { out.push(`${number[1]}${number[2]}. ${inlineToText(number[3])}`); continue; }
+
+    out.push(inlineToText(line));
+  }
+
+  /* One blank line between blocks, none at either end, the same shape the
+     Markdown itself keeps. */
+  const tidied = [];
+  for (const line of out) {
+    if (!line.trim() && (!tidied.length || !tidied[tidied.length - 1].trim())) continue;
+    tidied.push(line);
+  }
+  while (tidied.length && !tidied[tidied.length - 1].trim()) tidied.pop();
+  return tidied.join('\n');
+}
+
+/* THE MARKS COME OFF AND THE WORDS STAY. A link keeps its address after its
+   words, unless the words ARE the address and repeating it says nothing. */
+function inlineToText(text) {
+  return unescMd(String(text)
+    .replace(/\[([^\]]*)\]\(([^)\s]+)\)/g, (m, words, href) => (
+      words.trim() && words.trim() !== href ? `${words} (${href})` : href))
+    .replace(/(\x60+)([^\n]*?)\1/g, '$2')
+    .replace(/\*\*([^\n]*?)\*\*/g, '$1')
+    .replace(/~~([^\n]*?)~~/g, '$1')
+    .replace(/(?<!\\)[*_](\S[^\n]*?)(?<!\\)[*_]/g, '$1'));
+}
+
+/* ── One note as its own page ───────────────────────────────────────────
+ *
+ * THEIR INSTRUCTION, 22 September 2026: the HTML download renders the
+ * Markdown, on a dark background identical to YeeTlist's own, using system
+ * fonts. Segoe UI and Consolas on Windows, and whatever each other
+ * operating system supplies.
+ *
+ * SO THE FONT STACK NAMES WINDOWS FIRST AND FALLS THROUGH. Segoe UI only
+ * exists on Windows, so naming it costs nothing anywhere else, and
+ * `system-ui` behind it is each platform's own default by definition. No
+ * web font is loaded: the file has to open with no network at all.
+ *
+ * THE COLOURS ARE WRITTEN IN, because a downloaded file carries no
+ * stylesheet. They are YeeTlist's own tokens, and the drift check in
+ * `tools/export-guard.mjs` reads them back out of styles.css.
+ */
+export function noteToHtmlPage(title, md) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title || 'Untitled note')}</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #0f0f0f;
+  --surface: #181818;
+  --sunken: #111111;
+  --line: #303030;
+  --line-subtle: #282828;
+  --text: #f1f1f1;
+  --muted: #a8a8a8;
+  --accent: #ff3030;
+  --body: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: Consolas, ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+* { box-sizing: border-box }
+body {
+  margin: 0;
+  padding: 32px 16px 48px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.5;
+}
+main { width: min(72ch, 100%); margin-inline: auto }
+h1, h2, h3, h4, h5, h6 { margin: 24px 0 8px; line-height: 1.2 }
+h1 { font-size: 32px }
+h2 { font-size: 24px }
+h3 { font-size: 20px }
+h4, h5, h6 { font-size: 16px }
+:where(h1, h2, h3, h4, h5, h6):first-child { margin-block-start: 0 }
+p, ul, ol { margin: 0 0 12px }
+ul, ol { padding-inline-start: 24px }
+li { margin-block-end: 2px }
+a { color: var(--accent) }
+del { color: var(--muted) }
+code {
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: var(--sunken);
+  font-family: var(--mono);
+  font-size: 0.9em;
+}
+pre {
+  margin: 0 0 12px;
+  padding: 12px;
+  overflow-x: auto;
+  border: 1px solid var(--line-subtle);
+  border-radius: 4px;
+  background: var(--sunken);
+  font-family: var(--mono);
+  font-size: 14px;
+  tab-size: 2;
+}
+pre code { padding: 0; border-radius: 0; background: none; font-size: inherit }
+footer {
+  margin-block-start: 32px;
+  padding-block-start: 16px;
+  border-block-start: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+</style>
+</head>
+<body>
+<main>${markdownToHtml(md)}</main>
+<footer>Written with YeeTlist.</footer>
+</body>
+</html>
+`;
+}
+
 /* ── Pasting ────────────────────────────────────────────────────────────── */
 
 /* THEIR RULE: a paste arrives as plain text with every bit of formatting
@@ -307,6 +569,8 @@ export function looksLikeMarkdown(text) {
     /\*\*[^*\n]+\*\*/,               // bold
     /~~[^~\n]+~~/,                   // strikethrough
     /\[[^\]\n]*\]\([^)\s]+\)/,       // a link
+    /^\x60{3,}/m,                    // a code block
+    /\x60[^\x60\n]+\x60/,            // a code span
   ].some((re) => re.test(s));
 }
 

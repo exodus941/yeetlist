@@ -575,6 +575,48 @@ body[data-note-open] { overflow: hidden }
 .note-body :where(a) { color: var(--accent) }
 .note-body :where(del) { color: var(--text-muted) }
 
+/* CODE TEXT IS THE MONO FACE AND A QUIET FILL. The face alone is not enough
+   inside a sentence: both faces paint the same colour at the same size, so a
+   run of three words changed shape and nothing said where it started. The
+   fill draws the edge of the run instead.
+
+   0.9em, NEVER A STEP. A mono face runs larger than the body face at one
+   size, and this sits inside a line of body text whose leading may not grow
+   for it. The block below takes the small step, because there it IS the
+   line. */
+.note-body :where(code) {
+  padding: var(--space-2xs) var(--space-xs); /* half-step: inside one run */
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+/* A BLOCK IS A SURFACE, so it carries the padding and the edge a card does
+   and its own element draws the fill. The code inside it takes none of the
+   span treatment above, or the run would be boxed twice. */
+.note-body :where(pre) {
+  margin-block: 0 var(--space-md);
+  padding: var(--space-md);
+  overflow-x: auto;
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  white-space: pre;
+  tab-size: 2;
+}
+
+.note-body :where(pre code) {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-size: inherit;
+}
+
 /* AN EMPTY NOTE SAYS WHAT TO DO. A blank screen with a caret is the one
    state a reader cannot tell from a broken one. */
 .note-body:empty::before,
@@ -2975,7 +3017,10 @@ table {
 .col-up, .col-added { width: var(--col-date) }
 .col-tags { width: var(--col-tags) }
 .col-rate { width: var(--col-rate) }
-.col-remove, .col-edit { width: var(--col-remove) }
+/* AN ORNAMENT COLUMN IS ITS CONTROL PLUS THE TWO PADDINGS, and the control
+   reads the touch floor. The download column holds the same size of mark as
+   the other two, so it takes the same width rather than a number of its own. */
+.col-remove, .col-edit, .col-get { width: var(--col-remove) }
 
 /* NAME IS THE SINGLE AUTO COLUMN IN BOTH TABLES, so it takes the whole
    remainder. TAGS held that job in the bookmarks list and gave the reader a
@@ -3864,7 +3909,8 @@ th.amount { text-align: end }
 .tag-input:hover, .tag-input:focus { background: var(--surface-sunken) }
 
 .row-remove,
-.row-edit {
+.row-edit,
+.row-get {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3883,6 +3929,22 @@ th.amount { text-align: end }
 
 .row-remove:hover { color: var(--danger-quiet); background: #2a1414 }
 .row-edit:hover { color: var(--text); background: var(--row-hover) }
+
+/* A DOWNLOAD IS NEITHER DESTRUCTIVE NOR A SAVE, so it takes the neutral
+   hover the rename does. Held open it stays lit, because the menu belonging
+   to it is on screen and nothing else says which button opened it. */
+.row-get:hover { color: var(--text); background: var(--row-hover) }
+.row-get[aria-expanded="true"] { color: var(--text); background: var(--row-selected) }
+
+/* THE MENU IS FIXED TO THE WINDOW, NOT TO THE ROW. A table cell clips, and
+   the list is its own scroller, so a menu placed inside either one is cut
+   off at the edge. Script writes the two insets. */
+.row-get-menu {
+  position: fixed;
+  inset-inline-start: 0;
+  min-width: 96px;
+  top: 0;
+}
 
 /* THE MODE IS AN ATTRIBUTE, so the colour and the mark cannot disagree with
    what the press does. Save is its own hue: beside a delete cross it must
@@ -3920,6 +3982,10 @@ th.amount { text-align: end }
 
 @media (forced-colors: active) {
   .row-edit[data-mode="save"] { outline: 1px solid Highlight; outline-offset: -3px }
+  /* THE HELD BUTTON LOSES ITS ONLY MARKER HERE, because this mode disregards
+     an authored background outright. An outline survives it and costs no
+     layout, so it cannot move the pair the row measured. */
+  .row-get[aria-expanded="true"] { outline: 1px solid Highlight; outline-offset: -3px }
 }
 
 /* ==========================================================================
@@ -4509,6 +4575,7 @@ dialog menu {
      both targets still 44.
      ========================================================================= */
   .check-hit,
+  .row-get,
   .row-remove,
   .row-edit {
     position: relative;
@@ -4517,6 +4584,7 @@ dialog menu {
   }
 
   .check-hit::after,
+  .row-get::after,
   .row-remove::after,
   .row-edit::after {
     content: "";
@@ -4526,6 +4594,7 @@ dialog menu {
 
   /* The button becomes its mark. The height is the single writer, because a
      stated width would defeat the aspect ratio. */
+  .row-get,
   .row-remove,
   .row-edit { height: var(--mark) }
 
@@ -4627,7 +4696,8 @@ dialog menu {
      band's centre sits a little above the line box's, and for this face at
      this size that is 0.36px: under the whole pixel a repair needs. */
   .cell-remove,
-  .cell-edit {
+  .cell-edit,
+  .cell-get {
     position: absolute;
     display: flex;
     align-items: center;
@@ -4648,20 +4718,25 @@ dialog menu {
      spreads the pair to 44 on a finger and leaves the mouse layout at 34,
      which is already past its own 24px floor.
 
-     The block axis keeps the full floor, because nothing is competing there. */
-  tr:has(.cell-edit) {
+     The block axis keeps the full floor, because nothing is competing there.
+
+     TWO LISTS HOLD A PAIR NOW, AND THE SECOND CELL DECIDES IT RATHER THAN A
+     LIST NAME. A bookmark carries a rename beside its delete and a note
+     carries a download, so the rule asks which cell is there. Named after
+     one of them it would have left the notes list with two marks 0px apart. */
+  tr:is(:has(.cell-edit), :has(.cell-get)) {
     --row-pair: max(
       calc(var(--mark) + 20px),
       max(var(--target-mouse), var(--control-floor))
     );
   }
 
-  .cell-edit {
+  .cell-edit,
+  .cell-get {
     inset-inline-end: calc(var(--space-lg) + var(--row-pair));
   }
 
-  tr:has(.cell-edit) .row-edit::after,
-  tr:has(.cell-edit) .row-remove::after {
+  tr:is(:has(.cell-edit), :has(.cell-get)) :is(.row-edit, .row-get, .row-remove)::after {
     inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2))
            min(0px, calc((100% - var(--row-pair)) / 2));
   }
@@ -4669,7 +4744,7 @@ dialog menu {
   /* The title shares line 1 with BOTH marks, so it clears two of them. It
      publishes the distance because the field that replaces it has to read it
      back: an absolute inset resolves against the padding box. */
-  tr:has(.cell-edit) .cell-title {
+  tr:is(:has(.cell-edit), :has(.cell-get)) .cell-title {
     --title-reserve: calc(
       (var(--mark) + var(--row-pair)) / 2 + var(--row-pair) + var(--space-sm)
     );
