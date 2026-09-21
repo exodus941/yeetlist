@@ -167,8 +167,14 @@ jobs:
             Install `yeetlist-${{ steps.name.outputs.stamp }}.apk` on the phone. Android asks once
             for permission to install from this source.
 
+            **You only have to do this once.** From here the app checks this
+            page on every launch, downloads a newer APK when it finds one and
+            hands it to Android's installer, which asks you to confirm.
+            Android has no silent install outside the Play Store.
+
             The app loads the live site, so everything inside it is already
             current. A new APK is only needed when the shell changes: the
-            icons, the share target, the manifest or this version.
+            icons, the share target, the updater, the manifest or this
+            version.
 
             The `.aab` is the Play Store format.
