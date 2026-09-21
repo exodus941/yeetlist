@@ -102,6 +102,17 @@ jobs:
           node tools/android-share-fix.mjs --self-test
           node tools/android-share-fix.mjs android
 
+      # THE APP CHECKS FOR A NEWER APK ON EVERY LAUNCH and hands it to the
+      # system installer. Their instruction: prompt, then install, because
+      # Android has no silent path off Play.
+      #
+      # Applied here for the same reason as the share fix: the project above
+      # is regenerated from twa-manifest.json on every build.
+      - name: Add the updater
+        run: |
+          node tools/android-updater.mjs --self-test
+          node tools/android-updater.mjs android
+
       # --skipPwaValidation because the manifest is already the thing being
       # wrapped, and the validator fetches a Lighthouse run this build does
       # not need.

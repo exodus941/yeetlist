@@ -11,3 +11,4 @@ node tools/listing-guard.mjs
 # The share patch runs only in CI, where nothing watches it. Its clauses are
 # proven here instead, so a clause that stops firing fails a commit.
 node tools/android-share-fix.mjs --self-test
+node tools/android-updater.mjs --self-test
