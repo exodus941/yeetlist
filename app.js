@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-14';
+const VERSION = '260922-15';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -3590,6 +3590,10 @@ const TAB_STORE = 'yeetlist-tab';
    whether or not the other tabs hold anything. */
 function showTab(next, { focus = false, animate = true } = {}) {
   if (next === tab || !LISTS[next]) return;
+  /* WHERE THE READER CAME FROM, read before `tab` is rewritten. The slide's
+     direction is the only thing that needs it, and by the time the animation
+     is chosen this value is gone. */
+  const was = tab;
   tab = next;
   sort = sorts[tab];
   activeTags.clear();
@@ -3635,13 +3639,39 @@ function showTab(next, { focus = false, animate = true } = {}) {
      second `startViewTransition` while one runs is skipped, and its callback
      still runs, so nothing is dropped.
 
-     SO A SWIPE TAKES `--duration` AND A TAP KEEPS `--duration-fold`. Their
-     instruction for the switcher was the fold's own 500ms, and a tap is one
-     deliberate press. A swipe is a gesture a reader repeats, so it takes the
-     step every other change in this app uses. */
-  const kind = animate === 'swipe' ? 'swipe' : 'tab';
-  if (animate) dissolve(focus ? () => $('#tab-' + tab).focus() : undefined, kind);
-  else { render(); if (focus) $('#tab-' + tab).focus(); }
+     THE PAGE SLIDES NOW, AND THE MARK CARRIES THE DIRECTION. Their ask,
+     22 September 2026: "any chance we can have a left/right sliding
+     animation between the tabs instead of crossfading?"
+
+     The strip is read left to right, so moving to a later tab moves the
+     window right along it: the old list leaves to the left and the new one
+     arrives from the right. `was` is read before `tab` is rewritten. */
+  const order = $$('.tab').map((b) => b.dataset.tab);
+  const kind = order.indexOf(tab) > order.indexOf(was) ? 'next' : 'prev';
+
+  /* AND A SWITCH STARTS AT THE TOP OF THE NEW LIST. Their report: "when i
+     switch to the Notes tab, the footer hangs lower for a second, then jumps
+     up. it looks really odd."
+
+     THE SCROLL WAS BEING KEPT. Measured: scrolled 900px down the watchlist
+     and switched, the page stayed at 900 on a list the reader had not seen.
+     Switching to the empty notes tab it could not, because that page is
+     shorter than the scroll, so the browser clamped it to 0 and the footer
+     moved 223px. The old picture held the old position for the whole
+     animation, which is the second they saw.
+
+     IT RUNS INSIDE THE CALLBACK, so the new picture is captured at the top
+     and the old one keeps the place it was really in. Both are true, and the
+     slide is what says they are two different pages. */
+  const toTop = () => {
+    document.scrollingElement.scrollTop = 0;
+    const wrap = $('.table-wrap');
+    if (wrap) wrap.scrollTop = 0;
+  };
+
+  if (animate) {
+    dissolve(() => { toTop(); if (focus) $('#tab-' + tab).focus(); }, kind);
+  } else { render(); toTop(); if (focus) $('#tab-' + tab).focus(); }
 }
 
 $('.tabs').addEventListener('click', (event) => {

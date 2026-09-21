@@ -228,24 +228,58 @@ ok('a swipe asks for its own animation',
   (code.match(/stepTab\(dx[^;]*/) || ['none'])[0]);
 ok('and it is not the plain one', !/stepTab\(dx[^;]*animate: false/.test(code));
 
-/* THE MARK SEPARATES IT FROM A TAP, so the stylesheet can give each its own
-   length. One mark for both would put a swipe back on the fold duration. */
-ok('the swipe marks the root its own way', /animate === 'swipe' \? 'swipe' : 'tab'/.test(code));
-ok('and dissolve is told which', /dissolve\([^)]*, kind\)/.test(code));
+/* THE MARK CARRIES THE DIRECTION, because CSS cannot know which way the
+   reader went. The strip reads left to right, so a later tab is 'next'. */
+ok('the mark is the direction',
+  /order\.indexOf\(tab\) > order\.indexOf\(was\) \? 'next' : 'prev'/.test(code));
+ok('and the old tab is read before it is overwritten', /const was = tab;\s*\n\s*tab = next;/.test(code));
+ok('dissolve is told which', /dissolve\([^)]*, kind\)/.test(code));
 
 {
-  /* AND THE STYLESHEET GIVES BOTH HALVES THE SHORT STEP. The pill rule is
-     unconditional, so a swipe rule naming only the root would leave the bar
-     gliding for half a second under a page that had finished fading. */
   const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
-  const swipeRule = (css.match(/\[data-vt="swipe"\][\s\S]*?\}/) || [''])[0];
-  ok('a swipe fades the page', /view-transition-old\(root\)/.test(swipeRule), swipeRule.slice(0, 80));
-  ok('and moves the pill with it', /view-transition-group\(tab-pill\)/.test(swipeRule));
-  ok('both at the short step', /animation-duration: var\(--duration\)/.test(swipeRule));
-  ok('and never the fold', !/--duration-fold/.test(swipeRule));
-  /* A TAP KEEPS THEIR 500ms, which is what they asked for on the switcher. */
-  ok('a tap still takes the fold',
-    /\[data-vt="tab"\][\s\S]{0,200}animation-duration: var\(--duration-fold\)/.test(css));
+
+  /* ── THE LISTS SLIDE PAST EACH OTHER ──────────────────────────────────
+   *
+   * Their ask, 22 September 2026: "any chance we can have a left/right
+   * sliding animation between the tabs instead of crossfading?"
+   *
+   * A SLIDE HAS TO NAME ITS OWN ANIMATION. The browser's default for these
+   * two pseudo-elements is opacity, which is the cross-fade this replaces,
+   * so a rule that set only a duration would still fade. */
+  const slide = css.slice(css.indexOf('@keyframes tab-leave-left'),
+    css.indexOf('@media (prefers-reduced-motion: reduce)') > css.indexOf('@keyframes tab-leave-left')
+      ? css.indexOf('@media (prefers-reduced-motion: reduce)') : css.length);
+  ok('the four travels are declared',
+    ['tab-leave-left', 'tab-enter-right', 'tab-leave-right', 'tab-enter-left']
+      .every((k) => css.includes(`@keyframes ${k}`)));
+  ok('a later tab arrives from the right',
+    /\[data-vt="next"\]::view-transition-new\(root\) \{ animation-name: tab-enter-right \}/.test(css));
+  ok('and the old one leaves to the left',
+    /\[data-vt="next"\]::view-transition-old\(root\) \{ animation-name: tab-leave-left \}/.test(css));
+  ok('going back is the mirror',
+    /\[data-vt="prev"\]::view-transition-new\(root\) \{ animation-name: tab-enter-left \}/.test(css)
+    && /\[data-vt="prev"\]::view-transition-old\(root\) \{ animation-name: tab-leave-right \}/.test(css));
+  /* THE TRAVEL IS A WHOLE PAGE, so the distance is the whole width. */
+  ok('each travels the full width',
+    (css.match(/translateX\((?:-)?100%\)/g) || []).length === 4,
+    String((css.match(/translateX\((?:-)?100%\)/g) || []).length));
+  /* TWO SOLID PAGES, NEVER TWO HALF-TRANSPARENT ONES. The default blend for
+     a cross-fade makes them glow where they overlap. */
+  ok('the pages stay opaque', /mix-blend-mode: normal/.test(slide), slide.slice(0, 60));
+  ok('and the end frame is held', /animation-fill-mode: both/.test(slide));
+
+  /* THE PILL KEEPS PACE WITH THE PAGE. At the fold's 500ms it was still
+     gliding under a list that had finished arriving. */
+  ok('the pill matches the page',
+    /\[data-vt="next"\]::view-transition-group\(tab-pill\),\s*\n\s*\[data-vt="prev"\]::view-transition-group\(tab-pill\) \{\s*\n\s*animation-duration: var\(--duration\)/.test(css));
+  ok('and the switch never takes the fold', !/data-vt[^\n]*\n?[^}]*--duration-fold/.test(css));
+
+  /* ── A SLIDE IS TRAVEL, SO REDUCED MOTION GETS THE CROSS-FADE BACK ───── */
+  const reduced = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+  ok('reduced motion fades instead of moving',
+    /view-transition-fade-out/.test(reduced) && /view-transition-fade-in/.test(reduced),
+    reduced.slice(0, 80));
+  ok('and the blend comes back with it', /mix-blend-mode: plus-lighter/.test(reduced));
 
   /* ── THE PILL'S NAME AND THE RULE THAT REMOVES IT MUST NAME ONE ELEMENT ──
    *
@@ -271,11 +305,29 @@ ok('and dissolve is told which', /dissolve\([^)]*, kind\)/.test(code));
   const show = code.slice(code.indexOf('function showTab('),
     code.indexOf("$('.tabs').addEventListener('click'"));
   ok('the animation is on by default', /animate = true/.test(show), show.slice(0, 80));
-  ok('and it is skipped when refused', /if \(animate\) dissolve\(/.test(show));
+  ok('and it is skipped when refused', /if \(animate\) \{\s*\n\s*dissolve\(/.test(show));
   ok('the plain path still renders', /else \{ render\(\);/.test(show));
   /* THE FOCUS STILL LANDS ON EITHER PATH, or the arrow keys lose their place
      the day somebody turns the animation off for them too. */
-  ok('and it still focuses on the plain path', /else \{ render\(\); if \(focus\)/.test(show));
+  ok('and it still focuses on the plain path',
+    /else \{ render\(\); toTop\(\); if \(focus\)/.test(show));
+
+  /* ── A SWITCH STARTS AT THE TOP OF THE NEW LIST ────────────────────────
+   *
+   * Their report: "when i switch to the Notes tab, the footer hangs lower
+   * for a second, then jumps up." The scroll was kept. Measured: 900px down
+   * the watchlist and switched, the page stayed at 900 on a list the reader
+   * had not seen. On the empty notes tab it could not, so the browser
+   * clamped it and the footer moved 223px under a picture that had not.
+   *
+   * BOTH SCROLLERS, because the app has two: the page below the height
+   * floor, and the list inside it above one. */
+  ok('the switch scrolls to the top', /const toTop = \(\) => \{/.test(show));
+  ok('it resets the page', /document\.scrollingElement\.scrollTop = 0/.test(show));
+  ok('and the list inside it', /wrap\) wrap\.scrollTop = 0/.test(show));
+  /* IT RUNS ON BOTH PATHS, or a swipe and a tap disagree about where a list
+     opens. */
+  ok('the animated path resets too', /dissolve\(\(\) => \{ toTop\(\);/.test(show));
 }
 
 /* THE STEPPER PASSES THE CHOICE THROUGH rather than deciding it, so the
@@ -296,7 +348,7 @@ ok('and hands it to showTab', /showTab\(order\[to\]\.dataset\.tab, how\)/.test(c
      adding `animate` beside `focus` failed a check about focus. */
   ok('it takes a focus flag that defaults to off', /focus = false/.test(show),
     show.slice(0, 80));
-  ok('and only focuses when asked', /dissolve\(focus \?/.test(show));
+  ok('and only focuses when asked', /if \(focus\) \$\('#tab-' \+ tab\)\.focus\(\)/.test(show));
 
   /* AND IT FOCUSES THE TAB THAT IS CURRENT. The old line named youtube or
      links and never notes, so switching to Notes put the ring on YouTube. */

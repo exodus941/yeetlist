@@ -731,6 +731,19 @@ body[data-note-open] { overflow: hidden }
      nothing to glide between, so the pill cross-fades with everything else. */
   .tab[aria-selected="true"]::after { view-transition-name: none }
 
+  /* A SLIDE IS TRAVEL, SO IT BECOMES A CROSS-FADE. That is the substitution
+     the platform itself makes under this setting, and it is what this file
+     already does for the fold. The two pages fade rather than move, and the
+     `plus-lighter` blend comes back with them so the overlap reads right. */
+  [data-vt="next"]::view-transition-old(root),
+  [data-vt="prev"]::view-transition-old(root) { animation-name: -ua-view-transition-fade-out }
+  [data-vt="next"]::view-transition-new(root),
+  [data-vt="prev"]::view-transition-new(root) { animation-name: -ua-view-transition-fade-in }
+  [data-vt="next"]::view-transition-old(root),
+  [data-vt="next"]::view-transition-new(root),
+  [data-vt="prev"]::view-transition-old(root),
+  [data-vt="prev"]::view-transition-new(root) { mix-blend-mode: plus-lighter }
+
   /* THE FOLD IS A TRAVEL, so it goes. The opacity and the display flip stay,
      which is the cross-fade the platform keeps under this setting. app.js
      asks the same query and skips the measuring, because with no height in
@@ -953,26 +966,50 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
    a sort and a deletion too, and 500ms on those is lag rather than motion.
    showTab() marks the root for the length of its own transition, so one
    attribute separates the switch from every other render. */
-[data-vt="tab"]::view-transition-old(root),
-[data-vt="tab"]::view-transition-new(root) {
-  animation-duration: var(--duration-fold);
+/* ══════════════════════════════════════════════════════════════════════════
+   THE LISTS SLIDE PAST EACH OTHER. Their ask, 22 September 2026: "any chance
+   we can have a left/right sliding animation between the tabs instead of
+   crossfading?"
+
+   THE STRIP IS THE FILMSTRIP. It reads left to right, so moving to a later
+   tab moves the window right along it: the old list leaves to the LEFT and
+   the new one arrives from the RIGHT. Going back is the mirror. app.js marks
+   the root with the direction, because CSS cannot know which way the reader
+   went.
+
+   A SLIDE DOES NOT FADE. Two half-transparent pages laid over each other is
+   the cross-fade this replaces, and it is why a slide has to name its own
+   animation: the browser's default for these two is opacity. `both` holds
+   the end frame so nothing snaps back before the transition ends.
+
+   AND THE PAIR STOPS LIGHTENING. The default blend for a cross-fade is
+   `plus-lighter`, which makes two solid pages glow where they overlap. A
+   slide wants them opaque.
+   ══════════════════════════════════════════════════════════════════════════ */
+@keyframes tab-leave-left  { to   { transform: translateX(-100%) } }
+@keyframes tab-enter-right { from { transform: translateX(100%) } }
+@keyframes tab-leave-right { to   { transform: translateX(100%) } }
+@keyframes tab-enter-left  { from { transform: translateX(-100%) } }
+
+[data-vt="next"]::view-transition-old(root),
+[data-vt="next"]::view-transition-new(root),
+[data-vt="prev"]::view-transition-old(root),
+[data-vt="prev"]::view-transition-new(root) {
+  animation-duration: var(--duration);
   animation-timing-function: var(--ease-out);
+  animation-fill-mode: both;
+  mix-blend-mode: normal;
 }
 
-/* A SWIPE CROSS-FADES AT THE SHORT STEP. Their report, 22 September 2026:
-   "the mobile app has no crossfade transitions when swiping between tabs!"
+[data-vt="next"]::view-transition-old(root) { animation-name: tab-leave-left }
+[data-vt="next"]::view-transition-new(root) { animation-name: tab-enter-right }
+[data-vt="prev"]::view-transition-old(root) { animation-name: tab-leave-right }
+[data-vt="prev"]::view-transition-new(root) { animation-name: tab-enter-left }
 
-   It had none because the swipe stopped animating at all, which was my
-   answer to an earlier report of a 1-2 second gap. The LENGTH was the fault.
-   500ms on a gesture a reader repeats reads as a blocked swipe, and the same
-   fade at 250ms does not.
-
-   THE PILL TAKES IT TOO, or the bar would still glide for half a second
-   under a page that had already finished fading. That rule above is
-   unconditional, so this one has to name both halves. */
-[data-vt="swipe"]::view-transition-old(root),
-[data-vt="swipe"]::view-transition-new(root),
-[data-vt="swipe"]::view-transition-group(tab-pill) {
+/* THE PILL KEEPS PACE WITH THE PAGE. At the fold's 500ms it was still
+   gliding under a list that had finished arriving. */
+[data-vt="next"]::view-transition-group(tab-pill),
+[data-vt="prev"]::view-transition-group(tab-pill) {
   animation-duration: var(--duration);
   animation-timing-function: var(--ease-out);
 }
