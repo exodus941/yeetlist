@@ -77,6 +77,7 @@ import android.app.DownloadManager;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
+import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -93,6 +94,11 @@ import java.net.URL;
  * they opened. An update is never worth an error message on a launch.
  */
 final class ${CLASS} {
+    /* A SILENT CATCH IS A RUN THAT MEASURED NOTHING AND SAID SO TO NOBODY.
+       The first version swallowed every fault, and when the check did not
+       fire on a device there was no way to learn why. The reader still sees
+       nothing: this goes to logcat, where the person debugging it looks. */
+    private static final String TAG = "YeetUpdate";
     private static final String LATEST = "https://api.github.com/repos/${REPO}/releases/latest";
 
     /* THE STAMP IS THE VERSION. YYMMDD-N becomes YYMMDD * 100 + N, which is
@@ -123,15 +129,19 @@ final class ${CLASS} {
                 .getPackageInfo(app.getPackageName(), 0).getLongVersionCode();
             JSONObject latest = new JSONObject(read(LATEST));
             long theirs = codeOf(latest.optString("tag_name"));
+            Log.i(TAG, "installed " + ours + ", newest " + theirs
+                + " (" + latest.optString("tag_name") + ")");
             if (theirs <= ours) return;
 
             String url = apkUrl(latest.optJSONArray("assets"));
-            if (url == null) return;
+            if (url == null) { Log.w(TAG, "the release carries no apk"); return; }
+            Log.i(TAG, "downloading " + url);
 
             /* ONE COPY AT A TIME. A launch while a download is already
                running would queue a second of the same file. */
             DownloadManager dm = (DownloadManager) app.getSystemService(Application.DOWNLOAD_SERVICE);
-            if (dm == null || alreadyRunning(dm)) return;
+            if (dm == null) { Log.w(TAG, "no DownloadManager"); return; }
+            if (alreadyRunning(dm)) { Log.i(TAG, "a download is already running"); return; }
 
             DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
             req.setTitle("YeeTlist " + latest.optString("tag_name"));
@@ -142,7 +152,8 @@ final class ${CLASS} {
             long id = dm.enqueue(req);
 
             Uri file = waitFor(dm, id);
-            if (file == null) return;
+            if (file == null) { Log.w(TAG, "the download did not finish"); return; }
+            Log.i(TAG, "asking the installer for " + file);
 
             /* ANDROID ASKS. REQUEST_INSTALL_PACKAGES earns the right to show
                this, never the right to skip it. The URI comes from
@@ -152,8 +163,11 @@ final class ${CLASS} {
             install.setDataAndType(file, "application/vnd.android.package-archive");
             install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
             app.startActivity(install);
-        } catch (Throwable ignored) {
-            /* Every fault here is one the reader can do nothing about. */
+        } catch (Throwable error) {
+            /* The reader sees nothing. A launch is never worth an error
+               message about an update, and every fault here is one they can
+               do nothing about. It is logged so a person can find out. */
+            Log.w(TAG, "update check stopped: " + error, error);
         }
     }
 
@@ -342,6 +356,11 @@ function selfTest() {
   say('the java takes the apk, not the bundle', java.includes(".endsWith(\".apk\")"));
   say('the java waits before it asks', java.includes('Thread.sleep(6000)'));
   say('the java refuses a second download', java.includes('alreadyRunning'));
+  /* A SILENT CATCH IS UNDIAGNOSABLE. The first version swallowed everything
+     and a device that did nothing gave nothing to read. */
+  say('the java logs rather than swallowing', java.includes('Log.w(TAG, "update check stopped: "')
+    && !java.includes('catch (Throwable ignored)'));
+  say('the java reports the two versions it compared', java.includes('"installed " + ours + ", newest "'));
 
   for (const [stamp, want] of [['260921-18', 26092118], ['991231-99', 99123199], ['260101-0', 26010100]]) {
     say(`codeOf(${stamp}) is ${want}`, codeOf(stamp) === want, String(codeOf(stamp)));
