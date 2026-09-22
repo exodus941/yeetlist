@@ -153,6 +153,23 @@ final class ${CLASS} {
        would otherwise show the same line every fifteen minutes all day. */
     private static final long FAIL_GAP = 24L * 60L * 60L * 1000L;
 
+    /* A COLD START ALWAYS CHECKS. Their report, 22 September 2026: "force-
+       closed the app and restarted it. can confirm the updater never got the
+       memo."
+
+       THE GAP IS ABOUT RETURNING TO THE FRONT, and its own comment says so.
+       The app comes forward many times an hour and each one would be a
+       request. A force-close and a restart is not that. It is a deliberate
+       act, and it is exactly what somebody does when they want the check to
+       run, so answering it with a fifteen-minute silence is the opposite of
+       what they asked for.
+
+       A NEW PROCESS HAS NO MEMORY, so a field is the marker. The stored time
+       survives a force-close and this does not, which is the difference
+       between the two cases. Volatile, because the check runs on its own
+       thread and the next one is a different thread. */
+    private static volatile boolean checkedThisProcess = false;
+
     /* ONE LINE, ON THE MAIN THREAD, BECAUSE A TOAST HAS TO BE. This runs on
        its own thread, and a Toast raised there never appears. */
     private static void say(final Application app, final String words) {
@@ -183,10 +200,13 @@ final class ${CLASS} {
     }
 
     static void run(Application app) {
+        boolean cold = !checkedThisProcess;
+        checkedThisProcess = true;
+
         SharedPreferences prefs = app.getSharedPreferences(PREFS, Application.MODE_PRIVATE);
         long now = System.currentTimeMillis();
         long since = now - prefs.getLong(LAST, 0L);
-        if (since >= 0 && since < GAP) {
+        if (!cold && since >= 0 && since < GAP) {
             Log.i(TAG, "checked " + (since / 1000) + "s ago, so not again yet");
             return;
         }
@@ -246,7 +266,11 @@ final class ${CLASS} {
                otherwise show this every fifteen minutes. */
             Log.w(TAG, "update check stopped: " + error, error);
             long said = now - prefs.getLong(SAID, 0L);
-            if (said < 0 || said >= FAIL_GAP) {
+            /* AND A COLD START SAYS IT WHATEVER THE DAY HOLDS. Somebody who
+               force-closes the app to make it look is owed the answer. The
+               daily gap exists for the fifteen-minute checks nobody asked
+               for, and it made a broken check silent for a whole day. */
+            if (cold || said < 0 || said >= FAIL_GAP) {
                 prefs.edit().putLong(SAID, now).apply();
                 say(app, "YeeTlist could not check for an update: " + reasonOf(error));
             }
@@ -497,6 +521,26 @@ function selfTest() {
     java.includes('GAP = 15L * 60L * 1000L') && java.includes('since < GAP'));
   say('a failure is said once a day, not once a check',
     java.includes('FAIL_GAP = 24L * 60L * 60L * 1000L') && java.includes('said >= FAIL_GAP'));
+
+  /* A COLD START ALWAYS CHECKS. Their report, 22 September 2026: "force-
+     closed the app and restarted it. can confirm the updater never got the
+     memo." The gap is about returning to the front, and a restart is not
+     that. A new process has no memory, so the field is the marker. */
+  say('a new process is told apart from a return',
+    java.includes('private static volatile boolean checkedThisProcess = false;'));
+  say('and the flag is read before it is set',
+    /boolean cold = !checkedThisProcess;\s*\n\s*checkedThisProcess = true;/.test(java));
+  say('a cold start skips the throttle', java.includes('if (!cold && since >= 0 && since < GAP)'));
+  say('and it says a failure whatever the day holds',
+    java.includes('if (cold || said < 0 || said >= FAIL_GAP)'));
+  /* THE FLAG IS SET EVEN WHEN THE CHECK GOES ON TO FAIL, or every start in
+     that process would count as cold and each one would ask again. */
+  {
+    const set = java.indexOf('checkedThisProcess = true;');
+    const gate = java.indexOf('if (!cold && since');
+    say('the flag is set before the throttle can return',
+      set > -1 && gate > -1 && set < gate, `${set} against ${gate}`);
+  }
   say('the reason is plain words rather than a class name',
     java.includes('it could not reach the internet') && java.includes('the connection timed out'));
   /* A SILENT CATCH IS UNDIAGNOSABLE. The first version swallowed everything
