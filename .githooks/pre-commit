@@ -36,6 +36,11 @@ node tools/swipe-guard.mjs
 # for a share: the reader did not choose the tab the share arrived on.
 node tools/share-guard.mjs
 
+# Asking to link, on a first run. Four things have to be true, and each one
+# is a reason not to ask. A card that appears where any of them is false is
+# nagging, and nagging is the one failure a first-run prompt has.
+node tools/ask-guard.mjs
+
 # The runtime sits beside the count, so it is short. Three units from the
 # largest that is not zero, which answers the no-seconds-in-days rule.
 node tools/runtime-guard.mjs

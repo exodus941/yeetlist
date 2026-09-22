@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-21';
+const VERSION = '260922-22';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -636,6 +636,10 @@ function render() {
   $('#clearFilter').disabled = !filtering();
 
   fitTags();
+
+  /* THE ASK GOES THE MOMENT THERE IS A ROW, and only a render knows the count
+     moved. The other two facts it reads are painted by renderDrive. */
+  renderSyncAsk();
 
   /* The row count decides how far both scrollers can travel, so every cut
      edge is re-read whenever it changes. */
@@ -3279,6 +3283,11 @@ function renderDrive() {
   const live = DRIVE.live();
   const connect = $('#driveConnect');
 
+  /* THE ASK READS THE SAME TWO FACTS, so it is painted here rather than
+     watching for them itself. render() calls it too, because the row count
+     is the third fact and only a render knows it moved. */
+  renderSyncAsk();
+
   /* null until /api/config answers, and hidden while unknown. A control the
      deployment cannot honour is worse than an absent one, and a button that
      appears and then vanishes is worse than one that arrives late. */
@@ -3287,6 +3296,15 @@ function renderDrive() {
 
   connect.querySelector('.btn-label').textContent = linked ? 'Reconnect Drive' : 'Link Google Drive';
   connect.setAttribute('aria-label', linked ? 'Reconnect Google Drive' : 'Link Google Drive');
+
+  /* THE PULSE ASKS WHETHER AN ACCOUNT IS LINKED, NOT WHETHER THE BUTTON IS ON
+     SCREEN. Their instruction, 22 September 2026: "if an account isn't
+     linked, have the link google drive button slowly pulse red."
+
+     THIS BUTTON ALSO SHOWS FOR A LINKED READER whose token has not come back
+     yet, where it reads Reconnect Drive. Pulsing there would ask somebody who
+     has already linked to link again. */
+  connect.dataset.linked = linked ? 'yes' : 'no';
 
   /* A REQUEST IN FLIGHT IS NOT A FAILURE, AND SAYING SO IS THE WHOLE
      COMPLAINT. Every load starts with no token, so a linked reader met
@@ -3348,6 +3366,91 @@ async function renderDriveAvailability() {
     driveAvailable = false;
   }
   renderDrive();
+}
+
+/* ── ASKING TO LINK, ON A FIRST RUN ─────────────────────────────────────────
+ *
+ * Their instruction, 22 September 2026: a prompt on a first run offering to
+ * sign in and sync across devices. Shown three drawings, they took the
+ * modal's look and the card's place, then moved it above the tabs.
+ *
+ * FOUR THINGS HAVE TO BE TRUE, and each one is a reason not to ask.
+ *
+ * The deployment has to OFFER Drive at all. A card advertising a button the
+ * build cannot honour is worse than no card.
+ *
+ * NOBODY IS LINKED. A linked reader has already answered.
+ *
+ * THE LIBRARY IS EMPTY. Somebody holding rows who never linked has also
+ * answered, in the other direction, and asking them again is nagging. This is
+ * what makes it a first run rather than a banner.
+ *
+ * AND IT WAS NOT DISMISSED. Gone for good, because the Link button sits in
+ * the header at every width and nothing about it is hard to find again.
+ */
+const ASK_STORE = 'yeetlist-sync-ask';
+
+function askDismissed() {
+  try { return localStorage.getItem(ASK_STORE) === 'off'; } catch { return false; }
+}
+
+function askWanted() {
+  return driveAvailable === true
+    && !DRIVE.connected()
+    && videos.length === 0
+    && !askDismissed();
+}
+
+/* ONE PARAGRAPH, TWO HOMES. Their instruction, 22 September 2026: "the stuff
+   in the footer needs to be shown in the card. if the card is dismissed, it
+   will move back to the footer."
+
+   SO IT IS MOVED, NEVER COPIED. Two copies are two things to edit, and they
+   disagree the first time either one moves. */
+function renderSyncAsk() {
+  const card = $('#syncAsk');
+  const note = $('#syncNote');
+  if (!card || !note) return;
+
+  const show = askWanted();
+  card.hidden = !show;
+
+  const home = show ? $('#syncNoteSlot') : $('#sync-note');
+  if (home && note.parentElement !== home) home.append(note);
+}
+
+/* THE DISMISSAL IS A MOVE AND A COLLAPSE AT ONCE. Their instruction: "make
+   sure the card dismissal also has a nice animation, and it causes everything
+   to smoothly slide up."
+
+   A VIEW TRANSITION IS THE ONE MECHANISM THAT DOES BOTH. It takes a picture
+   of the page before and after, so the paragraph glides from the card to the
+   foot of the list and everything between them travels to its new place. A
+   fold would collapse the card and could not carry the words with it.
+
+   THE MARK IS WHAT NAMES THE PARTS. Nothing here is named at rest, because a
+   name lifts an element out of its ancestor's picture: the footer would then
+   hold still while the lists slide past each other, which is the fault this
+   app already recorded about that exact element. */
+function dismissAsk() {
+  try { localStorage.setItem(ASK_STORE, 'off'); } catch { /* a private window */ }
+
+  const root = document.documentElement;
+  const run = () => renderSyncAsk();
+  if (typeof document.startViewTransition !== 'function') return run();
+
+  root.dataset.ask = 'leaving';
+  const transition = document.startViewTransition(run);
+  const clear = () => { delete root.dataset.ask; };
+  transition.finished.then(clear, clear);
+  /* A SKIPPED TRANSITION REJECTS BOTH. The browser skips one while another
+     runs and again when the document is not painting, and the update lands
+     either way. */
+  transition.ready.catch(() => {});
+  transition.finished.catch(() => {});
+  transition.updateCallbackDone.catch((error) => {
+    console.error('YeeTlist: the ask card failed to close', error);
+  });
 }
 
 async function driveConnect({ interactive = true } = {}) {
@@ -5113,6 +5216,17 @@ $('#importFile').addEventListener('change', (event) => {
 /* ---- drive --------------------------------------------------------------- */
 
 $('#driveConnect').addEventListener('click', () => driveConnect({ interactive: true }));
+
+/* THE ASK'S OWN THREE CONTROLS. Link runs the same function the header's
+   button runs, so there is one route to a Drive connection and the card
+   cannot drift from it.
+
+   IT IS DISMISSED EITHER WAY. A connection that lands empties the card by
+   its own condition, and one that fails leaves the card where it was, so
+   somebody who changes their mind can press it again. */
+$('#syncAskLink').addEventListener('click', () => driveConnect({ interactive: true }));
+$('#syncAskLater').addEventListener('click', dismissAsk);
+$('#syncAskClose').addEventListener('click', dismissAsk);
 $('#driveSync').addEventListener('click', () => drivePull({ announce: true }));
 $('#driveDisconnect').addEventListener('click', async () => {
   /* Paint the disconnected state at once. Revoking reaches Google over the

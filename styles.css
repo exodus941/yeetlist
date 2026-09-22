@@ -744,6 +744,14 @@ body[data-note-open] { overflow: hidden }
      nothing to glide between, so the pill cross-fades with everything else. */
   .tab[aria-selected="true"]::after { view-transition-name: none }
 
+  /* THE ASK CARD'S TWO TRAVELS GO THE SAME WAY. The paragraph crossing the
+     page and the list rising behind it are both travel, so the names come off
+     and the page cross-fades from one state to the other instead. The card's
+     own fade stays, because a fade is not motion. */
+  :root[data-ask] #syncNote,
+  :root[data-ask] .tabs,
+  :root[data-ask] .list-panel { view-transition-name: none }
+
   /* A SLIDE IS TRAVEL, SO IT BECOMES A CROSS-FADE. That is the substitution
      the platform itself makes under this setting, and it is what this file
      already does for the fold. The two pages fade rather than move, and the
@@ -822,7 +830,7 @@ body[data-note-open] { overflow: hidden }
 #listRuntime, #searchClear, #state, #tagSuggest, #tagBulkPanel,
 #typedConfirm, #importPanel, #driveConnect, #rateList, #noteLevelList,
 #driveGroup, #driveAlert, #tagFilterPanel, #sortList, #exportMenu, #filterPanel,
-#noteEditor, #rateGroup, #pager {
+#noteEditor, #rateGroup, #pager, #syncAsk {
   transition:
     opacity var(--duration) var(--ease),
     display var(--duration) allow-discrete;
@@ -834,7 +842,7 @@ body[data-note-open] { overflow: hidden }
 #driveAlert[hidden], #tagFilterPanel[hidden], #sortList[hidden], #exportMenu[hidden],
 #rateList[hidden], #noteLevelList[hidden],
 #noteEditor[hidden], #rateGroup[hidden], #pager[hidden],
-#filterPanel[hidden] {
+#filterPanel[hidden], #syncAsk[hidden] {
   opacity: 0;
 }
 
@@ -848,7 +856,7 @@ body[data-note-open] { overflow: hidden }
   #rateList:not([hidden]), #noteLevelList:not([hidden]),
   #noteEditor:not([hidden]), #rateGroup:not([hidden]),
   #pager:not([hidden]),
-  #filterPanel:not([hidden]) {
+  #filterPanel:not([hidden]), #syncAsk:not([hidden]) {
     opacity: 0;
   }
 }
@@ -1022,10 +1030,32 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   animation-timing-function: var(--ease-slide);
   animation-fill-mode: both;
   mix-blend-mode: normal;
-  /* THE PANEL IS A DIFFERENT HEIGHT ON EVERY TAB, and the group animates
-     between the two. Left to stretch, the old list squashes toward the new
-     list's height while it slides, which reads as a collapse rather than a
-     departure. Each picture keeps its own size and hangs from the top. */
+}
+
+/* A PICTURE OF A BOX THAT CHANGES SIZE IS STRETCHED TO FIT IT, and that is
+   what reads as anything but a smooth move.
+
+   THE PANEL IS A DIFFERENT HEIGHT ON EVERY TAB, and a different height again
+   once the ask card goes. The group animates between the two, so the old
+   list squashes toward the new height while it travels. Their report,
+   22 September 2026, about the dismissal: "still not rising smoothly."
+   Measured on that run: the panel grew 441px to 675 while its top rose 234,
+   so every row inside the old picture was stretched over the whole 500ms.
+
+   EACH PICTURE KEEPS ITS OWN SIZE AND HANGS FROM THE TOP. The box grows
+   underneath them and more of the new one shows, which is a rise rather than
+   a stretch.
+
+   ONE RULE, BOTH TRANSITIONS. The swipe and the dismissal state their own
+   durations and share this, because it is one answer to one question. */
+[data-vt="next"]::view-transition-old(list-panel),
+[data-vt="next"]::view-transition-new(list-panel),
+[data-vt="prev"]::view-transition-old(list-panel),
+[data-vt="prev"]::view-transition-new(list-panel),
+[data-ask]::view-transition-old(list-panel),
+[data-ask]::view-transition-new(list-panel),
+[data-ask]::view-transition-old(sync-note),
+[data-ask]::view-transition-new(sync-note) {
   height: 100%;
   width: 100%;
   object-fit: none;
@@ -1972,7 +2002,12 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   flex-wrap: nowrap;
   width: calc(100% + var(--page-inline) * 2);
   margin-inline: calc(var(--page-inline) * -1);
-  margin-block-end: var(--space-xl);
+  /* THE BAND OWNS THE DISTANCE TO THE HEADING UNDER IT. Their instruction,
+     22 September 2026, with a screenshot of "11 Bookmarks": 8px more above
+     the title. 24 to 32, which is the next step rather than a number off the
+     scale. One writer, because the band is the thing above it at every
+     width. */
+  margin-block-end: var(--space-2xl);
   border-block-end: 1px solid var(--line);
 }
 
@@ -4500,13 +4535,20 @@ code {
    Dialog
    ========================================================================== */
 
-dialog {
-  width: min(440px, calc(100% - var(--space-xl)));
+/* THE BOX IS SHARED AND THE FLOATING IS NOT. Their decision, 22 September
+   2026: the dialog's look, in a card above the tabs. Splitting the rule is
+   what lets the card take the padding, the edge, the corner and the plane
+   without also taking a width meant for a box hovering over the page. */
+dialog, .ask-card {
   padding: var(--space-xl);
   border: 1px solid #4a4a4a;
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
   color: var(--text);
+}
+
+dialog {
+  width: min(440px, calc(100% - var(--space-xl)));
   z-index: var(--layer-modal);
 }
 
@@ -4519,9 +4561,158 @@ dialog::backdrop { background: #000000bb }
   gap: var(--space-lg);
 }
 
-dialog h2 { font-size: var(--text-lg); letter-spacing: var(--track-tight) }
-dialog p { color: var(--text-muted) }
-dialog .stack { display: flex; flex-direction: column; gap: var(--space-sm) }
+/* THE ASK CARD TAKES THE DIALOG'S OWN RULES. Their decision, 22 September
+   2026: the modal's look, in a card above the tabs. Naming it beside the
+   dialog is what stops the two drifting. Copying the four values instead
+   would be a second design of one thing. */
+dialog h2, .ask-card h2 { font-size: var(--text-lg); letter-spacing: var(--track-tight) }
+dialog p, .ask-card p { color: var(--text-muted) }
+/* THE OVERLINE SITS CLOSER TO THE TITLE IT NAMES. Their instruction,
+   22 September 2026: "reduce the padding between SYNC and the title by 4px."
+   8 to 4, which is the next step down rather than a number off the scale. */
+dialog .stack, .ask-card .stack { display: flex; flex-direction: column; gap: var(--space-xs) }
+
+/* ONE WRITER FOR ONE GAP. Their report, 22 September 2026: "why is the padding
+   after SYNC so huge?"
+
+   `.eyebrow` STATES ITS OWN 8px MARGIN, for a bare block with nothing spacing
+   it, and the stack above adds another 8. The two add, so the overline sat
+   16px from its own title instead of 8. The stack is the writer here, so the
+   child's own margin comes off. */
+dialog .stack > .eyebrow, .ask-card .stack > .eyebrow { margin-bottom: 0 }
+
+/* IT IS A CARD, SO THE CARD STATES THE BOX. Only the two things a page
+   section owns are its own: the space to the band below it, and the width it
+   is read at. The dialog's 440px is for a box floating over the page. */
+/* IT SPANS THE PAGE, AND THE ACTION ROW SITS UNDER THE WORDS. Their
+   instruction, 22 September 2026, over three corrections: "it needs to span
+   the whole width", "the width should be the same as the address bar", and
+   then, of four wide layouts drawn at 1316px, "the correct answer is A, but
+   the buttons will go below the row with the text, not next to it."
+
+   SO THERE IS NOTHING TO STATE BUT THE STEP BELOW IT. No width, because the
+   page already gives it the paste field's. No measure on the sentence,
+   because a cap is what left 645px of dead space between the words and the
+   buttons. No grid, because the buttons belong on their own line.
+
+   MEASURED AT 1316: 142px tall against 180, the sentence on one line of
+   1268px, and the buttons at the far edge under it. */
+.ask-card { margin-block-end: var(--space-xl) }
+
+/* THE TITLE AND THE SENTENCE SAT AT 0px BOX TO BOX, so the only space between
+   them was the leading the two line boxes already carry. Their report,
+   22 September 2026: "uncomfortably cramped." Shown 0, 4 and 8 on the real
+   card, they took 8: 20px from the title's baseline to the sentence's cap,
+   against 12. */
+#syncNoteSlot { margin-block-start: var(--space-sm) }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE LINK BUTTON PULSES WHILE NOTHING IS LINKED
+
+   Their instruction, 22 September 2026: "if an account isn't linked, have the
+   link google drive button slowly pulse red, 5 seconds going red, 5 seconds
+   going back to grey and so on."
+
+   TEN SECONDS, HALF EACH WAY. The keyframes name the midpoint, so the two
+   halves are one run rather than two animations meeting.
+
+   IT ENDS ON THE PRIMARY BUTTON'S OWN COLOURS, never a red invented for
+   this. At the peak it is exactly the button beside it in the card.
+
+   MEASURED ACROSS THE WHOLE RAMP: the label reads 14.43:1 at rest and 3.67
+   at the peak, which is the shipped primary button's own figure. Every frame
+   between is above the one it lands on, so the pulse introduces no state the
+   app does not already paint.
+
+   THE MARK SAYS WHY, NOT WHERE. `data-linked` is written by the same render
+   that writes the label, so a reader whose token is merely resuming sees no
+   pulse.
+   ══════════════════════════════════════════════════════════════════════════ */
+@keyframes link-pulse {
+  50% {
+    background: var(--accent-fill);
+    border-color: var(--accent-fill);
+    color: var(--accent-ink);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #driveConnect[data-linked="no"] {
+    animation: link-pulse 10s var(--ease) infinite;
+  }
+
+  /* A PRESS OR A FOCUS RING IS THE READER'S OWN ANSWER, so the pulse gets out
+     of the way rather than fighting the state under the pointer. */
+  #driveConnect[data-linked="no"]:active,
+  #driveConnect[data-linked="no"]:focus-visible { animation: none }
+}
+
+/* AND THE HOVER IS BEHIND A DEVICE THAT HAS ONE. A tap leaves `:hover` set on
+   a touch screen until something else is tapped, so this would stop the pulse
+   for good on the phone the first time somebody's thumb passed over it. */
+@media (prefers-reduced-motion: no-preference) and (hover: hover) {
+  #driveConnect[data-linked="no"]:hover { animation: none }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DISMISSING IT, AND EVERYTHING BELOW SLIDING UP
+
+   Their instruction, 22 September 2026: "make sure the card dismissal also has
+   a nice animation, and it causes everything to smoothly slide up", with the
+   footer's words moving back down into the footer as it goes.
+
+   ONLY WHILE IT IS LEAVING. A `view-transition-name` lifts an element out of
+   its ancestor's picture, so a name left on at rest would hold the footer
+   still while the lists slide past each other. That is the exact fault this
+   file already records about that element, so the mark is what names them.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root[data-ask] #syncAsk { view-transition-name: ask-card }
+:root[data-ask] #syncNote { view-transition-name: sync-note }
+/* THE LIST IS ALREADY NAMED, for the swipe, so it needs nothing here. Naming
+   it again would be a second writer for one property. */
+
+/* AND THE TAB BAND TRAVELS THE SAME DISTANCE. Their report, 22 September 2026:
+   "the rest of the chrome moving up is feeling oddly snappy, not smooth."
+
+   IT WAS IN THE ROOT'S OWN PICTURE, which is told not to animate, so its new
+   image covered the old one at once. Everything named glided and the tabs
+   jumped the whole 234px in one frame, under a list that was still moving.
+
+   EVERYTHING BELOW THE CARD IS NAMED NOW, and everything above it holds
+   still. The bar is the only thing left in the root's picture, and the bar
+   does not move. */
+:root[data-ask] .tabs { view-transition-name: tab-band }
+
+/* THE TWO THAT TRAVEL TAKE THE LONG RUN AND THE SETTLING CURVE. The paragraph
+   crosses the height of the card, and the list travels the same distance. */
+[data-ask]::view-transition-group(sync-note),
+[data-ask]::view-transition-group(list-panel),
+[data-ask]::view-transition-group(tab-band),
+[data-ask]::view-transition-group(tab-pill),
+[data-ask]::view-transition-group(ask-card) {
+  animation-duration: var(--duration-fold);
+  animation-timing-function: var(--ease-slide);
+}
+
+/* THE BAND'S TWO PICTURES ARE THE SAME PICTURE, so a cross-fade between them
+   is a fade of a thing against itself. It only travels, so it holds. */
+[data-ask]::view-transition-old(tab-band),
+[data-ask]::view-transition-new(tab-band) { animation: none }
+
+/* THE CARD ITSELF ONLY LEAVES, so the pair is an exit rather than a swap. It
+   fades where it stands, because it has no second position to travel to. */
+[data-ask]::view-transition-old(ask-card) {
+  animation: ask-leave var(--duration-fold) var(--ease-slide) both;
+}
+
+[data-ask]::view-transition-new(ask-card) { animation: none; opacity: 0 }
+
+@keyframes ask-leave { to { opacity: 0 } }
+
+/* AND THE PAGE AROUND THEM HOLDS STILL. With three boxes lifted out, the
+   root's own picture is the bar and the tabs, and neither moves. */
+[data-ask]::view-transition-old(root),
+[data-ask]::view-transition-new(root) { animation: none }
 
 .typed-confirm { margin-top: var(--space-lg) }
 
@@ -4535,7 +4726,7 @@ dialog .stack { display: flex; flex-direction: column; gap: var(--space-sm) }
 
 .typed-confirm .input { width: 100% }
 
-dialog menu {
+dialog menu, .ask-card menu {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-sm);

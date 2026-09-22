@@ -227,6 +227,48 @@
        ONE STATUS REGION, NOT TWO. The count and the runtime answer one
        question and change together, so a reader hears a single update. Two
        regions would read them out as two separate announcements. -->
+  <!-- ==========================================================================
+       Asking to link, on a first run
+
+       Their instruction, 22 September 2026: a prompt on a first run offering
+       to sign in and sync across devices. Shown three drawings, they took the
+       modal's look and the card's place: "i want the look of the modal (A)
+       but i want it to be displayed as a card above the list", then "in fact,
+       i want it displayed above the tabs".
+
+       ABOVE THE TABS, SO IT BELONGS TO THE PAGE RATHER THAN TO ONE LIST. The
+       three lists sync together, so a card inside the panel would say the
+       offer is about whichever tab is open. It also holds still while the
+       lists slide past each other, because only the panel below moves.
+
+       IT TAKES THE DIALOG'S OWN RULES rather than a copy of their values, so
+       it cannot drift from the dialog it was drawn from.
+       ========================================================================== -->
+  <section id="syncAsk" class="ask-card" aria-labelledby="syncAskTitle" hidden>
+    <div class="dialog-head">
+      <div class="stack">
+        <p class="eyebrow">SYNC</p>
+        <h2 id="syncAskTitle">Keep This On Every Device</h2>
+      </div>
+      <button id="syncAskClose" class="row-remove" type="button" aria-label="Dismiss">
+        <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+      </button>
+    </div>
+    <!-- THE WORDS ARE THE FOOTER'S. Their instruction, 22 September 2026: "the
+         stuff in the footer needs to be shown in the card. if the card is
+         dismissed, it will move back to the footer."
+
+         SO THIS IS A SLOT, NOT A COPY. One paragraph exists, and the script
+         moves it between here and the foot of the list. Two copies would be
+         two things to edit and they would disagree the first time either
+         moved. -->
+    <div id="syncNoteSlot"></div>
+    <menu>
+      <button id="syncAskLater" class="btn btn-sm" type="button">Not Now</button>
+      <button id="syncAskLink" class="btn btn-sm btn-primary" type="button">Link Google Drive</button>
+    </menu>
+  </section>
+
   <!-- ONE TAB STOP FOR THE WHOLE STRIP. A composite widget takes Tab once and
        the arrows move within it. Built with a tabindex on every tab, walking
        past two costs two presses and a strip of six costs six. -->
@@ -662,12 +704,16 @@
     <!-- TWO FILES, BECAUSE THE NOTES SPLIT OFF. Their instruction, 22
          September 2026: the footer has to name yeetnotes.md as well. It said
          "one yeetlist.md" for as long as there were two. -->
-    <strong>Portable by design.</strong>
-    Link Google Drive and YeeTlist keeps two files there, <code>yeetlist.md</code> for
-    your videos and bookmarks and <code>yeetnotes.md</code> for your notes, both readable
-    from any device on the same account.
-    It asks for the narrowest access Google offers: it can see only the files it created, never the rest of your Drive.
-    Export and import still work without connecting anything.
+    <!-- ONE PARAGRAPH, TWO HOMES. It sits here at rest and moves into the ask
+         card while that card is up, so there is one copy of these words. -->
+    <p id="syncNote">
+      <strong>Portable by design.</strong>
+      Link Google Drive and YeeTlist keeps two files there, <code>yeetlist.md</code> for
+      your videos and bookmarks and <code>yeetnotes.md</code> for your notes, both readable
+      from any device on the same account.
+      It asks for the narrowest access Google offers: it can see only the files it created, never the rest of your Drive.
+      Export and import still work without connecting anything.
+    </p>
   </footer>
 
   </div><!-- /#listPanel -->
