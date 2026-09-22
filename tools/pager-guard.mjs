@@ -318,6 +318,25 @@ same('a decimal takes its whole part', clampPage('2.9', 10), 2);
   /* AND THE LOADING OVERLAY'S OWN MARK TOO. */
   ok('the boot mark stands clear of its bar',
     /\.boot-mark \{[^}]*margin-block-end: var\(--space-sm\)/.test(css));
+
+  /* THE ACTION STANDS 16px CLEAR OF THE WORDS, WHICH IS ONE NUMBER FROM TWO
+     WRITERS. The column publishes 8 and the button used to state 16, and the
+     two ADD, so it painted 24 on all three empty screens. Their call,
+     22 September 2026: "keep it consistent."
+
+     SO THE MARGIN CARRIES THE DIFFERENCE, and it is written as the
+     subtraction rather than as the answer. Typed as 8 it would stop tracking
+     either token. Measured after: 16.00 on the first-run screen, the
+     no-results screen and the failure screen. */
+  ok('the action reads the published step minus the column gap',
+    /\.empty > \.btn, \.empty > \.btn-text \{\s*\n\s*margin-top: calc\(var\(--space-lg\) - var\(--space-sm\)\);/.test(css));
+  /* A CHILD COMBINATOR, because the subtraction is about THIS parent. As a
+     descendant it would fire on a button nested deeper, whose own parent
+     publishes a different gap or none. */
+  ok('and it names the direct child', !/\.empty \.btn,/.test(css));
+  /* THE COLUMN IS THE OTHER HALF OF THE SUM, so it is pinned too. */
+  ok('the column still publishes the small step',
+    /\.empty \{[\s\S]{0,260}gap: var\(--space-sm\);/.test(css));
 }
 
 /* -- Verdict ------------------------------------------------------------- */

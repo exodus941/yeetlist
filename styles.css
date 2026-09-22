@@ -4566,8 +4566,19 @@ th.amount { text-align: end }
 .empty h3 { font-size: var(--text-md) }
 .empty p { max-width: 44ch; color: var(--text-muted) }
 
-/* An action stands 16px clear of the text that explains it. */
-.empty .btn, .empty .btn-text { margin-top: var(--space-lg) }
+/* An action stands 16px clear of the text that explains it.
+
+   TWO WRITERS PUT IT AT 24. The column publishes an 8px gap and the button
+   stated a 16px margin, and the two ADD. Their call, 22 September 2026, on
+   which number is right: "keep it consistent." So the margin carries the
+   difference and the pair measures the published step.
+
+   A CHILD COMBINATOR, because the subtraction is about THIS parent. Written
+   as a descendant it would fire on a button nested deeper, whose own parent
+   publishes a different gap or none. */
+.empty > .btn, .empty > .btn-text {
+  margin-top: calc(var(--space-lg) - var(--space-sm));
+}
 
 /* Every placeholder height comes from the type tokens of the line it stands
    in for, so the skeleton and the loaded row measure the same. */
