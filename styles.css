@@ -3800,7 +3800,12 @@ th.amount { text-align: end }
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-sm) var(--space-xl);
+  /* THE COLUMN GAP IS A MINIMUM, NOT THE PAINTED DISTANCE. `space-between`
+     hands every spare pixel to this one gap, so it only binds at the width
+     where the row is about to break. Raising the nav's own gaps took 320
+     onto two rows: 293.3px of content in 288 of room. At 16 it is 285.3 and
+     holds one row, and the painted gap is unchanged at every wider size. */
+  gap: var(--space-sm) var(--space-lg);
   margin-block-start: var(--space-xl);
   padding-block: var(--space-md) var(--page-pad);
   background: var(--bg);
@@ -3873,15 +3878,22 @@ th.amount { text-align: end }
 .pager-nav {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-lg);
 }
 
 /* THE FIELD AND ITS TOTAL ARE ONE GROUP, so they sit closer to each other
-   than either sits to an arrow. The row's own gap is the between-groups
-   distance at 8, and the pair takes half of it. */
+   than either sits to an arrow.
+
+   BOTH NUMBERS WENT UP A STEP. Their report, 22 September 2026: the field
+   was "crammed next to the 'of'". It measured 4px, which is the smallest
+   step on the scale, so the word sat against the box.
+
+   RAISING THE INNER ONE ALONE WOULD HAVE DELETED THE GROUP. At 8 against 8
+   the four controls read as one flat run, and nothing says the field and
+   its total belong together. 16 between and 8 inside keeps two to one. */
 .pager-jump {
   display: flex;
-  margin-inline-end: calc(var(--space-sm) * -1 + var(--space-xs));
+  margin-inline-end: calc(var(--space-lg) * -1 + var(--space-sm));
 }
 
 /* THE BOX IS SIZED BY ITS `size`, WHICH THE RENDER SETS FROM THE PAGE COUNT.

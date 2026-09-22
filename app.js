@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-29';
+const VERSION = '260922-30';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -937,7 +937,9 @@ function renderPager(total, from, count) {
   const jump = $('#pagerJump');
   if (document.activeElement !== jump) jump.value = String(page);
   jump.setAttribute('aria-label', `Page number, 1 to ${last}`);
-  jump.size = Math.max(2, String(last).length);
+  /* THE BOX HOLDS THE LONGEST PAGE NUMBER AND NOT ONE CHARACTER MORE. A floor
+     of two cost 16px of a row that has to hold five things at 320. */
+  jump.size = String(last).length;
 }
 
 /* WHAT A TYPED NUMBER MEANS.

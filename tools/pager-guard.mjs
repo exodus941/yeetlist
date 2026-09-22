@@ -168,6 +168,64 @@ same('a decimal takes its whole part', clampPage('2.9', 10), 2);
   /* THE RUN OF PAGE BUTTONS IS GONE, not left beside the new shape. */
   ok('the run of page buttons is gone', !/pageRun/.test(src));
   ok('and its gap mark with it', !/pager-gap/.test(src));
+
+  /* THE BOX HOLDS THE LONGEST PAGE NUMBER AND NOT ONE CHARACTER MORE. A
+     floor of two cost 16px of a row that has to hold five things at 320. */
+  ok('the field is as wide as the page count needs',
+    /jump\.size = String\(last\)\.length;/.test(src));
+}
+
+/* -- The field and its total read as one thing --------------------------- */
+/* Their report, 22 September 2026: the field was "crammed next to the 'of'".
+   It measured 4px, which is the smallest step on the scale.
+
+   RAISING THE INNER ONE ALONE WOULD HAVE DELETED THE GROUP. At 8 against 8
+   the four controls read as one flat run. So both went up a step, and the
+   ratio is what this asserts rather than either number. */
+{
+  const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+  /* THE SCALE IS READ, NEVER LISTED. A first version compared the two tokens
+     by their POSITION on the scale and demanded one step. The scale does not
+     double: 2, 4, 8, 12, 16, 24, 32. So 16 against 8 is two positions apart
+     and is exactly two to one, and the clause faulted correct code.
+
+     ASK THE VALUES. The ratio is the rule and a position is not. */
+  const step = (name) => {
+    const hit = new RegExp(`${name}:\\s*(\\d+(?:\\.\\d+)?)px`).exec(css);
+    return hit ? Number(hit[1]) : NaN;
+  };
+
+  const nav = /\.pager-nav \{[^}]*gap: var\((--space-[a-z0-9]+)\)/.exec(css);
+  ok('the nav states its own gap', Boolean(nav), String(nav));
+  const pair = /\.pager-jump \{[^}]*margin-inline-end: calc\(var\((--space-[a-z0-9]+)\) \* -1 \+ var\((--space-[a-z0-9]+)\)\)/.exec(css);
+  ok('and the pair states the difference', Boolean(pair), String(pair));
+
+  /* THE SUBTRACTION HAS TO NAME THE GAP IT IS CANCELLING, or the pair's own
+     distance stops tracking the row the next time either moves. */
+  ok('the pair cancels the nav\'s own gap', Boolean(nav && pair) && pair[1] === nav[1],
+    `${pair && pair[1]} against ${nav && nav[1]}`);
+
+  /* ONE STEP DOWN IS THE GROUPING. The scale doubles at this end, so the
+     next step down IS two to one. */
+  const outer = nav ? step(nav[1]) : NaN;
+  const inner = pair ? step(pair[2]) : NaN;
+  ok('both steps have a published value', outer > 0 && inner > 0, `${outer} ${inner}`);
+  /* TWO TO ONE IS THE BAR, and nobody has to think at it. */
+  ok('and the pair sits at half the row\'s own gap', outer / inner >= 2,
+    `${outer} against ${inner}`);
+
+  /* THE ROW'S OWN COLUMN GAP IS A MINIMUM, NOT THE PAINTED DISTANCE.
+     `space-between` hands every spare pixel to it, so it only binds where
+     the row is about to break. Raising the nav's gaps took 320 onto two
+     rows at 293.3px of content in 288 of room. At 16 it is 285.3.
+
+     IT STILL HAS TO BEAT THE NAV'S OWN GAP, or the count reads as one more
+     control in the run. */
+  const row = /\n\.pager \{[\s\S]*?gap: var\(--space-[a-z0-9]+\) var\((--space-[a-z0-9]+)\);/.exec(css);
+  ok('the row states its own column gap', Boolean(row), String(row));
+  const between = row ? step(row[1]) : NaN;
+  ok('and it is at least the nav\'s own', between >= outer,
+    `${between} against ${outer}`);
 }
 
 /* -- The pager sits on the foot of the screen until the list runs out ----- */
