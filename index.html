@@ -700,7 +700,34 @@
          button a reader pressed may not exist on the new page, and focus
          left on a removed node goes to the body. -->
     <p id="pagerCount" class="pager-count" role="status" tabindex="-1"></p>
-    <div id="pagerNav" class="pager-nav"></div>
+    <!-- THE PAGE, FOR A READER WHO HEARS THE LIST. The count beside it no
+         longer moves when the page does, so it no longer announces one.
+         This has no width, so it cannot break the row. -->
+    <span id="pagerSaid" class="sr-only" role="status"></span>
+    <!-- THE FIELD IS WRITTEN HERE, NOT BY THE RENDER. A control rebuilt on
+         every draw loses the caret and the half-typed number, and the list
+         redraws on every page change. render() sets the values and nothing
+         else.
+
+         `inputmode="numeric"` rather than `type="number"`, which adds two
+         spinner arrows the row has no width for and which a finger cannot
+         hit at that size. -->
+    <div id="pagerNav" class="pager-nav">
+      <button class="btn btn-ghost btn-icon pager-step" type="button" data-page="back"
+              aria-label="Previous page">
+        <svg class="icon pager-back" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+      </button>
+      <label class="pager-jump">
+        <span class="sr-only">Page number</span>
+        <input id="pagerJump" class="input pager-field" type="text" inputmode="numeric"
+               autocomplete="off" enterkeyhint="go" value="1">
+      </label>
+      <span id="pagerOf" class="pager-of"></span>
+      <button class="btn btn-ghost btn-icon pager-step" type="button" data-page="on"
+              aria-label="Next page">
+        <svg class="icon pager-on" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+      </button>
+    </div>
   </nav>
 
   <!-- THE FOOTER IS INSIDE THE PANEL, AND IT HAS TO BE. I put it outside on

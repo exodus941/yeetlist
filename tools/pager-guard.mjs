@@ -20,7 +20,7 @@
 import { readFileSync } from 'node:fs';
 import { build } from './slice-app.mjs';
 
-const app = build(['PAGE_SIZE', 'pageKey', 'lastPage', 'pageRun'], {
+const app = build(['PAGE_SIZE', 'pageKey', 'lastPage', 'clampPage'], {
   state: ['tab', 'sort', 'searchTerm', 'activeTags', 'untaggedOnly', 'ratingFilter'],
 });
 
@@ -102,39 +102,72 @@ same('the tag order is not a change', app.pageKey(), two);
 fixture();
 same('a sync does not move the reader', app.pageKey(), base);
 
-/* -- 5. The run of pages a reader is offered ----------------------------- */
-const { pageRun } = app;
-same('one page needs no run', pageRun(1, 1), [1]);
-same('three pages show all three', pageRun(2, 3), [1, 2, 3]);
-same('five pages from the middle show all five', pageRun(3, 5), [1, 2, 3, 4, 5]);
-same('sixteen pages from the start', pageRun(1, 16), [1, 2, null, 16]);
-same('sixteen pages from the middle', pageRun(8, 16), [1, null, 7, 8, 9, null, 16]);
-same('sixteen pages from the end', pageRun(16, 16), [1, null, 15, 16]);
+/* -- 5. Two ends and a field a reader types into ------------------------ */
+/* Their instruction, 22 September 2026: "just give previous page and next
+   page buttons (disabled on the first and last pages respectively), and add a
+   little text box between them with the current page number, so that the user
+   can type a number to jump to a page. no individual page numbers necessary."
 
-/* A PAGE IS NEVER OFFERED TWICE, which a short list makes easy to do: page 2
-   of 3 is both "one either side" and "the last". */
-for (const [at, last] of [[1, 1], [2, 3], [3, 5], [1, 16], [8, 16], [16, 16], [2, 4], [4, 5]]) {
-  const run = pageRun(at, last).filter((n) => n !== null);
-  ok(`no page is offered twice at ${at} of ${last}`,
-    new Set(run).size === run.length, run.join(' '));
-  ok(`every page offered at ${at} of ${last} exists`,
-    run.every((n) => n >= 1 && n <= last), run.join(' '));
-  ok(`the page in front of the reader is offered at ${at} of ${last}`, run.includes(at));
-  ok(`the first and the last are offered at ${at} of ${last}`,
-    run.includes(1) && run.includes(last));
-  /* A GAP MEANS SOMETHING IS MISSING. Between 1 and 2 there is nothing to
-     hide, and a mark there names a page that does not exist. */
-  const all = pageRun(at, last);
-  ok(`a gap hides at least two pages at ${at} of ${last}`,
-    all.every((n, i) => n !== null || all[i + 1] - all[i - 1] > 2), all.join(' '));
+   SO THE RUN OF BUTTONS IS GONE, and with it the gap mark and the rule about
+   a gap standing for one page. A hundred pages is now three controls. */
+const { clampPage } = app;
+same('the page typed in is the page taken', clampPage('3', 10), 3);
+same('one is the floor', clampPage('0', 10), 1);
+same('and so is a negative', clampPage('-4', 10), 1);
 
-  /* AND A JUMP WITH NO MARK IS A PAGE THAT VANISHED. Proven by mutation:
-     dropping the single-page clause left the run reading 1, 3, 4, 5, with
-     page 2 offered nowhere and nothing saying it was hidden. Every other
-     assertion here passed on it. */
-  ok(`no page vanishes between two offered at ${at} of ${last}`,
-    all.every((n, i) => n === null || i === 0 || all[i - 1] === null
-      || n - all[i - 1] === 1), all.join(' '));
+/* A NUMBER PAST THE END IS THE END, NOT A REFUSAL. A reader who types 90 on a
+   three-page list means the last page. Refusing leaves them where they were
+   with nothing said, which reads as a control that does nothing. */
+same('past the end is the end', clampPage('90', 3), 3);
+same('the last page itself holds', clampPage('3', 3), 3);
+
+/* AND NOTHING TYPED IS NOT PAGE ONE. Clearing the field and leaving it would
+   otherwise throw the reader back to the start of the list. */
+same('an empty field keeps the page', clampPage('', 10, 4), 4);
+same('and so do words', clampPage('seven', 10, 4), 4);
+same('and so does a bare sign', clampPage('-', 10, 4), 4);
+
+/* A NUMBER WITH SOMETHING AFTER IT IS STILL THAT NUMBER. A finger on a phone
+   keyboard adds a space often enough to matter. */
+same('trailing space is ignored', clampPage(' 5 ', 10), 5);
+
+/* AND A DECIMAL IS THE WHOLE PART. 2.9 is somebody typing 2 and slipping. */
+same('a decimal takes its whole part', clampPage('2.9', 10), 2);
+
+/* -- The two ends and the field are written in the markup, not by render -- */
+/* A CONTROL REBUILT ON EVERY DRAW LOSES THE CARET. The list redraws on every
+   page change, so a field written by innerHTML cannot be typed into. */
+{
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  ok('the field is in the markup', /id="pagerJump"/.test(html));
+  ok('and both ends are too',
+    /data-page="back"/.test(html) && /data-page="on"/.test(html));
+  /* A FIELD WITH NO NAME IS A BOX NOBODY CAN IDENTIFY. It carries no visible
+     label, so it takes one that is read aloud. */
+  ok('the field carries a label',
+    /<span class="sr-only">Page number<\/span>[\s\S]{0,300}id="pagerJump"/.test(html));
+  /* A PHONE KEYBOARD OPENS ON DIGITS. `type="number"` would add two spinner
+     arrows the row has no width for. */
+  ok('it asks for the number keyboard', /inputmode="numeric"/.test(html));
+  ok('and not the spinner', !/id="pagerJump"[^>]*type="number"/.test(html));
+
+  const src = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+  /* AN END KEEPS ITS PLACE IN THE TAB ORDER. `disabled` would take Previous
+     out of reach on page one, so a keyboard reader could not learn which end
+     they were at. */
+  ok('the ends say their state rather than leaving', /setAttribute\('aria-disabled'/.test(src));
+  ok('and none of them is disabled outright', !/pager-step[^\n]*\bdisabled\b/.test(src));
+  /* THE FIELD IS LEFT ALONE WHILE IT IS BEING TYPED IN. Writing the number
+     back under the caret is what makes a field impossible to edit. */
+  ok('the render does not write over the caret',
+    /document\.activeElement !== jump/.test(src));
+  /* ENTER AND LEAVING BOTH TAKE IT. A reader who types and taps the list
+     expects the number to have counted. */
+  ok('Enter takes the number', /key !== 'Enter'/.test(src));
+  ok('and so does leaving the field', /addEventListener\('blur', takeJump\)/.test(src));
+  /* THE RUN OF PAGE BUTTONS IS GONE, not left beside the new shape. */
+  ok('the run of page buttons is gone', !/pageRun/.test(src));
+  ok('and its gap mark with it', !/pager-gap/.test(src));
 }
 
 /* -- The pager sits on the foot of the screen until the list runs out ----- */
@@ -160,8 +193,8 @@ for (const [at, last] of [[1, 1], [2, 3], [3, 5], [1, 16], [8, 16], [16, 16], [2
   /* PINNED, THE BOX'S BOTTOM EDGE IS THE VIEWPORT EDGE. Without the page's
      own padding the buttons sit on the glass. */
   ok('and carries the page padding', /padding-block: var\(--space-md\) var\(--page-pad\)/.test(body));
-  ok('and the rows end at a hairline rather than being cut',
-    /\.pager::before \{[\s\S]{0,200}background: var\(--line-subtle\)/.test(css));
+  /* THE HAIRLINE THAT WAS HERE IS NOW A FADE, asserted further down. A line
+     and a ramp on one edge is two treatments for one thing. */
 
   /* AND IT GOES BACK INTO FLOW WHERE THE APP LOCKS. There the list is its own
      scroller and the pager sits in a column that never scrolls.
@@ -182,6 +215,109 @@ for (const [at, last] of [[1, 1], [2, 3], [3, 5], [1, 16], [8, 16], [16, 16], [2
      inside a column that cannot scroll. */
   ok('both lock branches are named',
     /@media \(min-width: 1121px\) and \(min-height: 700px\),\s*\n\s*\(max-width: 1120px\) and \(min-width: 700px\) and \(min-height: 950px\) \{\s*\n\s*\.pager \{/.test(css));
+}
+
+/* -- The row holds on every page ----------------------------------------- */
+/* Their report, 22 September 2026: "moving to a different page is causing the
+   paginator to break into multiple lines."
+
+   IT WAS ON THE EDGE AND THE PAGE NUMBER TIPPED IT. Measured at 375: the
+   readout ran 191px on page one and 200 on page two, beside 188px of buttons
+   in 343 of room. One extra digit decided whether the row held. */
+{
+  const src2 = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+  /* SHORTENING IT WAS NOT ENOUGH. The width still moved with the page, so
+     the row broke on some pages and not others. Measured at 375 over 137
+     records: 117.13px on page one at 72px tall, 134.13 on page three at 102.
+
+     THE RANGE IS GONE. The field beside it already says which page the reader
+     is on. "137 videos" changes only when the list does. */
+  ok('the readout is the total alone',
+    /\$\('#pagerCount'\)\.textContent = `\$\{total\} \$\{noun\}`;/.test(src2));
+  ok('and the range is not still there', !/\$\{from \+ 1\}-\$\{from \+ count\}/.test(src2));
+  /* A CONSTANT COUNT ANNOUNCES NO PAGE CHANGE, so the page gets its own line
+     with no width of its own. */
+  ok('the page is still said aloud',
+    /\$\('#pagerSaid'\)\.textContent = `Page \$\{page\} of \$\{last\}`;/.test(src2));
+  /* THE LONG FORM IS GONE, not left beside it. */
+  /* NO BACKTICK IN THE PATTERN. One on a line opens a template-literal region
+     the syntax guard cannot close, and it read the comment after this as a
+     block comment inside a string. The words alone are distinctive. */
+  ok('and the long one is not still there', !/Showing \$\{from \+ 1\} to /.test(src2));
+}
+
+/* -- The rows fade into the pinned pager ---------------------------------- */
+/* Their instruction, 22 September 2026: "that nice little fading gradient at
+   the top of the scrolling pane also needs to be at the bottom of the pane,
+   above the paginator, until it scrolls to the bottom."
+
+   THE CUT MOVED WHEN THE PAGER BECAME STICKY. The page's own foot already
+   carries this ramp, and the pager's opaque fill now sits over it. */
+{
+  const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+  const ramp = /\.pager::before \{([\s\S]*?)\n\}/.exec(css);
+  ok('the ramp was found', Boolean(ramp));
+  const body = ramp ? ramp[1] : '';
+
+  ok('it sits directly above the pager', /inset-block-end: 100%/.test(body));
+  /* IT MEASURES FROM THE FOOTER, NOT FROM THE PAGE. The pager lets go a whole
+     footer before the page ends, so a ramp keyed on the page's own travel
+     would still read full at that moment and vanish in one frame. */
+  ok('and its height is the pager travel left', /height: var\(--pager-fade\)/.test(body));
+  /* AND THE PAGE'S OWN FOOT STRIP GOES QUIET WHILE THE PAGER COVERS IT, or
+     a 16px gradient paints over the buttons. The strip is fixed to the
+     screen at a higher layer, so it wins wherever the two meet. */
+  ok('the foot strip has its own number', /height: var\(--page-strip\)/.test(css));
+  const src3 = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+  ok('and it is zero while the pager is pinned',
+    /--page-strip', pinned \? '0px'/.test(src3));
+  ok('while the ramp is zero once the pager lets go',
+    /--pager-fade[\s\S]{0,120}sticky \? /.test(src3) || /const toGo = sticky/.test(src3));
+  /* THE SAME RAMP THE OTHER EDGES USE, reversed. Two shapes for one treatment
+     would drift the first time either moved. */
+  ok('it reuses the shipped ramp',
+    /var\(--bg\) 87%[\s\S]{0,80}28%/.test(body) && /var\(--bg\) 40%[\s\S]{0,80}62%/.test(body));
+  ok('and takes no press', /pointer-events: none/.test(body));
+  /* THE HAIRLINE IT REPLACED IS GONE. A line and a fade on one edge is two
+     treatments for one thing. */
+  ok('the hairline is gone', !/\.pager::before \{[^}]*background: var\(--line-subtle\)/.test(css));
+}
+
+/* -- The empty box sits in the middle of the space it has ----------------- */
+/* Their report, 22 September 2026, with a screenshot: "the 'your watchlist is
+   clear' thing should be centered vertically inside the big blank area, not
+   near its top edge. also, the empty box icon needs to be bigger, and there
+   needs to be more padding below it."
+
+   THE SCROLLER IS THE COLUMN, so the box can take the leftover. Measured at
+   1536x900 after: 78px above the content and 78 below, 0.00 off centre. */
+{
+  const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+
+  ok('the scroller is a column', /\.table-wrap \{[\s\S]{0,900}display: flex;\s*\n\s*flex-direction: column;/.test(css));
+  /* THE TABLE KEEPS ITS OWN HEIGHT. Left to shrink, a long list would be
+     squeezed to fit the box rather than scrolling it. */
+  ok('and the table keeps its own height', /\.table-wrap > table \{ flex: 0 0 auto \}/.test(css));
+
+  const rule = /\n\.empty \{([\s\S]*?)\n\}/.exec(css);
+  ok('the empty box rule was found', Boolean(rule));
+  const body = rule ? rule[1] : '';
+  ok('it takes the leftover', /flex: 1/.test(body));
+  ok('and centres in it', /justify-content: center/.test(body));
+
+  /* THE MARK IS AN ILLUSTRATION, NOT A MARK BESIDE A LABEL, so it takes a
+     step from the space scale. The type scale stops at 24. */
+  const mark = /\.empty \.icon \{([\s\S]*?)\n\}/.exec(css);
+  ok('the mark rule was found', Boolean(mark));
+  const markBody = mark ? mark[1] : '';
+  ok('the mark is drawn at a published step',
+    /width: var\(--space-3xl\);\s*\n\s*height: var\(--space-3xl\);/.test(markBody));
+  ok('and stands clear of the words under it', /margin-block-end: var\(--space-sm\)/.test(markBody));
+  ok('and neither is a typed number', !/\d+px/.test(markBody), markBody.replace(/\s+/g, ' ').slice(0, 70));
+
+  /* AND THE LOADING OVERLAY'S OWN MARK TOO. */
+  ok('the boot mark stands clear of its bar',
+    /\.boot-mark \{[^}]*margin-block-end: var\(--space-sm\)/.test(css));
 }
 
 /* -- Verdict ------------------------------------------------------------- */

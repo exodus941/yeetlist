@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-27';
+const VERSION = '260922-28';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -296,6 +296,9 @@ let tagQuery = '';
    rows drawn are cut. */
 const PAGE_SIZE = 50;
 let page = 1;
+/* The filtered count the pager was last drawn for. The jump field and the
+   ends both need the last page, and only render() knows the total. */
+let pageTotal = 0;
 
 /* ONE WRITER RESETS IT, RATHER THAN EVERY DOOR THAT CHANGES THE LIST.
    The tab, the sort, the search and the three filters each change which
@@ -879,33 +882,6 @@ function fitTags() {
   th.closest('table').style.setProperty('--col-tags', `${Math.ceil(widest + pad)}px`);
 }
 
-/* THE PAGES A READER IS OFFERED, AND THE GAPS BETWEEN THEM.
-   Sixteen pages is sixteen buttons, and a hundred is a wall. So the run is
-   the first, the last, and the two either side of where the reader is. What
-   is cut out is replaced by one gap mark, never by a button.
-
-   THE SET IS BUILT BEFORE IT IS ORDERED, or the same page appears twice on a
-   short list: page 2 of 3 is both "one either side" and "the last".
-
-   A GAP IS ONLY A GAP WHERE SOMETHING IS MISSING. Between 1 and 2 there is
-   nothing to hide, and a mark there says a page exists that does not.
-
-   AND A GAP STANDING FOR ONE PAGE IS THAT PAGE. At 4 of 5 the run came out
-   1, gap, 3, 4, 5, where the gap hid page 2 alone. The mark is as wide as
-   the button and offers nothing, so the page goes in instead. */
-function pageRun(at, last) {
-  const want = new Set([1, last, at - 1, at, at + 1]);
-  const run = [...want].filter((n) => n >= 1 && n <= last).sort((a, b) => a - b);
-  const out = [];
-  run.forEach((n, i) => {
-    const step = i ? n - run[i - 1] : 0;
-    if (step === 2) out.push(n - 1);
-    else if (step > 2) out.push(null);
-    out.push(n);
-  });
-  return out;
-}
-
 /* THE PAGER SAYS WHERE THE READER IS AND OFFERS THE REST.
    It is hidden on one page, because a control offering nothing is a control
    a reader still has to read.
@@ -921,41 +897,98 @@ function pageRun(at, last) {
 function renderPager(total, from, count) {
   const nav = $('#pager');
   const last = lastPage(total);
+  pageTotal = total;
   nav.hidden = last < 2 || listState === 'loading';
   if (nav.hidden) return;
 
   const noun = LISTS[tab].noun[total === 1 ? 0 : 1].toLowerCase();
-  $('#pagerCount').textContent = `Showing ${from + 1} to ${from + count} of ${total} ${noun}`;
+  /* THE READOUT IS THE SAME WIDTH ON EVERY PAGE. Their report, 22 September
+     2026: "moving to a different page is causing the paginator to break into
+     multiple lines."
 
-  const end = (to, label, turn) => `<button class="btn btn-ghost btn-icon pager-step"
-      type="button" data-page="${to}" aria-label="${label}"
-      ${to < 1 || to > last ? 'aria-disabled="true"' : ''}
-      >${icon('chevron-down', `icon pager-${turn}`)}</button>`;
+     SHORTENING IT WAS NOT ENOUGH, because the width still moved with the
+     page. Measured at 375 over 137 records: "1-50 of 137 videos" is 117.13px
+     and the row held at 72px tall, while "101-137 of 137 videos" is 134.13
+     and the row went to 102. One digit still decided it.
 
-  $('#pagerNav').innerHTML = end(page - 1, 'Previous page', 'back')
-    + pageRun(page, last).map((n) => (n === null
-      ? '<span class="pager-gap" aria-hidden="true">…</span>'
-      : `<button class="btn btn-ghost pager-page" type="button" data-page="${n}"
-           aria-label="Page ${n}"${n === page ? ' aria-current="page"' : ''}>${n}</button>`)).join('')
-    + end(page + 1, 'Next page', 'on');
+     SO THE RANGE IS GONE. The field beside it already says which page the
+     reader is on, so the range was a second, wider copy of that. "137 videos"
+     changes only when the list does, and the row cannot break under paging.
+     Measured after: 71.63px on all three pages, 72px tall on all three.
+
+     A COUNT THAT REWRITES ITSELF IS STILL ANNOUNCED, and a constant one no
+     longer announces the page change. So the page goes to its own hidden
+     line, which has no width and cannot break anything. */
+  $('#pagerCount').textContent = `${total} ${noun}`;
+  $('#pagerSaid').textContent = `Page ${page} of ${last}`;
+
+  const step = (sel, off) => {
+    const button = $(sel);
+    const to = page + off;
+    button.setAttribute('aria-disabled', to < 1 || to > last ? 'true' : 'false');
+  };
+  step('.pager-step[data-page="back"]', -1);
+  step('.pager-step[data-page="on"]', 1);
+
+  $('#pagerOf').textContent = `of ${last}`;
+
+  /* THE FIELD IS LEFT ALONE WHILE IT IS BEING TYPED IN. Writing the page
+     number back under the caret is what makes a field impossible to edit. */
+  const jump = $('#pagerJump');
+  if (document.activeElement !== jump) jump.value = String(page);
+  jump.setAttribute('aria-label', `Page number, 1 to ${last}`);
+  jump.size = Math.max(2, String(last).length);
+}
+
+/* WHAT A TYPED NUMBER MEANS.
+   A reader who types 90 on a three-page list means the last page, so it goes
+   there. Refusing would leave them where they were with nothing said, which
+   reads as a control that does nothing.
+
+   NOTHING TYPED IS NOT PAGE ONE. Clearing the field and tapping the list
+   would otherwise throw the reader back to the start.
+
+   The number is taken on Enter and on leaving the field, and clamped both
+   times. */
+function clampPage(text, last, now = 1) {
+  const asked = parseInt(String(text).trim(), 10);
+  if (!Number.isFinite(asked)) return now;
+  return Math.min(Math.max(1, asked), last);
+}
+
+function takeJump() {
+  const jump = $('#pagerJump');
+  const to = clampPage(jump.value, lastPage(pageTotal), page);
+  jump.value = String(to);
+  if (to === page) return;
+  page = to;
+  turnPage();
 }
 
 /* THE ROWS CHANGE, SO THE SCROLLER GOES BACK TO THE TOP. A reader halfway
    down page one lands halfway down page two otherwise, having never seen its
    first rows. */
+function turnPage() {
+  dissolve(() => { $('.table-wrap').scrollTop = 0; });
+}
+
 $('#pager').addEventListener('click', (event) => {
   const button = event.target.closest('button[data-page]');
   if (!button || button.getAttribute('aria-disabled') === 'true') return;
-  const to = Number(button.dataset.page);
-  if (!Number.isFinite(to) || to === page) return;
+  const to = page + (button.dataset.page === 'on' ? 1 : -1);
+  if (to < 1 || to > lastPage(pageTotal)) return;
   page = to;
-  dissolve(() => {
-    $('.table-wrap').scrollTop = 0;
-    /* The control a reader just pressed may not exist on the new page, so
-       focus goes to the readout, which always does. */
-    $('#pagerCount').focus?.();
-  });
+  turnPage();
 });
+
+/* THE TWO CONTROLS NOW OUTLIVE THE PAGE CHANGE, so focus stays where the
+   reader put it. Nothing is moved and nothing is lost. */
+$('#pagerJump').addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  takeJump();
+});
+$('#pagerJump').addEventListener('blur', takeJump);
 
 /* ONE PASS FOR EVERYTHING THE COLUMN SET DECIDES. The widths, the header
    row, the sort menu, the two placeholders and the tab marks all read the
@@ -5138,7 +5171,39 @@ function pageFade() {
 
   const page = document.scrollingElement;
   const left = page.scrollHeight - page.clientHeight - page.scrollTop;
-  shell.style.setProperty('--page-fade-end', `${Math.min(step, Math.max(0, left))}px`);
+  const fade = Math.min(step, Math.max(0, left));
+  shell.style.setProperty('--page-fade-end', `${fade}px`);
+
+  /* AND THE STRIP STANDS DOWN WHERE THE PAGER COVERS THE FOOT. Two ramps at
+     one edge is one too many, and the strip is fixed above the pager, so it
+     painted a gradient over the buttons rather than over the rows.
+
+     Measured at 375 mid-scroll: the pager sat at the viewport's own edge at
+     layer 200 and the strip painted 16px over it at 202.
+
+     THE PAGER'S OWN RAMP IS THE ONE THAT BELONGS HERE, because the cut is its
+     top edge rather than the window's. Asked as a measurement rather than a
+     width: a pager pinned to the foot is one whose bottom IS the edge. */
+  const pager = $('#pager');
+  const sticky = pager && !pager.hidden && getComputedStyle(pager).position === 'sticky';
+  const pinned = sticky && Math.abs(pager.getBoundingClientRect().bottom - innerHeight) < 1;
+  shell.style.setProperty('--page-strip', pinned ? '0px' : `${fade}px`);
+
+  /* AND THE PAGER'S OWN RAMP MEASURES FROM THE FOOTER, not from the page's
+     remaining travel. The two are different distances: the pager lets go a
+     whole footer before the page ends, so a ramp keyed on the page would
+     still read full at that moment and vanish in one frame.
+
+     THE FOOTER IS WHAT IT LETS GO ONTO. While the pager is pinned its own
+     place in the flow sits directly above the footer, so the footer's top
+     minus the screen's foot IS the travel it has left. That reaches zero at
+     the moment of release, which is what makes the ramp fade out rather than
+     switch off. */
+  const foot = $('#sync-note');
+  const toGo = sticky && foot
+    ? foot.getBoundingClientRect().top - innerHeight
+    : 0;
+  shell.style.setProperty('--pager-fade', `${Math.min(step, Math.max(0, toGo))}px`);
 }
 
 function everyEdge() {

@@ -390,7 +390,11 @@ body[data-booting] > main { visibility: hidden }
   width: min(320px, calc(100% - var(--space-xl) * 2));
 }
 
-.boot-mark { width: 48px; height: 48px }
+/* THE MARK STANDS CLEAR OF THE BAR UNDER IT. Their report, 22 September 2026:
+   "you need to put some padding under the icon in the loading overlay too."
+   The column states 16 and this adds 8, painting 24, which is the same
+   distance the empty state's own mark now takes at its own scale. */
+.boot-mark { width: 48px; height: 48px; margin-block-end: var(--space-sm) }
 
 /* A DETERMINATE BAR, BECAUSE THE STEPS ARE COUNTABLE. A spinner says only
    that something is happening. This says how much of it is left. */
@@ -2925,6 +2929,12 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   border-radius: var(--radius-sm);
   min-height: 260px;
 
+  /* A COLUMN, SO THE EMPTY BOX CAN TAKE THE LEFTOVER. It holds a table and a
+     state box, and only the state box grows. The table keeps its own height,
+     or a long list would be squeezed to share. */
+  display: flex;
+  flex-direction: column;
+
   /* THE LIST IS WHAT MAKES A FOLD STUTTER, AND THE COST IS PAINT. Their
      report: the folding and growing animations are stuttery on a phone, "even
      faster devices like a Galaxy S23".
@@ -3101,9 +3111,20 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
 @property --scrolled-end { syntax: "<length>"; inherits: true; initial-value: 0px }
 @property --bar-tail { syntax: "<length>"; inherits: true; initial-value: 0px }
 @property --page-fade-end { syntax: "<length>"; inherits: true; initial-value: 0px }
+/* THE STRIP READS ITS OWN VALUE, because it stands down where the pinned
+   pager covers the foot and the pager's ramp does not. */
+@property --page-strip { syntax: "<length>"; inherits: true; initial-value: 0px }
+
+/* AND THE PAGER RAMP IS ITS COMPLEMENT: what the pager itself has left to
+   travel while it is pinned, so the two are never both painting one edge. */
+@property --pager-fade { syntax: "<length>"; inherits: true; initial-value: 0px }
 
 /* The mask's top term is the scroller's own travel, except where something
    opaque already sits at that edge and a tail does the work instead. */
+/* THE TABLE KEEPS ITS OWN HEIGHT INSIDE THAT COLUMN. Left to `flex: 0 1 auto`
+   a long list would shrink to fit the box rather than scrolling it. */
+.table-wrap > table { flex: 0 0 auto }
+
 .table-wrap { --mask-top: var(--scrolled-top) }
 
 /* THE RAMPS STAND DOWN WHILE A FOLD TRAVELS. Measured on the device's own
@@ -3215,7 +3236,7 @@ thead th::after { height: 0 }
   position: fixed;
   inset-block-end: 0;
   inset-inline: 0;
-  height: var(--page-fade-end);
+  height: var(--page-strip);
   z-index: calc(var(--layer-sticky) + 2);
   background: linear-gradient(
     to top,
@@ -3777,7 +3798,7 @@ th.amount { text-align: end }
   z-index: var(--layer-sticky);
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-sm) var(--space-xl);
   margin-block-start: var(--space-xl);
@@ -3785,15 +3806,38 @@ th.amount { text-align: end }
   background: var(--bg);
 }
 
-/* AND THE ROWS END AT IT RATHER THAN BEING CUT BY IT. A hairline says the
-   list stops here, the way the filter band's own border says it starts. */
+/* AND THE ROWS FADE INTO IT RATHER THAN BEING CUT BY IT. Their instruction,
+   22 September 2026: "that nice little fading gradient at the top of the
+   scrolling pane also needs to be at the bottom of the pane, above the
+   paginator, until it scrolls to the bottom."
+
+   THE CUT MOVED WHEN THE PAGER BECAME STICKY. The page's own foot already
+   carries this ramp, and the pager's opaque fill now sits over it, so the
+   rows disappear under the pager's top edge instead.
+
+   IT MEASURES FROM THE FOOTER, NOT FROM THE PAGE. The page travel left is
+   the wrong distance: the pager lets go a whole footer before the page ends,
+   so a ramp keyed on it would still read full at that moment and vanish in
+   one frame. `--pager-fade` is the travel the pager itself has left, and it
+   reaches zero as the pager lets go. Nothing in CSS can ask whether a box is
+   stuck, so render() measures it.
+
+   THE SAME RAMP, REVERSED. Full at the pager's own edge and nothing at the
+   far end, with the stops the tails already use. */
 .pager::before {
   content: "";
   position: absolute;
-  inset-block-start: 0;
+  inset-block-end: 100%;
   inset-inline: 0;
-  height: 1px;
-  background: var(--line-subtle);
+  height: var(--pager-fade);
+  background: linear-gradient(
+    to top,
+    var(--bg) 0,
+    color-mix(in srgb, var(--bg) 87%, transparent) 28%,
+    color-mix(in srgb, var(--bg) 40%, transparent) 62%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
 /* AND IT GOES BACK INTO FLOW WHERE THE APP LOCKS. There the list is its own
@@ -3829,56 +3873,31 @@ th.amount { text-align: end }
 .pager-nav {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
 }
 
-/* TWO PAGES OF THE SAME DIGIT COUNT ARE THE SAME BOX, or the run shifts
-   under the pointer as the reader walks along it. Measured before: page 1 at
-   39.3px against page 2 at 41.9, because a proportional face draws a one
-   narrower than a two. Tabular figures give every digit one width.
+/* THE FIELD AND ITS TOTAL ARE ONE GROUP, so they sit closer to each other
+   than either sits to an arrow. The row's own gap is the between-groups
+   distance at 8, and the pair takes half of it. */
+.pager-jump {
+  display: flex;
+  margin-inline-end: calc(var(--space-sm) * -1 + var(--space-xs));
+}
 
-   The floor is the control's own step, which makes a single digit square. A
-   two-digit page is legitimately wider, and stays put. */
-.pager-page {
-  min-inline-size: max(var(--control-md), var(--control-floor));
+/* THE BOX IS SIZED BY ITS `size`, WHICH THE RENDER SETS FROM THE PAGE COUNT.
+   A stated width would hold a four-digit list to the same box as a two-digit
+   one. Tabular figures, or the box changes width as the reader pages. */
+.pager-field {
+  inline-size: auto;
+  padding-inline: var(--space-2xs); /* half-step: inside one control */
+  text-align: center;
   font-variant-numeric: tabular-nums;
 }
 
-/* The current page is marked by its fill, and the attribute is what says so
-   to a reader who hears the page rather than seeing it. */
-/* `--option-selected`, WHICH IS THE ONE FOR A PICK IN A RUN. `--row-selected`
-   is a table row's plane and sits on the row ladder with the stripe and the
-   hover. A page is an option, the way a menu option is.
-
-   THE FILL ALONE IS NOT ENOUGH HERE, AND THE NUMBER SAYS SO. A selected table
-   row is a band 1316px wide, so 1.2 against its neighbours is findable. A
-   43px button among four identical ones is not: measured at 1.31, with the
-   same ink and the same weight as every button beside it.
-
-   SO IT TAKES THE BAR THE TAB STRIP ALREADY USES. A run of destinations with
-   one of them current is the same pattern, and the accent bar is what this
-   app already draws for it. Reusing it beats inventing a second mark. */
-.pager-page[aria-current="page"] {
-  position: relative;
-  background: var(--option-selected);
-  color: var(--text);
-}
-
-.pager-page[aria-current="page"]::after {
-  content: "";
-  position: absolute;
-  inset-inline: var(--space-xs);
-  inset-block-end: var(--space-xs);
-  height: 2px; /* half-step: a rule's weight, like a hairline, not a step */
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-}
-
-/* A FILL AND A PAINTED BAR ARE BOTH DISREGARDED IN FORCED COLORS, so the
-   current page would lose both its markers. An outline survives that mode and
-   costs no layout, which is what the tab strip does. */
-@media (forced-colors: active) {
-  .pager-page[aria-current="page"] { outline: 2px solid Highlight; outline-offset: -2px }
+.pager-of {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 /* AN END KEEPS ITS PLACE IN THE TAB ORDER AND STOPS LOOKING LIVE.
@@ -3900,12 +3919,6 @@ th.amount { text-align: end }
    join the icon set states. */
 .pager-back { transform: rotate(90deg) }
 .pager-on { transform: rotate(-90deg) }
-
-/* A gap mark is not a control, so it is not a button and takes no target. */
-.pager-gap {
-  padding-inline: var(--space-2xs);
-  color: var(--text-quiet);
-}
 
 /* ==========================================================================
    Rating
@@ -4514,16 +4527,42 @@ th.amount { text-align: end }
    the shape of what is coming.
    ========================================================================== */
 
+/* IT SITS IN THE MIDDLE OF THE SPACE IT HAS. Their report, 22 September 2026,
+   with a screenshot: "the 'your watchlist is clear' thing should be centered
+   vertically inside the big blank area, not near its top edge."
+
+   Measured at 1536x900 before: the box stood at the top of a scroller far
+   taller than itself, so the words sat under the column headings with the
+   rest of the panel empty below them.
+
+   `flex: 1` TAKES THE LEFTOVER AND `justify-content` CENTRES IN IT. The
+   scroller is the flex column, the table keeps its own height, and this box
+   takes whatever is left. Where the list is long there is no leftover and
+   nothing moves. */
 .empty {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: var(--space-sm);
   padding: var(--space-3xl) var(--space-xl);
   text-align: center;
 }
 
-.empty .icon { width: var(--text-xl); height: var(--text-xl); color: var(--text-quiet) }
+/* THE MARK IS AN ILLUSTRATION, NOT A MARK BESIDE A LABEL. Their report: it
+   "needs to be bigger, and there needs to be more padding below it." 24 to
+   48, which is a step on the space scale, because the type scale stops at 24
+   and a box is not type.
+
+   THE DISTANCE UNDER IT IS 16 PAINTED. The column states 8 and this adds 8,
+   which is the same shape the action below already uses. */
+.empty .icon {
+  width: var(--space-3xl);
+  height: var(--space-3xl);
+  margin-block-end: var(--space-sm);
+  color: var(--text-quiet);
+}
 .empty h3 { font-size: var(--text-md) }
 .empty p { max-width: 44ch; color: var(--text-muted) }
 
