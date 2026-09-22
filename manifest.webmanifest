@@ -21,5 +21,8 @@
       "text": "text",
       "url": "url"
     }
-  }
+  },
+  "related_applications": [
+    { "platform": "play", "id": "app.yeetlist.twa" }
+  ]
 }

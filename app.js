@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-20';
+const VERSION = '260922-21';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -2427,29 +2427,98 @@ function saveText(name, text, type) {
    through this page would need it held in memory first, and the browser
    already knows how to save a file from a link. */
 const APK_REPO = 'exodus941/yeetlist';
+const APK_PACKAGE = 'app.yeetlist.twa';
+
+/* THE PHONE ANSWERS FOR ITSELF. Their question, 22 September 2026: "really, i
+   have to keep it running for 15 minutes? can't you just add Check for
+   Updates in the download menu under APK Installer?"
+
+   THE PAGE CANNOT SEE THE INSTALLED APP'S VERSION BY ITSELF. It loads the
+   live site, so the number it paints is the site's, and the app on the phone
+   may have been built weeks earlier. Comparing that against a release would
+   always say the two agree.
+
+   `getInstalledRelatedApps` IS THE ONE THING THAT ANSWERS IT. Chrome hands
+   back the installed app named in the manifest, with its version, once the
+   two are joined by the assetlinks file this site already serves.
+
+   IT CAN COME BACK WITHOUT A VERSION, and on a desktop it comes back empty,
+   so every caller treats the answer as optional. */
+async function installedApp() {
+  try {
+    const apps = await navigator.getInstalledRelatedApps?.() || [];
+    return apps.find((a) => a.id === APK_PACKAGE) || null;
+  } catch { return null; }
+}
+
+/* THE STAMP IS THE VERSION. YYMMDD-N becomes YYMMDD * 100 + N, which is what
+   the build writes and what the app on the phone compares. One formula, and
+   the Java holds the same one. */
+function codeOf(tag) {
+  const m = /^(\d{6})-(\d{1,2})$/.exec(String(tag || '').trim());
+  if (!m) return 0;
+  return Number(m[1]) * 100 + Number(m[2]);
+}
+
+/* THE NEWEST RELEASE, READ ONCE. One page names the newest build, so a figure
+   typed here could disagree with what the phone installs. */
+async function newestRelease() {
+  const answer = await fetch(`https://api.github.com/repos/${APK_REPO}/releases/latest`, {
+    headers: { Accept: 'application/vnd.github+json' },
+  });
+  if (!answer.ok) throw new Error(`GitHub answered ${answer.status}`);
+  const release = await answer.json();
+
+  /* THE APK, NEVER THE BUNDLE. A release can carry both, and an `.aab` is the
+     Play Store's format and cannot be installed on a phone. The updater on
+     the device makes the same choice, for the same reason. */
+  const apk = (release.assets || []).find((a) => a.name?.endsWith('.apk'));
+  if (!apk?.browser_download_url) throw new Error('that release carries no installer');
+  return { tag: release.tag_name, apk };
+}
 
 async function downloadApk() {
   say('Finding the newest installer…');
   try {
-    const answer = await fetch(`https://api.github.com/repos/${APK_REPO}/releases/latest`, {
-      headers: { Accept: 'application/vnd.github+json' },
-    });
-    if (!answer.ok) throw new Error(`GitHub answered ${answer.status}`);
+    const { tag, apk } = await newestRelease();
+    const app = await installedApp();
+    const have = codeOf(app?.version);
+    const newest = codeOf(tag);
 
-    const release = await answer.json();
-    const apk = (release.assets || []).find((a) => a.name?.endsWith('.apk'));
-    if (!apk?.browser_download_url) throw new Error('that release carries no installer');
+    /* NOTHING IS DOWNLOADED WHEN THE PHONE IS ALREADY CURRENT. Handing Android
+       the version it is running reinstalls it and says nothing useful. */
+    if (have && newest && have >= newest) {
+      say(`YeeTlist ${tag} is the newest build, and you already have it.`);
+      return;
+    }
 
     /* A NEW TAB, because a navigation would leave the app. `noopener` is what
        stops the opened page reaching back into this one. */
     window.open(apk.browser_download_url, '_blank', 'noopener');
-    say(`Downloading ${apk.name}. Android asks once before it installs.`);
+    say(have
+      ? `YeeTlist ${tag} is newer than ${app.version}. Android asks once before it installs.`
+      : `Downloading ${apk.name}. Android asks once before it installs.`);
   } catch (error) {
     /* NAME THE CAUSE. Every one of these is something the reader can act on:
        no connection, or a release that has not finished building. */
     say(`The installer could not be found: ${error.message}.`);
   }
 }
+
+/* THE ITEM SAYS WHAT IT DOES HERE. On a desktop it fetches a file to carry to
+   a phone. In the installed app it is the reader asking for the update now,
+   rather than waiting for the app's own check.
+
+   ONE ITEM, NEVER TWO. Two menu entries running one function is two ways to
+   do one thing, and the second one drifts. */
+async function nameApkItem() {
+  const item = $('#getApk');
+  if (!item) return;
+  const installed = await installedApp();
+  if (installed) item.textContent = 'Check for Updates';
+}
+
+nameApkItem();
 
 /* FOUR SCOPES, TWO FILE SHAPES. The notes scope writes the same Markdown
    that syncs to Drive, which is the file their instruction names. It asks

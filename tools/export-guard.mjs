@@ -28,6 +28,9 @@ const at = (name) => readFileSync(new URL(name, import.meta.url), 'utf8');
 const html = at('../index.html');
 const ui = blank(at('../notes-ui.js'));
 const css = at('../styles.css');
+/* THE MANIFEST NAMES THE INSTALLED APP, and without that name the browser
+   cannot tell the page which version is on the phone. */
+const manifest = at('../manifest.webmanifest');
 
 const cases = [];
 const ok = (name, pass, note = '') => cases.push({ name, pass, note });
@@ -261,16 +264,25 @@ const same = (name, a, b) => ok(name, a === b, `${JSON.stringify(a)} against ${J
 {
   const fn = code.slice(code.indexOf('async function downloadApk()'));
   const body = fn.slice(0, fn.indexOf('\n}\n'));
+
+  /* THE READ MOVED OUT OF THE PRESS, so the two are sliced separately. One
+     asks GitHub for the newest release and the other decides what to do with
+     it. Reading only the press reported the release lookup as absent. */
+  const rd = code.slice(code.indexOf('async function newestRelease()'));
+  const read = rd.slice(0, rd.indexOf('\n}\n'));
+  const both = `${read}\n${body}`;
+
   ok('downloadApk was found', body.length > 200, String(body.length));
-  ok('it picks a file ending .apk', /endsWith\('\.apk'\)/.test(body), 'apk');
+  ok('the release lookup was found', read.length > 200, String(read.length));
+  ok('it picks a file ending .apk', /endsWith\('\.apk'\)/.test(both), 'apk');
   /* A PLAY STORE BUNDLE CANNOT BE INSTALLED ON A PHONE. Their instruction,
      22 September 2026: lose the bundles. Every release is cleared of one by
      hand, and picking by extension is what survives one arriving again. */
-  ok('and never mentions the bundle', !/\.aab/.test(body));
+  ok('and never mentions the bundle', !/\.aab/.test(both));
 
   /* THE NEWEST RELEASE NAMES ITSELF, so nothing here holds a version. */
-  ok('it asks for the latest release', /releases\/latest/.test(body));
-  ok('and no version is written in', !/26\d{4}-\d/.test(body), body.slice(0, 80));
+  ok('it asks for the latest release', /releases\/latest/.test(both));
+  ok('and no version is written in', !/26\d{4}-\d/.test(both), both.slice(0, 80));
 
   /* THE SAME REPOSITORY THE UPDATER ON THE DEVICE READS. Two names for one
      source is how a page offers an installer from somewhere else. */
@@ -285,9 +297,52 @@ const same = (name, a, b) => ok(name, a === b, `${JSON.stringify(a)} against ${J
 
   /* AND IT SAYS WHAT HAPPENED, on both outcomes. A fetch that fails silently
      reads as a dead control. */
-  ok('it reports the file it found', /say\(`Downloading \$\{apk\.name\}/.test(body));
+  ok('it reports the file it found', /Downloading \$\{apk\.name\}/.test(body));
   ok('and names the cause when it cannot', /could not be found: \$\{error\.message\}/.test(body));
   ok('it says something before the wait', /say\('Finding the newest installer/.test(body));
+
+  /* -- AND THE PHONE ANSWERS FOR ITSELF ----------------------------------- */
+  /* Their question, 22 September 2026: "really, i have to keep it running for
+     15 minutes? can't you just add Check for Updates in the download menu
+     under APK Installer?"
+
+     THE PAGE CANNOT SEE THE INSTALLED APP'S VERSION BY ITSELF. It loads the
+     live site, so the number it paints is the site's. Comparing that against
+     a release would always say the two agree. */
+  ok('it asks the phone what is installed', /await installedApp\(\)/.test(body));
+  ok('and the answer comes from the browser rather than a guess',
+    /navigator\.getInstalledRelatedApps\?\.\(\)/.test(code));
+  ok('the manifest names the app it asks about',
+    /"related_applications"/.test(manifest) && /"app\.yeetlist\.twa"/.test(manifest));
+  ok('and the code names the same package',
+    /const APK_PACKAGE = 'app\.yeetlist\.twa';/.test(code));
+
+  /* NOTHING IS DOWNLOADED WHEN THE PHONE IS ALREADY CURRENT. Handing Android
+     the version it is running reinstalls it and says nothing useful. */
+  ok('a current phone downloads nothing', /if \(have && newest && have >= newest\) \{/.test(body));
+  ok('and it says so', /is the newest build, and you already have it/.test(body));
+
+  /* AN ABSENT ANSWER IS NOT A REFUSAL. A desktop has no installed app, and a
+     phone can answer without a version, so both fall through to the download
+     rather than reporting the reader is current. */
+  ok('an unknown version still offers the file',
+    /have\s*\n?\s*\? `YeeTlist \$\{tag\} is newer/.test(body));
+
+  /* THE STAMP IS THE VERSION, and the Java on the phone holds the same
+     formula. Two arithmetics for one question disagree the first time either
+     moves. */
+  ok('the page reads the stamp the same way the app does',
+    /return Number\(m\[1\]\) \* 100 \+ Number\(m\[2\]\);/.test(code));
+
+  /* ONE ITEM, NEVER TWO. Two menu entries running one function is two ways to
+     do one thing, and the second one drifts. */
+  {
+    const items = (html.match(/data-get="apk"/g) || []).length;
+    ok('the menu carries one installer item', items === 1, String(items));
+    ok('and it renames itself in the installed app',
+      /item\.textContent = 'Check for Updates';/.test(code));
+    ok('and the rename runs', /\nnameApkItem\(\);/.test(code));
+  }
 }
 
 /* -- 9. The row menu cannot outlive its row ------------------------------- */

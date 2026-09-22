@@ -210,7 +210,11 @@
                  fetches the Android installer, which is a different kind of
                  thing entirely. -->
             <li class="multi-sep" aria-hidden="true"></li>
-            <li class="multi-option" role="menuitem" tabindex="-1" data-get="apk">Download APK Installer</li>
+            <!-- IT NAMES ITSELF FOR WHERE IT IS. On a desktop this fetches a
+                 file to carry to a phone. In the installed app it is the
+                 reader asking for the update now, so the script renames it
+                 to "Check for Updates" once it sees the app is installed. -->
+            <li class="multi-option" role="menuitem" tabindex="-1" data-get="apk" id="getApk">Download APK Installer</li>
           </ul>
         </span>
       </span>
