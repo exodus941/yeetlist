@@ -2012,11 +2012,15 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
  * in the material style. So the segmented pill group is gone, and with it
  * the dropdown the old strip turned into below 460.
  *
- * IT SPANS THE VIEWPORT, not the page's text column. The band reads as part
- * of the chrome under the app bar rather than as a control sitting in the
- * page. It reads the shell's own padding rather than naming a number: that
- * value is 24 by default and 16 below 1120, so a typed one would be right
- * at a single width.
+ * IT IS THE WIDTH OF THE PAGE'S OWN COLUMN. Their correction, 22 September
+ * 2026, with a screenshot: "tab bar width needs to be the same as that of the
+ * other elements, instead of extending past them."
+ *
+ * IT USED TO SPAN THE VIEWPORT, on the reading that a band under an app bar
+ * is chrome rather than a control in the page. Measured at 1536: the band ran
+ * 1536px against 1316 for the card, the paste field and the table, so it was
+ * the one thing on screen that reached past the margins. Their eye is the
+ * instrument for that, and the two edges now agree.
  *
  * THE RULE UNDER IT SPANS THE WHOLE ROW, and the chosen tab's indicator
  * sits on top of it. That is what says the band and the list are one thing.
@@ -2024,8 +2028,6 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
 .tabs {
   display: flex;
   flex-wrap: nowrap;
-  width: calc(100% + var(--page-inline) * 2);
-  margin-inline: calc(var(--page-inline) * -1);
   /* THE BAND OWNS THE DISTANCE TO THE HEADING UNDER IT. Their instruction,
      22 September 2026, with a screenshot of "11 Bookmarks": 8px more above
      the title. 24 to 32, which is the next step rather than a number off the

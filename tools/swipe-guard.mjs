@@ -514,6 +514,29 @@ ok('dissolve is told which', /dissolve\([^)]*, kind\)/.test(code));
 ok('the arrows ask showTab directly',
   /\$\('\.tabs'\)\.addEventListener\('keydown'[\s\S]{0,420}showTab\(order\[/.test(code));
 
+/* -- 6b. The band is the page column's width ------------------------------ */
+/* Their correction, 22 September 2026, with a screenshot: "tab bar width needs
+   to be the same as that of the other elements, instead of extending past
+   them."
+
+   IT USED TO SPAN THE VIEWPORT, on the reading that a band under an app bar is
+   chrome rather than a control in the page. Measured at 1536: the band ran
+   1536px against 1316 for the card, the paste field and the table, so it was
+   the one thing on screen reaching past the margins. */
+{
+  const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+  const rule = /\n\.tabs \{([\s\S]*?)\n\}/.exec(css);
+  ok('the band rule was found', Boolean(rule));
+  const body = rule ? rule[1] : '';
+  /* A NEGATIVE INLINE MARGIN IS THE SHAPE THAT REACHED PAST THE MARGINS, and
+     a width over 100% is the other half of it. */
+  ok('it pulls past no margin', !/margin-inline:.*-/.test(body), body.replace(/\s+/g, ' ').slice(0, 80));
+  ok('and states no width of its own', !/\bwidth:/.test(body));
+  /* THE BLOCK-END MARGIN STAYS. It is the distance to the heading under it,
+     which they set separately. */
+  ok('the distance under it is untouched', /margin-block-end: var\(--space-2xl\)/.test(body));
+}
+
 /* -- 7. The focus ring belongs to the keyboard ----------------------------- */
 /* Their report: "there's a weird white rectangle showing up around the
    selected tab." showTab moved focus on every switch, and the shared ring is
