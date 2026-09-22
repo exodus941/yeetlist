@@ -17,6 +17,7 @@
  * IT EVALUATES THE REAL FUNCTIONS, sliced out of app.js by name, so a
  * rewrite fails this rather than leaving a copy agreeing with itself.
  */
+import { readFileSync } from 'node:fs';
 import { build } from './slice-app.mjs';
 
 const app = build(['PAGE_SIZE', 'pageKey', 'lastPage', 'pageRun'], {
@@ -134,6 +135,53 @@ for (const [at, last] of [[1, 1], [2, 3], [3, 5], [1, 16], [8, 16], [16, 16], [2
   ok(`no page vanishes between two offered at ${at} of ${last}`,
     all.every((n, i) => n === null || i === 0 || all[i - 1] === null
       || n - all[i - 1] === 1), all.join(' '));
+}
+
+/* -- The pager sits on the foot of the screen until the list runs out ----- */
+/* Their ask, 22 September 2026: "can i have the paginator locked at the bottom
+   of the pane? and when it scrolls to the absolute bottom of the list, it
+   slides up, revealing the footer?"
+
+   `position: sticky` WITH A BOTTOM INSET IS BOTH HALVES. A sticky box is
+   pinned while its own place in the flow is off the bottom of the screen, and
+   it lets go the moment that place arrives. Its place is directly above the
+   footer, so the end of the list is exactly when it rises. */
+{
+  const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+  const rule = /\n\.pager \{([\s\S]*?)\n\}/.exec(css);
+  ok('the pager rule was found', Boolean(rule));
+  const body = rule ? rule[1] : '';
+
+  ok('it is pinned to the foot', /position: sticky/.test(body) && /inset-block-end: 0/.test(body));
+  /* AN OPAQUE FILL IS NOT OPTIONAL. A sticky box stays in flow, so the rows
+     scroll UNDER it. The two bands at the top of the list take the same fill
+     for the same reason. */
+  ok('and it paints an opaque fill', /background: var\(--bg\)/.test(body));
+  /* PINNED, THE BOX'S BOTTOM EDGE IS THE VIEWPORT EDGE. Without the page's
+     own padding the buttons sit on the glass. */
+  ok('and carries the page padding', /padding-block: var\(--space-md\) var\(--page-pad\)/.test(body));
+  ok('and the rows end at a hairline rather than being cut',
+    /\.pager::before \{[\s\S]{0,200}background: var\(--line-subtle\)/.test(css));
+
+  /* AND IT GOES BACK INTO FLOW WHERE THE APP LOCKS. There the list is its own
+     scroller and the pager sits in a column that never scrolls.
+
+     THE OVERRIDE HAS TO COME AFTER THE BASE RULE. A media query adds no
+     specificity, so the later of two `.pager` rules wins. Written with the
+     other two sticky boxes it lost: measured at 1536x900, the pager read
+     `sticky` with the page's own padding on its foot while the app was
+     locked. */
+  const lock = css.lastIndexOf('@media (min-width: 1121px) and (min-height: 700px)');
+  const base = css.indexOf('\n.pager {');
+  ok('the locked override is there',
+    /@media \(min-width: 1121px\)[\s\S]{0,400}\.pager \{\s*\n\s*position: static;/.test(css));
+  ok('and it comes after the base rule', lock > base, `${lock} against ${base}`);
+  ok('it gives the padding back', /\.pager \{\s*\n\s*position: static;\s*\n\s*padding-block: 0;/.test(css));
+  ok('and the hairline with it', /\.pager::before \{ content: none \}/.test(css));
+  /* BOTH BRANCHES OF THE LOCK, or a tall narrow window keeps a pinned pager
+     inside a column that cannot scroll. */
+  ok('both lock branches are named',
+    /@media \(min-width: 1121px\) and \(min-height: 700px\),\s*\n\s*\(max-width: 1120px\) and \(min-width: 700px\) and \(min-height: 950px\) \{\s*\n\s*\.pager \{/.test(css));
 }
 
 /* -- Verdict ------------------------------------------------------------- */

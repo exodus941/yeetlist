@@ -3753,13 +3753,67 @@ th.amount { text-align: end }
    TWO CHILDREN, SO THERE IS ONE GAP TO SPREAD THE SLACK ACROSS. The warning
    about this mechanism is about a row of three, where the slack opens a hole
    inside a group. */
+/* THE PAGER SITS ON THE FOOT OF THE SCREEN UNTIL THE LIST RUNS OUT. Their
+   ask, 22 September 2026: "can i have the paginator locked at the bottom of
+   the pane? and when it scrolls to the absolute bottom of the list, it slides
+   up, revealing the footer?"
+
+   `position: sticky` WITH A BOTTOM INSET IS BOTH HALVES. A sticky box is
+   pinned while its own place in the flow is off the bottom of the screen, and
+   it lets go the moment that place arrives. Its place is directly above the
+   footer, so reaching the end of the list is exactly when it rises and the
+   footer comes up under it. No script, and it moves with the finger rather
+   than to a duration nobody chose.
+
+   AN OPAQUE FILL IS NOT OPTIONAL. A sticky box stays in flow, so the rows
+   scroll UNDER it. The two bands at the top of this list take the same fill
+   for the same reason.
+
+   THE PADDING IS THE PAGE'S OWN. Pinned, the box's bottom edge IS the
+   viewport edge, so without it the buttons sit on the glass. */
 .pager {
+  position: sticky;
+  inset-block-end: 0;
+  z-index: var(--layer-sticky);
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-sm) var(--space-xl);
   margin-block-start: var(--space-xl);
+  padding-block: var(--space-md) var(--page-pad);
+  background: var(--bg);
+}
+
+/* AND THE ROWS END AT IT RATHER THAN BEING CUT BY IT. A hairline says the
+   list stops here, the way the filter band's own border says it starts. */
+.pager::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  height: 1px;
+  background: var(--line-subtle);
+}
+
+/* AND IT GOES BACK INTO FLOW WHERE THE APP LOCKS. There the list is its own
+   scroller and the pager sits under it in a column that never scrolls, so
+   there is nothing for it to stick to.
+
+   THE CONDITION IS REPEATED HERE RATHER THAN WRITTEN WITH THE OTHER TWO
+   STICKY BOXES, because a media query adds no specificity and this file
+   states `.pager` further down. Written up there, the base rule came later
+   and won: measured at 1536x900, the pager read `sticky` with the page's own
+   padding on its foot while the app was locked. */
+@media (min-width: 1121px) and (min-height: 700px),
+       (max-width: 1120px) and (min-width: 700px) and (min-height: 950px) {
+  .pager {
+    position: static;
+    padding-block: 0;
+    background: none;
+  }
+
+  .pager::before { content: none }
 }
 
 .pager-count {
