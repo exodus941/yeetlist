@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-18';
+const VERSION = '260922-19';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -1873,6 +1873,16 @@ const playlistOf = (url) => {
   } catch { return null; }
 };
 
+/* WHICH LIST A LINK BELONGS TO. One writer, read by the add and by the share
+   target, so the two can never disagree about where a link lands.
+
+   A YOUTUBE ADDRESS WITH NO VIDEO IN IT IS A BOOKMARK. A channel page is the
+   commonest one, and /api/video can only answer about a video. */
+function listFor(url) {
+  if (playlistOf(url)) return 'youtube';
+  return videoIdOf(url) ? 'youtube' : 'links';
+}
+
 async function addVideo() {
   const typed = $('#videoUrl').value.trim();
 
@@ -1903,9 +1913,7 @@ async function addVideo() {
       return;
     }
 
-    /* A YOUTUBE ADDRESS WITH NO VIDEO IN IT IS A BOOKMARK. A channel page is
-       the commonest one, and /api/video can only answer about a video. */
-    const target = videoIdOf(url) ? 'youtube' : 'links';
+    const target = listFor(url);
     await (target === 'youtube' ? addYouTube(url) : addLink(url));
     $('#videoUrl').value = '';
 
@@ -5232,6 +5240,19 @@ function takeShare() {
      history entry is replaced rather than pushed, so Back still leaves the
      app rather than returning to a share that has already been taken. */
   history.replaceState(null, '', location.pathname);
+
+  /* A SHARE NEVER LANDS ON NOTES. Their instruction, 22 September 2026: a
+     shared link has to reach the Bookmarks tab or the YouTube tab, "because
+     they are both capable of sorting links into their respective categories".
+
+     addVideo() writes a NOTE when the reader is on that tab, which is correct
+     for the button and wrong for a share. The reader did not choose the tab
+     the share arrived on, and a link inside a note cannot be sorted, rated,
+     tagged or opened from the list.
+
+     So leave that tab first, for the list the link belongs to. The add then
+     takes the same route as a paste and lands in the same place. */
+  if (tab === 'notes') showTab(listFor(withScheme(link)), { animate: false });
 
   $('#videoUrl').value = link;
   addVideo();

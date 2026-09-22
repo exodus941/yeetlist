@@ -32,7 +32,10 @@ export const appSource = () => readText('app.js');
    returns to zero takes the whole body, nested functions included. */
 export function slice(src, name) {
   const lines = src.split('\n');
-  const head = new RegExp(`^(?:function|const|let) ${name}\\b`);
+  /* `async` IS PART OF THE DECLARATION, AND LEAVING IT OUT READS AS AN ABSENT
+     FUNCTION. Measured 22 September 2026: `async function addVideo` threw
+     "no declaration for addVideo" while the declaration was on line 1876. */
+  const head = new RegExp(`^(?:async )?(?:function|const|let) ${name}\\b`);
   const start = lines.findIndex((l) => head.test(l));
   if (start < 0) throw new Error(`slice-app: no declaration for ${name}`);
 
