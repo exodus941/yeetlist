@@ -344,10 +344,22 @@ const ok = (name, pass, note = '') => cases.push({ name, pass, note });
    link google drive button slowly pulse red, 5 seconds going red, 5 seconds
    going back to grey and so on." */
 {
-  ok('the pulse runs ten seconds', /animation: link-pulse 10s var\(--ease\) infinite;/.test(css));
-  /* HALF EACH WAY. The keyframes name the midpoint, so the two halves are one
-     run rather than two animations meeting. */
-  ok('and turns at the midpoint', /@keyframes link-pulse \{\s*\n\s*50% \{/.test(css));
+  /* TWENTY SECONDS, TEN EACH WAY. The keyframes name the midpoint, so the
+     whole run is twice the figure they gave. */
+  ok('the pulse runs twenty seconds', /animation: link-pulse 20s infinite;/.test(css));
+  ok('and turns at the midpoint', /@keyframes link-pulse \{[\s\S]{0,140}\n  50% \{/.test(css));
+
+  /* A LOGARITHM IS FAST THEN SLOW, so its inverse is slow then fast: the
+     button holds near grey and swings through red. Their instruction,
+     22 September 2026: inverse logarithmic rather than linear.
+
+     TWO HALVES, TWO CURVES, ON THE KEYFRAMES. A value on the shorthand
+     applies to each half alike, so the fall would start fast and end fast. */
+  ok('the rise eases in', /0% \{ animation-timing-function: cubic-bezier\(\.7, 0, \.84, 0\) \}/.test(css));
+  ok('and the fall eases out',
+    /50% \{[\s\S]{0,200}animation-timing-function: cubic-bezier\(\.16, 1, \.3, 1\);/.test(css));
+  ok('and the shorthand states no curve of its own',
+    !/animation: link-pulse [^;]*cubic-bezier/.test(css) && !/animation: link-pulse [^;]*var\(--ease/.test(css));
   /* IT ENDS ON THE PRIMARY BUTTON'S OWN COLOURS, never a red invented for
      this. Measured on the painted frames: 14.43:1 at rest and 4.63 at the
      peak, so every frame clears the 4.5 bar. */
