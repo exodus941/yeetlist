@@ -4652,13 +4652,12 @@ dialog .stack > .eyebrow, .ask-card .stack > .eyebrow { margin-bottom: 0 }
 
 @media (prefers-reduced-motion: no-preference) {
   #driveConnect[data-linked="no"] {
-    /* TWENTY SECONDS, TEN EACH WAY. Their instruction, 22 September 2026:
-       stretch each half from five seconds to ten. The keyframes name the
-       midpoint, so the whole run is twice the figure they gave.
+    /* FIFTEEN SECONDS A CYCLE, SO 7.5 EACH WAY. Their decision, 22 September
+       2026, after seeing both: "20 is too long, 10 is too short."
 
-       NO CURVE HERE. The keyframes carry one each, and a value on the
+       NO CURVE HERE. The keyframes state one each, and a value on the
        shorthand would apply to both halves alike. */
-    animation: link-pulse 20s infinite;
+    animation: link-pulse 15s infinite;
   }
 
   /* A PRESS OR A FOCUS RING IS THE READER'S OWN ANSWER, so the pulse gets out

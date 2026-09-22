@@ -346,7 +346,7 @@ const ok = (name, pass, note = '') => cases.push({ name, pass, note });
 {
   /* TWENTY SECONDS, TEN EACH WAY. The keyframes name the midpoint, so the
      whole run is twice the figure they gave. */
-  ok('the pulse runs twenty seconds', /animation: link-pulse 20s infinite;/.test(css));
+  ok("the pulse runs fifteen seconds a cycle", /animation: link-pulse 15s infinite;/.test(css));
   ok('and turns at the midpoint', /@keyframes link-pulse \{[\s\S]{0,140}\n  50% \{/.test(css));
 
   /* A LOGARITHM IS FAST THEN SLOW, so its inverse is slow then fast: the
