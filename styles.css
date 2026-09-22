@@ -1720,7 +1720,31 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
 
 /* THE ROW OWNS THE DISTANCE, NOT ITS CHILD. Left on the message, the wrapper
    met the add row at 0.00px and the 12px was written one level too deep. */
-.status-row .hint { flex: 1; min-width: 0; margin: 0 }
+/* AND THE WORDS ARE WHITE. Their instruction, 22 September 2026: "the text
+   itself should be white, so that it's readable at smaller sizes. the grey
+   looks fancy but offers little in the way of visibility."
+
+   Measured on the card at 12px: the muted grey reads 6.85:1 and the page's
+   own text reads 14.43. */
+.status-row .hint { flex: 1; min-width: 0; margin: 0; color: var(--text) }
+
+/* THE MARK SAYS WHICH KIND OF MESSAGE THIS IS, and its SHAPE says it as well
+   as its colour. Three tones: a fault, a limit, and a fact.
+
+   IT SITS ON THE MESSAGE'S FIRST LINE. A mark beside a label lives between
+   the cap line and the baseline, which is the same lift the dismiss control
+   beside it takes. */
+.status-mark {
+  flex: 0 0 auto;
+  align-self: baseline;
+  width: var(--mark);
+  height: var(--mark);
+  transform: translateY(calc((100% - var(--cap-ratio) * 1em) / 2));
+}
+
+.status-row[data-tone="error"] .status-mark { color: var(--danger) }
+.status-row[data-tone="warn"] .status-mark { color: var(--warn) }
+.status-row[data-tone="info"] .status-mark { color: var(--text) }
 
 /* AN ICON-ONLY CONTROL IS SQUARE, AND IT IS DRAWN AT THE MARK SIZE. The touch
    floor is a REACH, not a size: written as a height it would put a 44px box

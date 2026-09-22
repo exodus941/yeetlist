@@ -41,6 +41,11 @@ node tools/share-guard.mjs
 # nagging, and nagging is the one failure a first-run prompt has.
 node tools/ask-guard.mjs
 
+# The message under the paste field says which kind it is. Three tones, and
+# each one is a shape as well as a colour: colour alone would leave a reader
+# who cannot separate red from orange with one mark and three meanings.
+node tools/status-guard.mjs
+
 # The runtime sits beside the count, so it is short. Three units from the
 # largest that is not zero, which answers the no-seconds-in-days rule.
 node tools/runtime-guard.mjs

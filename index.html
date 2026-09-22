@@ -66,6 +66,12 @@
   <symbol id="i-search-x" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" vector-effect="non-scaling-stroke"/><path d="M21 21l-4.34-4.34" vector-effect="non-scaling-stroke"/><path d="M13.5 8.5l-5 5" vector-effect="non-scaling-stroke"/><path d="M8.5 8.5l5 5" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z" vector-effect="non-scaling-stroke"/><path d="M12 9v4" vector-effect="non-scaling-stroke"/><path d="M12 17h.01" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" vector-effect="non-scaling-stroke"/><path d="M6 6l12 12" vector-effect="non-scaling-stroke"/></symbol>
+  <!-- THREE TONES, THREE SHAPES. A triangle warns of a fault, a circled mark
+       warns of a limit, and a circled i states a fact. Colour alone would
+       leave a reader who cannot separate red from orange with one mark and
+       three meanings. -->
+  <symbol id="i-warn" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" vector-effect="non-scaling-stroke"/><path d="M12 8v5" vector-effect="non-scaling-stroke"/><path d="M12 16h.01" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" vector-effect="non-scaling-stroke"/><path d="M12 11v5" vector-effect="non-scaling-stroke"/><path d="M12 8h.01" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-sort" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5" vector-effect="non-scaling-stroke"/><path d="m7 9 5-5 5 5" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-sort-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-sort-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" vector-effect="non-scaling-stroke"/></symbol>
@@ -373,6 +379,15 @@
     <div class="status-line">
       <div class="status-clip">
         <div class="status-row">
+          <!-- THE MARK SAYS WHICH KIND OF MESSAGE THIS IS. Their instruction,
+               22 September 2026: an alert icon on each one, red for an error,
+               orange for a bad alert, white for the rest.
+
+               IT IS IN THE MARKUP AND ITS SHAPE IS SWAPPED, so there is
+               nothing to build on each message. `aria-hidden`, because the
+               words beside it already say what happened and the live region
+               would otherwise announce a shape. -->
+          <svg class="icon status-mark" aria-hidden="true"><use id="statusMarkUse" href="#i-info"/></svg>
           <p id="addStatus" class="hint" role="status"></p>
           <!-- THE CLIPPER ABOVE ALREADY FADES THIS. A fade of its own is a
                second writer for one visual, and it outlived the fold by

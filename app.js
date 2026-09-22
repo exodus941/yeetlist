@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-24';
+const VERSION = '260922-25';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -1791,7 +1791,17 @@ let statusClear = 0;
    THE DURATION IS READ, NEVER TYPED. Under reduced motion the stylesheet may
    answer with a shorter one, and a hard-coded wait would hold an empty box
    open for a quarter of a second with nothing moving. */
-function say(text, markup = false) {
+/* THREE TONES, AND EACH ONE IS A SHAPE AS WELL AS A COLOUR. Their
+   instruction, 22 September 2026: "each have an associated alert icon (the
+   error icons should be red, bad alerts should be orange, and the other ones
+   should be white), while the text itself should be white."
+
+   A triangle warns of a fault. A circled mark warns of a limit. A circled i
+   states a fact. Colour alone would leave a reader who cannot separate red
+   from orange with one mark and three meanings. */
+const STATUS_MARK = { error: '#i-alert', warn: '#i-warn', info: '#i-info' };
+
+function say(text, { markup = false, tone = 'info' } = {}) {
   const line = $('#addStatus');
   const box = line.closest('.status-line');
 
@@ -1800,6 +1810,11 @@ function say(text, markup = false) {
 
   if (text) {
     if (markup) line.innerHTML = text; else line.textContent = text;
+    /* THE ROW CARRIES THE TONE, so one attribute paints the mark and nothing
+       else has to know which of the three this is. */
+    const row = line.closest('.status-row');
+    row.dataset.tone = STATUS_MARK[tone] ? tone : 'info';
+    $('#statusMarkUse').setAttribute('href', STATUS_MARK[tone] || STATUS_MARK.info);
     /* The control is hidden rather than absent, so there is nothing to build
        and nothing to wire on each message. */
     $('#addStatusDismiss').hidden = false;
@@ -1927,7 +1942,7 @@ async function addVideo() {
        one here. */
     if (target === tab) dissolve(); else showTab(target);
   } catch (error) {
-    say(error.message || 'Could not add that link.');
+    say(error.message || 'Could not add that link.', { tone: 'error' });
   } finally {
     $('#addBtn').disabled = false;
   }
@@ -2006,12 +2021,12 @@ async function addYouTube(url) {
   videos.push({ ...data, kind: 'youtube', addedAt: new Date().toISOString(), tags: [] });
   tombstones = tombstones.filter((t) => t.id !== data.id);
   save();
-  if (data.pending) { say('Added. The details arrive when a connection does.'); return; }
+  if (data.pending) { say('Added. The details arrive when a connection does.', { tone: 'warn' }); return; }
   /* The only message that is not plain text: it names an environment
      variable, so the name is set in the code face. */
   say(data.limited
     ? 'Added. Set <code>YOUTUBE_API_KEY</code> in Vercel to fetch duration and upload date.'
-    : 'Added to your watchlist.', data.limited);
+    : 'Added to your watchlist.', { markup: data.limited, tone: data.limited ? 'warn' : 'info' });
 }
 
 /* A BOOKMARK'S ID IS ITS ADDRESS. Videos are keyed by the YouTube id, and
@@ -2070,7 +2085,8 @@ async function addLink(url) {
   videos.push({ id, kind: 'link', title: name, url, addedAt: new Date().toISOString(), tags: [], ...(waiting ? { pending: true } : {}) });
   tombstones = tombstones.filter((t) => t.id !== id);
   save();
-  say(waiting ? `Bookmarked ${name}. The title arrives when a connection does.` : `Bookmarked ${name}.`);
+  say(waiting ? `Bookmarked ${name}. The title arrives when a connection does.` : `Bookmarked ${name}.`,
+    { tone: waiting ? 'warn' : 'info' });
 }
 
 /* THE COUNT IS THE KEY. Their instruction, 19 September 2026: deleting five
@@ -2505,7 +2521,7 @@ async function downloadApk() {
   } catch (error) {
     /* NAME THE CAUSE. Every one of these is something the reader can act on:
        no connection, or a release that has not finished building. */
-    say(`The installer could not be found: ${error.message}.`);
+    say(`The installer could not be found: ${error.message}.`, { tone: 'error' });
   }
 }
 
@@ -3466,7 +3482,7 @@ async function driveConnect({ interactive = true } = {}) {
   } catch (error) {
     if (interactive) {
       driveStatus('error', 'Not connected');
-      say(error.message);
+      say(error.message, { tone: 'error' });
       renderDrive();
       return;
     }
@@ -3596,7 +3612,7 @@ async function drivePull({ announce = false } = {}) {
     }
   } catch (error) {
     driveStatus('error', 'Sync failed');
-    say(error.message);
+    say(error.message, { tone: 'error' });
   }
 }
 
@@ -3696,7 +3712,7 @@ async function drivePush() {
     driveStatus('ok', 'Synced to Drive');
   } catch (error) {
     driveStatus('error', 'Sync failed');
-    say(error.message);
+    say(error.message, { tone: 'error' });
   } finally {
     pushing = false;
   }
@@ -5333,7 +5349,7 @@ renderDriveAvailability();
    watchlist LIVES, which is locally and correctly. The message reports what
    just failed. */
 if (arrivedWith === 'error') {
-  say(describeLinkFailure(arriving.get('reason') || ''));
+  say(describeLinkFailure(arriving.get('reason') || ''), { tone: 'error' });
 }
 
 /* A remembered connection resumes without a prompt. It fails quietly when
@@ -5389,7 +5405,7 @@ if (DRIVE.connected()) {
    wire for anybody who does not ask for it.
    ========================================================================== */
 if (/(?:^|[?&])perf(?:&|=|$)/.test(location.search)) {
-  import('./perf.js').catch((error) => say('Profiler failed: ' + error.message));
+  import('./perf.js').catch((error) => say('Profiler failed: ' + error.message, { tone: 'error' }));
 }
 
 /* ==========================================================================
