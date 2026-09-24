@@ -209,6 +209,15 @@ const call = async ({ cookie, google } = {}) => {
   ok('the report does not time out', /say\(describeLoss\(latest, earlier\), \{ tone: 'warn', sticky: true \}\)/.test(app));
   ok('and a sticky line sets no timer', /if \(!sticky\) statusTimer = setTimeout/.test(app));
   ok('closing it answers it', /if \(lossOnScreen\) DRIVE\.markLossesSeen\(\);/.test(app));
+  /* AN EDIT MADE OFFLINE REACHES DRIVE WHEN THE PHONE COMES BACK. It did
+     not: the failed push was forgotten, and the online handler only read. */
+  ok('a failed push is still owed',
+    /\} catch \(error\) \{\s*\n(?:\s*\/\*[\s\S]*?\*\/\s*\n)?\s*drivePendingPush = true;\s*\n\s*syncFailed\(error\);/.test(app));
+  ok('coming back online reads, then sends what is owed',
+    /await drivePull\(\);\s*\n\s*if \(drivePendingPush\) \{ drivePendingPush = false; await drivePush\(\); \}/.test(app)
+    && /addEventListener\('online', reconnected\);/.test(app));
+  ok('and a token that lapsed offline is fetched again first',
+    /if \(!DRIVE\.live\(\)\) \{ await driveConnect\(\{ interactive: false \}\); return; \}/.test(app));
   ok('and so does linking again', /linkedAt: Date\.now\(\) \}\);\s*\n\s*DRIVE\.markLossesSeen\(\);/.test(app));
 }
 

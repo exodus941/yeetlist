@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260924-2';
+const VERSION = '260924-3';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -3908,7 +3908,7 @@ function watchDrive() {
 }
 
 document.addEventListener('visibilitychange', watchDrive);
-addEventListener('online', driveCheck);
+addEventListener('online', reconnected);
 
 async function pushSlot(slot) {
   const id = DRIVE.fileId(slot);
@@ -3927,10 +3927,25 @@ async function drivePush() {
     for (const slot of SLOTS) await pushSlot(slot);
     driveStatus('ok', 'Synced to Drive');
   } catch (error) {
+    /* A PUSH THAT FAILED IS STILL OWED. Measured 24 September 2026: an edit
+       made offline failed here and nothing sent it again when the phone came
+       back online, so Drive stayed behind until the next edit. */
+    drivePendingPush = true;
     syncFailed(error);
   } finally {
     pushing = false;
   }
+}
+
+/* BACK ONLINE: READ FIRST, THEN SEND WHAT IS OWED. Reading first merges what
+   other devices wrote while this one was away, including their deletions,
+   so the push that follows cannot overwrite them. A token that lapsed while
+   offline is fetched again, which does both in the same order. */
+async function reconnected() {
+  if (!DRIVE.connected()) return;
+  if (!DRIVE.live()) { await driveConnect({ interactive: false }); return; }
+  await drivePull();
+  if (drivePendingPush) { drivePendingPush = false; await drivePush(); }
 }
 
 
