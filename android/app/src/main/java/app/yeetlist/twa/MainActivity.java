@@ -385,7 +385,85 @@ public class MainActivity extends Activity {
         @Override
         public void onPageFinished(WebView view, String url) {
             CookieManager.getInstance().flush();
+            /* The site arrived, so the next failure starts from a short wait. */
+            if (isSite(Uri.parse(url))) retries = 0;
         }
+
+        /* THE FIRST LAUNCH WITH NO CONNECTION HAS NOTHING SAVED TO SHOW.
+           Every later launch opens from the copy the page keeps. Only the
+           window's own page load reaches here: a failed image or request
+           inside a page that did load is the page's business. */
+        @Override
+        public void onReceivedError(WebView view, WebResourceRequest request,
+                                    android.webkit.WebResourceError error) {
+            if (!request.isForMainFrame()) return;
+            showOffline(request.getUrl().toString());
+        }
+    }
+
+    /* A PLAIN SCREEN INSTEAD OF ANDROID'S ERROR PAGE, and it loads the app by
+       itself the moment the phone is online. Android's own page shows a code
+       and an address and waits for the app to be reopened. */
+    private String waitingFor;
+    private int retries = 0;
+    private android.net.ConnectivityManager.NetworkCallback netWatch;
+
+    private void showOffline(String url) {
+        waitingFor = url;
+        onSite = false;
+        String html = "<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'>"
+            + "<body style='margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;"
+            + "background:#0f0f0f;color:#f2f2f2;font:16px/1.5 system-ui,sans-serif;text-align:center'>"
+            + "<div style='padding:24px;max-width:320px'>"
+            + "<p style='font-size:20px;font-weight:650;margin:0 0 8px'>No connection</p>"
+            + "<p style='margin:0;color:#a8a8a8'>YeeTlist needs the internet the first time it opens. "
+            + "It will load by itself as soon as the phone is online.</p></div>";
+        web.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
+        watchForNetwork();
+    }
+
+    private void watchForNetwork() {
+        if (netWatch != null) return;
+        android.net.ConnectivityManager cm = getSystemService(android.net.ConnectivityManager.class);
+        if (cm == null) return;
+        /* ONLY A NETWORK ANDROID HAS CONFIRMED REACHES THE INTERNET. Wifi with
+           a sign-in page in front of it is "available" and reaches nothing.
+
+           AND EACH FAILED RETRY WAITS LONGER, from 2 seconds up to 30. With a
+           working connection and the site itself down, a retry on every
+           network change would reload in a tight loop. */
+        final long wait = Math.min(30000L, 2000L << Math.min(4, retries));
+        netWatch = new android.net.ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onCapabilitiesChanged(android.net.Network network,
+                                              android.net.NetworkCapabilities caps) {
+                if (!caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)) return;
+                runOnUiThread(() -> {
+                    if (netWatch == null) return;
+                    stopWatchingNetwork();
+                    retries += 1;
+                    web.postDelayed(() -> {
+                        String url = waitingFor != null ? waitingFor : siteUrl;
+                        waitingFor = null;
+                        web.loadUrl(url);
+                    }, wait);
+                });
+            }
+        };
+        try { cm.registerDefaultNetworkCallback(netWatch); } catch (Exception e) { netWatch = null; }
+    }
+
+    private void stopWatchingNetwork() {
+        if (netWatch == null) return;
+        android.net.ConnectivityManager cm = getSystemService(android.net.ConnectivityManager.class);
+        try { if (cm != null) cm.unregisterNetworkCallback(netWatch); } catch (Exception ignored) { }
+        netWatch = null;
+    }
+
+    @Override
+    protected void onDestroy() {
+        stopWatchingNetwork();
+        super.onDestroy();
     }
 
     private final class Chrome extends WebChromeClient {

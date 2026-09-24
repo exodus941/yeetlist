@@ -136,6 +136,16 @@ const pageCode = blank(app) + blank(drive);
      it, so back would leave the app from any page. */
   ok('back works on new Android', /registerOnBackInvokedCallback\(/.test(javaCode));
   ok('and walks back through the page first', /if \(web\.canGoBack\(\)\) web\.goBack\(\);/.test(javaCode));
+  /* A FIRST LAUNCH WITH NO CONNECTION HAS NOTHING SAVED TO SHOW. Android's
+     own error page named a code and waited for the app to be reopened. */
+  ok('a failed first load shows a plain screen',
+    /if \(!request\.isForMainFrame\(\)\) return;\s*\n\s*showOffline\(/.test(javaCode));
+  ok('and loads the app once the phone is really online',
+    /NET_CAPABILITY_VALIDATED/.test(javaCode) && /registerDefaultNetworkCallback\(netWatch\)/.test(javaCode));
+  ok('which needs the permission to watch the connection',
+    /android\.permission\.ACCESS_NETWORK_STATE/.test(manifest));
+  ok('and a retry that fails waits longer, so it cannot loop',
+    /Math\.min\(30000L, 2000L << Math\.min\(4, retries\)\)/.test(javaCode) && /retries = 0;/.test(javaCode));
   ok('the Google link is written to disk when the app goes to the back',
     /onPause\(\)[\s\S]{0,200}CookieManager\.getInstance\(\)\.flush\(\);/.test(javaCode));
 }
