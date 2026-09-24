@@ -1788,6 +1788,16 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   .status-x:hover { color: var(--text) }
 }
 
+/* TWO SMALL CONTROLS SIDE BY SIDE MUST NOT SHARE A TAP. Each one's reach is
+   wider than its drawn mark, so the marks sit at least one reach apart,
+   centre to centre. The row's own gap already gives part of that, so the
+   margin is the difference and never adds to it: 10px apart on a mouse,
+   30px on a finger. */
+.status-x + .status-x {
+  margin-inline-start: max(0px, calc(
+    max(var(--target-mouse), var(--control-floor)) - var(--mark) - var(--space-sm)));
+}
+
 .hint a { color: var(--tag-ink) }
 
 /* ==========================================================================

@@ -84,6 +84,7 @@
   <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" vector-effect="non-scaling-stroke"/><path d="m17 8-5-5-5 5" vector-effect="non-scaling-stroke"/><path d="M12 3v12" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-file-pick" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" vector-effect="non-scaling-stroke"/><path d="M14 2v5h6" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" vector-effect="non-scaling-stroke"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="14" height="14" rx="2" vector-effect="non-scaling-stroke"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" vector-effect="non-scaling-stroke"/></symbol>
   <!-- THE NOTES SET. Every mark a note's own toolbar needs, drawn on the same
@@ -181,9 +182,9 @@
            page saved from the web all import. -->
       <span class="sync">
         <button id="importBtn" class="btn btn-sm" type="button"
-                title="Import a file of links" aria-label="Import a file of links">
+                title="Upload a file of links" aria-label="Upload a file of links">
           <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>
-          <span class="btn-label">Import</span>
+          <span class="btn-label">Upload</span>
         </button>
         <!-- A MENU, BECAUSE THERE ARE THREE ANSWERS. One list, the other, or
              both. The chevron says so, and it goes with the label at narrow
@@ -195,14 +196,14 @@
              listbox and option. -->
         <span class="multi export-menu">
           <button id="exportBtn" class="btn btn-sm" type="button"
-                  title="Export bookmarks a browser can import"
-                  aria-label="Export bookmarks a browser can import"
+                  title="Download your lists as a file"
+                  aria-label="Download your lists as a file"
                   aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenu">
             <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
-            <span class="btn-label">Export</span>
+            <span class="btn-label">Download</span>
             <svg class="icon multi-chevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
           </button>
-          <ul class="multi-panel multi-list" id="exportMenu" role="menu" aria-label="Export" tabindex="-1" hidden>
+          <ul class="multi-panel multi-list" id="exportMenu" role="menu" aria-label="Download" tabindex="-1" hidden>
             <!-- EACH ITEM NAMES WHAT IT WRITES. Their instruction,
                  22 September 2026: "YouTube" became "YouTube Links" and
                  "Everything" became "All Links", because a fourth item now
@@ -394,6 +395,13 @@
           <!-- THE CLIPPER ABOVE ALREADY FADES THIS. A fade of its own is a
                second writer for one visual, and it outlived the fold by
                106ms. The marker says so, and the fade guard reads it. -->
+          <!-- COPY, ON AN ERROR ONLY. Their instruction, 25 September 2026: a
+               copy button next to the dismiss X, for error messages alone. An
+               error is the message somebody pastes into a report. -->
+          <button id="addStatusCopy" class="status-x" type="button" hidden
+                  data-fade="parent" aria-label="Copy this message">
+            <svg class="icon" aria-hidden="true"><use id="statusCopyUse" href="#i-copy"/></svg>
+          </button>
           <button id="addStatusDismiss" class="status-x" type="button" hidden
                   data-fade="parent" aria-label="Dismiss this message">
             <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
@@ -433,7 +441,7 @@
        announcing every percent is noise. -->
   <section id="importPanel" class="import-panel" hidden aria-labelledby="importTitle">
     <div class="import-head">
-      <h3 id="importTitle">Importing Bookmarks</h3>
+      <h3 id="importTitle">Uploading Bookmarks</h3>
       <button id="importCancel" class="btn-text" type="button">
         <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
         Cancel
@@ -756,7 +764,7 @@
       your videos and bookmarks and <code>yeetnotes.md</code> for your notes, both readable
       from any device on the same account.
       It asks for the narrowest access Google offers: it can see only the files it created, never the rest of your Drive.
-      Export and import still work without connecting anything.
+      Download and Upload still work without connecting anything.
     </p>
   </footer>
 

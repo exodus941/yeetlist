@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260924-3';
+const VERSION = '260925-1';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -1857,6 +1857,10 @@ function say(text, { markup = false, tone = 'info', sticky = false } = {}) {
     /* The control is hidden rather than absent, so there is nothing to build
        and nothing to wire on each message. */
     $('#addStatusDismiss').hidden = false;
+    /* COPY IS OFFERED ON AN ERROR AND NOTHING ELSE. Their instruction,
+       25 September 2026: "for error messages (only error messages)". */
+    $('#addStatusCopy').hidden = row.dataset.tone !== 'error';
+    $('#statusCopyUse').setAttribute('href', '#i-copy');
     box.dataset.shown = '';
     travelling(parseFloat(getComputedStyle(box).transitionDuration) * 1000 || 0);
     /* A STICKY MESSAGE WAITS FOR THE READER. Only the disconnect report uses
@@ -1877,6 +1881,7 @@ function say(text, { markup = false, tone = 'info', sticky = false } = {}) {
   statusClear = setTimeout(() => {
     line.textContent = '';
     $('#addStatusDismiss').hidden = true;
+    $('#addStatusCopy').hidden = true;
   }, ms);
 }
 
@@ -2632,10 +2637,10 @@ function imported(records = []) {
 
   /* A FILE THAT PARSED AND HELD NOTHING STILL HAS TO SAY SO. An empty
      export is a real file, and silence about it reads as a failure. */
-  if (!said.length) return 'That file held nothing to import.';
+  if (!said.length) return 'That file held nothing to upload.';
   const list = said.length === 1 ? said[0]
     : `${said.slice(0, -1).join(', ')} and ${said[said.length - 1]}`;
-  return `Imported ${list}.`;
+  return `Uploaded ${list}.`;
 }
 
 /* A YeeTlist export merges. ANYTHING ELSE IS SCANNED FOR LINKS, so a file
@@ -3027,7 +3032,7 @@ async function runImport(clips, pages, from = '') {
   const counts = { added: 0, duplicate: total - fresh.length - freshPages.length, failed: 0 };
 
   if (fresh.length + freshPages.length === 0) {
-    toast('warn', 'Nothing new to import.', total === 1
+    toast('warn', 'Nothing new to upload.', total === 1
       ? 'That link was already saved.'
       : `All ${total} links were already saved.`);
     return 0;
@@ -3128,14 +3133,14 @@ function reportImport(counts, total, cancelled, bookmarks, from = '') {
   const what = parts.join(' and ') || 'nothing';
 
   if (cancelled) {
-    return toast('warn', `Import stopped. ${what} added.`,
+    return toast('warn', `Upload stopped. ${what} added.`,
       detail || `${total - counts.added - counts.duplicate} were not checked.`);
   }
   if (counts.added === 0) {
-    return toast('error', 'Nothing was imported.', detail || 'None of the links could be read.');
+    return toast('error', 'Nothing was uploaded.', detail || 'None of the links could be read.');
   }
   toast(counts.failed || importRun.error ? 'warn' : 'ok',
-    `Imported ${what}${from ? ' from ' + from : ''}.`, detail);
+    `Uploaded ${what}${from ? ' from ' + from : ''}.`, detail);
 }
 
 /* ==========================================================================
@@ -5172,6 +5177,33 @@ $('#driveAlertAction').addEventListener('click', () => driveConnect({ interactiv
 
 /* say('') clears the timer as well as the words, so a dismissed message
    cannot be cleared a second time fifteen seconds later. */
+/* THE WORDS ON SCREEN, EXACTLY. The tick shows for a moment so the press
+   visibly did something. The older copy route is the fallback, because a
+   phone's web view can refuse the newer one. */
+$('#addStatusCopy').addEventListener('click', async () => {
+  const text = $('#addStatus').textContent.trim();
+  if (!text) return;
+  let copied = false;
+  try { await navigator.clipboard.writeText(text); copied = true; } catch { /* falls back */ }
+  if (!copied) {
+    const area = Object.assign(document.createElement('textarea'), { value: text });
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.append(area);
+    area.select();
+    try { copied = document.execCommand('copy'); } catch { copied = false; }
+    area.remove();
+  }
+  const button = $('#addStatusCopy');
+  $('#statusCopyUse').setAttribute('href', copied ? '#i-check' : '#i-copy');
+  button.setAttribute('aria-label', copied ? 'Copied' : 'Could not copy this message');
+  setTimeout(() => {
+    $('#statusCopyUse').setAttribute('href', '#i-copy');
+    button.setAttribute('aria-label', 'Copy this message');
+  }, 1500);
+});
+
 $('#addStatusDismiss').addEventListener('click', () => {
   /* Closing the drop report is the answer to it, so it is not shown again. */
   if (lossOnScreen) DRIVE.markLossesSeen();

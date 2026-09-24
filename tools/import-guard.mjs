@@ -177,18 +177,18 @@ ok('an empty file is not a list', !app.listLike(''));
     (v) => (v && v.kind === 'note' ? 'notes' : v && v.kind === 'link' ? 'links' : 'youtube'));
   const rec = (kind) => (kind ? { kind } : {});
 
-  same('a notes file names notes', say([rec('note')]), 'Imported 1 note.');
-  same('and counts them', say([rec('note'), rec('note')]), 'Imported 2 notes.');
-  same('a bookmarks file names bookmarks', say([rec('link')]), 'Imported 1 bookmark.');
-  same('a watchlist names videos', say([rec()]), 'Imported 1 video.');
+  same('a notes file names notes', say([rec('note')]), 'Uploaded 1 note.');
+  same('and counts them', say([rec('note'), rec('note')]), 'Uploaded 2 notes.');
+  same('a bookmarks file names bookmarks', say([rec('link')]), 'Uploaded 1 bookmark.');
+  same('a watchlist names videos', say([rec()]), 'Uploaded 1 video.');
   /* A LIST THE FILE DID NOT HOLD IS LEFT OUT. A zero beside a real figure
      reads as a fault rather than as a fact. */
-  same('two lists read as two', say([rec(), rec('note')]), 'Imported 1 video and 1 note.');
+  same('two lists read as two', say([rec(), rec('note')]), 'Uploaded 1 video and 1 note.');
   same('three read as three', say([rec(), rec('link'), rec('note')]),
-    'Imported 1 video, 1 bookmark and 1 note.');
+    'Uploaded 1 video, 1 bookmark and 1 note.');
   ok('no zero is ever printed', !/0 /.test(say([rec('note')])), say([rec('note')]));
   /* A FILE THAT PARSED AND HELD NOTHING STILL HAS TO SAY SO. */
-  same('an empty export says so', say([]), 'That file held nothing to import.');
+  same('an empty export says so', say([]), 'That file held nothing to upload.');
 
   /* IT READS THE FILE, NEVER THE MERGED LIBRARY. */
   ok('the caller passes what arrived', /toast\('ok', imported\(incoming\.videos\)\)/.test(code));
