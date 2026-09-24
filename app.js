@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260922-30';
+const VERSION = '260924-1';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -1817,6 +1817,10 @@ async function refreshMetadata() {
 const STATUS_LIFE = 15000;
 let statusTimer = 0;
 let statusClear = 0;
+/* True while the line holds the Drive disconnect report, so closing it can
+   mark the report answered. Declared with the timers, because say() reads it
+   and say() can run before the Drive section is reached. */
+let lossOnScreen = false;
 
 /* THE MESSAGE STAYS WHILE IT LEAVES. Their instruction, 19 September 2026:
    the notification fades out while the card's height shrinks back. Clearing
@@ -1836,7 +1840,7 @@ let statusClear = 0;
    from orange with one mark and three meanings. */
 const STATUS_MARK = { error: '#i-alert', warn: '#i-warn', info: '#i-info' };
 
-function say(text, { markup = false, tone = 'info' } = {}) {
+function say(text, { markup = false, tone = 'info', sticky = false } = {}) {
   const line = $('#addStatus');
   const box = line.closest('.status-line');
 
@@ -1855,7 +1859,13 @@ function say(text, { markup = false, tone = 'info' } = {}) {
     $('#addStatusDismiss').hidden = false;
     box.dataset.shown = '';
     travelling(parseFloat(getComputedStyle(box).transitionDuration) * 1000 || 0);
-    statusTimer = setTimeout(() => say(''), STATUS_LIFE);
+    /* A STICKY MESSAGE WAITS FOR THE READER. Only the disconnect report uses
+       it: a drop is noticed later, from the pulsing button, and a line that
+       timed out by then told nobody anything. */
+    if (!sticky) statusTimer = setTimeout(() => say(''), STATUS_LIFE);
+    /* Any new message replaces the drop report. It stays unanswered, so the
+       next load shows it again. showLoss() sets this back after its own say. */
+    lossOnScreen = false;
     return;
   }
 
@@ -3326,6 +3336,75 @@ function describeLinkFailure(reason) {
   return 'Google refused the sign-in' + (reason ? `: ${reason}` : '.');
 }
 
+/* ── WHY THE LINK WENT ──────────────────────────────────────────────────────
+ *
+ * Their report, 24 September 2026: Google sync "keeps getting disconnected
+ * at random intervals". Each cause has a different cure, and the page never
+ * said which one it was. So every drop names its cause and how long the link
+ * lasted, and keeps the earlier ones, because the gaps between drops are
+ * what tell the causes apart.
+ *
+ * PLAIN WORDS FIRST, THE CODE LAST. The code is for whoever fixes it, and it
+ * is the one part that must be quoted exactly.
+ */
+const LOSS_CAUSE = {
+  no_cookie:
+    'This browser no longer held the link. Its saved data for this site was cleared, '
+    + 'or the app opened in a different browser from the one that linked.',
+  unreadable: 'The saved link could not be read after a change on the server.',
+  invalid_rapt:
+    'Google wanted a fresh sign-in. A work or school account’s security settings '
+    + 'do this on a schedule.',
+  invalid_grant:
+    'Google cancelled the link. It was removed from your Google account, replaced '
+    + 'by a newer link, or expired.',
+  invalid_client: 'Google no longer accepts this app’s sign-in settings.',
+  unauthorized_client: 'Google no longer accepts this app’s sign-in settings.',
+};
+
+/* "6 days 2 hours", "16 hours", "40 minutes". Two units at most: a third
+   is noise when the question is which of a few causes it was. */
+function spanWords(ms) {
+  if (!(ms > 0)) return '';
+  const minutes = Math.round(ms / 60000);
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  const mins = minutes % 60;
+  const unit = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  if (days) return hours ? `${unit(days, 'day')} ${unit(hours, 'hour')}` : unit(days, 'day');
+  if (hours) return mins ? `${unit(hours, 'hour')} ${unit(mins, 'minute')}` : unit(hours, 'hour');
+  return unit(Math.max(1, mins), 'minute');
+}
+
+function describeLoss(entry, earlier = []) {
+  if (!entry) return '';
+  const when = new Date(entry.at).toLocaleString(undefined, {
+    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+  });
+  const lasted = entry.linkedAt ? spanWords(entry.at - entry.linkedAt) : '';
+  const cause = LOSS_CAUSE[entry.subtype] || LOSS_CAUSE[entry.reason]
+    || 'The cause was not one this app recognises.';
+  const code = entry.subtype ? `${entry.reason} / ${entry.subtype}` : entry.reason;
+
+  const parts = [
+    `Google Drive disconnected on ${when}${lasted ? `, after ${lasted} linked` : ''}.`,
+    cause,
+  ];
+  const spans = earlier.map((l) => (l.linkedAt ? spanWords(l.at - l.linkedAt) : '')).filter(Boolean);
+  if (spans.length) parts.push(`Earlier drops came after ${spans.join(', ')}.`);
+  parts.push(`Code: ${code}.`);
+  return parts.join(' ');
+}
+
+/* Shown on every load until the reader closes it or links again. */
+function showLoss() {
+  if (DRIVE.connected()) return;
+  const [latest, ...earlier] = DRIVE.losses();
+  if (!latest || latest.seen) return;
+  say(describeLoss(latest, earlier), { tone: 'warn', sticky: true });
+  lossOnScreen = true;
+}
+
 /* LINKED and AUTHORISED are different facts. The link lives in storage and
    survives a reload. The token does not, and has to be fetched again on
    every load, which can fail for a moment without the link being gone. */
@@ -3533,6 +3612,10 @@ async function driveConnect({ interactive = true } = {}) {
 
        The link is kept now. Only an explicit Disconnect forgets it. */
     renderDrive();
+    /* A 401 has already recorded why and dropped the link, so this is where
+       the reader first learns of it. Anything else leaves the link standing
+       and shows nothing. */
+    showLoss();
   }
 }
 
@@ -3627,6 +3710,19 @@ async function pullSlot(slot, made) {
 /* On connect, read whatever is already there and merge it in. A file this app
    wrote on another device is found by name. One the reader made by hand is
    invisible, because drive.file cannot see a file nobody handed it. */
+/* ONE ANSWER FOR A SYNC THAT FAILED. A refused link has already been dropped
+   and its cause recorded, so it gets the drop report rather than a bare
+   sentence that times out. Anything else is a failed sync, and says so. */
+function syncFailed(error) {
+  if (!DRIVE.connected()) {
+    renderDrive();
+    showLoss();
+    return;
+  }
+  driveStatus('error', 'Sync failed');
+  say(error.message, { tone: 'error' });
+}
+
 async function drivePull({ announce = false } = {}) {
   try {
     driveStatus('busy', 'Reading Drive…');
@@ -3646,8 +3742,7 @@ async function drivePull({ announce = false } = {}) {
       }
     }
   } catch (error) {
-    driveStatus('error', 'Sync failed');
-    say(error.message, { tone: 'error' });
+    syncFailed(error);
   }
 }
 
@@ -3711,7 +3806,10 @@ async function driveCheck() {
       if (info?.modifiedTime && info.modifiedTime !== DRIVE.syncedAt(slot)) moved = true;
     }
     if (moved) await drivePull();
-  } catch { /* No connection, or the token lapsed. The next tick asks again. */
+  } catch {
+    /* No connection, or the token lapsed. The next tick asks again. A link
+       the server has just refused is the one case that has to speak. */
+    if (!DRIVE.connected()) { renderDrive(); showLoss(); }
   } finally {
     checking = false;
   }
@@ -3746,8 +3844,7 @@ async function drivePush() {
     for (const slot of SLOTS) await pushSlot(slot);
     driveStatus('ok', 'Synced to Drive');
   } catch (error) {
-    driveStatus('error', 'Sync failed');
-    say(error.message, { tone: 'error' });
+    syncFailed(error);
   } finally {
     pushing = false;
   }
@@ -4977,7 +5074,12 @@ $('#driveAlertAction').addEventListener('click', () => driveConnect({ interactiv
 
 /* say('') clears the timer as well as the words, so a dismissed message
    cannot be cleared a second time fifteen seconds later. */
-$('#addStatusDismiss').addEventListener('click', () => say(''));
+$('#addStatusDismiss').addEventListener('click', () => {
+  /* Closing the drop report is the answer to it, so it is not shown again. */
+  if (lossOnScreen) DRIVE.markLossesSeen();
+  lossOnScreen = false;
+  say('');
+});
 
 /* Escape walks back out one step at a time: the suggestion list, then the
    panel.
@@ -5385,7 +5487,12 @@ try {
 const arriving = new URLSearchParams(location.search);
 const arrivedWith = arriving.get('drive');
 if (arrivedWith) {
-  if (arrivedWith === 'linked') DRIVE.remember({ connected: true });
+  /* A new link answers any drop report, and starts the clock the next one
+     is measured from. */
+  if (arrivedWith === 'linked') {
+    DRIVE.remember({ connected: true, linkedAt: Date.now() });
+    DRIVE.markLossesSeen();
+  }
   /* Clean the address bar before anything else can reload it. Left in place,
      a refresh would replay this every time, and "linked" would keep
      announcing itself. replaceState adds no history entry, so Back still
@@ -5417,6 +5524,9 @@ renderDriveAvailability();
    just failed. */
 if (arrivedWith === 'error') {
   say(describeLinkFailure(arriving.get('reason') || ''), { tone: 'error' });
+} else {
+  /* A drop from an earlier visit that nobody has answered yet. */
+  showLoss();
 }
 
 /* A remembered connection resumes without a prompt. It fails quietly when

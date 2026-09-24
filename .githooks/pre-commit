@@ -45,6 +45,7 @@ node tools/ask-guard.mjs
 # each one is a shape as well as a colour: colour alone would leave a reader
 # who cannot separate red from orange with one mark and three meanings.
 node tools/status-guard.mjs
+node tools/drive-loss-guard.mjs
 
 # The runtime sits beside the count, so it is short. Three units from the
 # largest that is not zero, which answers the no-seconds-in-days rule.

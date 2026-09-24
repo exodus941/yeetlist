@@ -71,6 +71,50 @@ const DRIVE = (() => {
 
   const forget = () => localStorage.removeItem(REMEMBER);
 
+  /* EVERY DROP IS WRITTEN DOWN, WITH HOW LONG THE LINK LASTED.
+     Their report, 24 September 2026: sync "keeps getting disconnected at
+     random intervals". The cause decides the cure, and the interval between
+     drops is what tells the causes apart, so the last few are kept.
+
+     Its own key, so forget() cannot take it with the link it describes. The
+     server's date wins, because it survives a page whose storage was
+     cleared; the page's own is the fallback for a link made before the
+     server started keeping one. */
+  const LOSSES = 'yeetlist-drive-lost';
+  const KEEP_LOSSES = 5;
+
+  const losses = () => {
+    try {
+      const held = JSON.parse(localStorage.getItem(LOSSES) || '[]');
+      return Array.isArray(held) ? held : [];
+    } catch { return []; }
+  };
+
+  function recordLoss(body = {}) {
+    const linkedAt = Number(body.linkedAt) || Number(remembered()?.linkedAt) || null;
+    const entry = {
+      at: Date.now(),
+      reason: String(body.reason || 'unknown'),
+      subtype: String(body.subtype || ''),
+      detail: String(body.error || '').slice(0, 200),
+      linkedAt,
+      seen: false,
+    };
+    try {
+      localStorage.setItem(LOSSES, JSON.stringify([entry, ...losses()].slice(0, KEEP_LOSSES)));
+    } catch { /* a private window */ }
+  }
+
+  /* A DROP STAYS ON SCREEN UNTIL IT IS ANSWERED. A reader notices a lost
+     link later, from the pulsing button, and a message that timed out by then
+     told them nothing. So it is marked only when they close it or link
+     again. */
+  const markLossesSeen = () => {
+    try {
+      localStorage.setItem(LOSSES, JSON.stringify(losses().map((l) => ({ ...l, seen: true }))));
+    } catch { /* a private window */ }
+  };
+
   /* THE TOKEN OUTLIVES THE PAGE, BECAUSE A RELOAD IS NOT A DISCONNECT.
 
      Held in a module variable alone it died on every load, so every load had
@@ -139,7 +183,11 @@ const DRIVE = (() => {
     if (response.status === 401) {
       /* The server says the link is gone for good: revoked, or the grant
          lapsed. Forget it, so the page offers to make a new one rather than
-         showing a connection that cannot come back. */
+         showing a connection that cannot come back.
+
+         BUT WRITE DOWN WHY FIRST. The record lives under its own key, so
+         forget() cannot take it with the link it describes. */
+      recordLoss(body);
       forget();
       throw new Error(body.error || 'Not linked to Google Drive.');
     }
@@ -149,7 +197,9 @@ const DRIVE = (() => {
 
     token = body.access_token;
     tokenExpiry = Date.now() + (Number(body.expires_in) || 3600) * 1000;
-    remember({ connected: true });
+    /* The server knows when the link was made. Kept here as well, because a
+       browser that loses its cookie loses the server copy with it. */
+    remember({ connected: true, ...(body.linkedAt ? { linkedAt: body.linkedAt } : {}) });
     return token;
   }
 
@@ -330,6 +380,7 @@ const DRIVE = (() => {
     fileName: (slot) => slotOf(slot).name,
     settings, serverAuth,
     connected, live, fileId, syncedAt, remember, keep, forget,
+    losses, recordLoss, markLossesSeen,
 
     /* LINKING IS A REDIRECT, NOT A POPUP, WHERE THE SERVER CAN HOLD A
        REFRESH TOKEN. A redirect needs no gesture and cannot be blocked, and

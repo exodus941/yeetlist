@@ -4,7 +4,7 @@
    disconnected, so a revoke that fails must not leave them still linked. */
 
 import {
-  COOKIE, clearCookie, open, readCookie, revoke,
+  COOKIE, clearCookie, openSession, readCookie, revoke,
 } from '../_session.js';
 
 export default async function handler(req, res) {
@@ -20,8 +20,8 @@ export default async function handler(req, res) {
 
   let revoked = false;
   if (sealed) {
-    const refreshToken = open(sealed);
-    if (refreshToken) revoked = await revoke(refreshToken);
+    const held = openSession(sealed);
+    if (held) revoked = await revoke(held.refreshToken);
   }
 
   return res.status(200).json({ disconnected: true, revoked });

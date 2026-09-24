@@ -7,7 +7,7 @@
 
 import {
   COOKIE, COOKIE_MAX_AGE, STATE_COOKIE,
-  clearCookie, exchangeCode, readCookie, seal, serverAuthReady, writeCookie,
+  clearCookie, exchangeCode, readCookie, sealSession, serverAuthReady, writeCookie,
 } from '../_session.js';
 
 /* The reader ends up on the page either way, so a failure has to arrive as
@@ -50,7 +50,7 @@ export default async function handler(req, res) {
       return home(res, { drive: 'error', reason: 'no_refresh_token' });
     }
 
-    writeCookie(req, res, COOKIE, seal(granted.refresh_token), COOKIE_MAX_AGE);
+    writeCookie(req, res, COOKIE, sealSession(granted.refresh_token), COOKIE_MAX_AGE);
     return home(res, { drive: 'linked' });
   } catch (error) {
     return home(res, { drive: 'error', reason: error.message });

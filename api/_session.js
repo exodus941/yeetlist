@@ -85,6 +85,34 @@ export function open(sealed) {
   }
 }
 
+/* THE COOKIE CARRIES WHEN THE LINK WAS MADE, beside the refresh token.
+   Their report, 24 September 2026: sync "keeps getting disconnected at random
+   intervals". How long a link lasted is the fastest way to tell the causes
+   apart. Seven days, sixteen hours and "until the browser was cleared" each
+   point somewhere different, and only the server sees the moment of linking
+   on every device.
+
+   A COOKIE WRITTEN BEFORE THIS HOLDS THE BARE TOKEN. It still opens: a value
+   that is not a JSON object is read as the token, with no date. So no link
+   made before this change is lost by it. */
+export const sealSession = (refreshToken, linkedAt = Date.now()) =>
+  seal(JSON.stringify({ rt: refreshToken, at: linkedAt }));
+
+export function openSession(sealed) {
+  const plain = open(sealed);
+  if (!plain) return null;
+  if (plain.startsWith('{')) {
+    try {
+      const held = JSON.parse(plain);
+      if (held && typeof held.rt === 'string' && held.rt) {
+        return { refreshToken: held.rt, linkedAt: Number(held.at) || null };
+      }
+    } catch { /* falls through to "unreadable" */ }
+    return null;
+  }
+  return { refreshToken: plain, linkedAt: null };
+}
+
 export function readCookie(req, name) {
   const raw = req.headers?.cookie || '';
   for (const part of raw.split(';')) {
@@ -172,6 +200,11 @@ async function post(url, body) {
     const reason = data.error_description || data.error || `HTTP ${response.status}`;
     const error = new Error(String(reason));
     error.code = String(data.error || '');
+    /* THE SUBTYPE IS WHAT TELLS ONE invalid_grant FROM ANOTHER. A work
+       account whose admin forces a fresh sign-in on a timer answers
+       invalid_grant with `invalid_rapt`. A revoked grant answers invalid_grant
+       with nothing. Same code, different cure, so it is kept. */
+    error.subtype = String(data.error_subtype || '');
     error.status = response.status;
     throw error;
   }

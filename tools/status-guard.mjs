@@ -51,7 +51,7 @@ const ok = (name, pass, note = '') => cases.push({ name, pass, note });
 /* -- 2. The tone reaches the mark ---------------------------------------- */
 {
   const fn = sliceOne(code, 'say');
-  ok('the writer takes a tone', /function say\(text, \{ markup = false, tone = 'info' \} = \{\}\)/.test(fn));
+  ok('the writer takes a tone', /function say\(text, \{ markup = false, tone = 'info'(?:, sticky = false)? \} = \{\}\)/.test(fn));
   ok('the row carries it', /row\.dataset\.tone = STATUS_MARK\[tone\] \? tone : 'info';/.test(fn));
   ok('and the mark is swapped', /\$\('#statusMarkUse'\)\.setAttribute\('href', STATUS_MARK\[tone\] \|\| STATUS_MARK\.info\);/.test(fn));
   /* AN UNKNOWN TONE IS NOT A BLANK MARK. A typo in a caller would otherwise
@@ -77,8 +77,13 @@ const ok = (name, pass, note = '') => cases.push({ name, pass, note });
      quoted. A new `say(error.message)` with no tone reads as a fact. */
   const bare = (code.match(/say\(error\.message\);/g) || []).length;
   ok('no failure is left untoned', bare === 0, `${bare} left`);
+  /* TWO LITERAL SITES NOW, NOT THREE. The pull and the push failed with the
+     same two lines, so they share syncFailed() since 24 September 2026. That
+     is one site standing for two callers, and both callers are counted. */
   const toned = (code.match(/say\(error\.message, \{ tone: 'error' \}\);/g) || []).length;
-  ok('and all three carry the tone', toned === 3, String(toned));
+  ok('and both sites carry the tone', toned === 2, String(toned));
+  const shared = (code.match(/syncFailed\(error\);/g) || []).length;
+  ok('and the shared one serves the pull and the push', shared === 2, String(shared));
 }
 
 /* -- 4. A reduced success warns ------------------------------------------ */
