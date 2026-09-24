@@ -32,7 +32,7 @@ function vercelShim(res) {
 
 async function oauth(requestUrl, req, res) {
   const name = requestUrl.pathname.slice('/api/oauth/'.length);
-  if (!/^(start|callback|token|disconnect)$/.test(name)) { res.writeHead(404); return res.end('Not found'); }
+  if (!/^(start|callback|token|disconnect|native)$/.test(name)) { res.writeHead(404); return res.end('Not found'); }
   try {
     const { default: handler } = await import(`./api/oauth/${name}.js`);
     return handler(req, vercelShim(res));

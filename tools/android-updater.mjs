@@ -199,6 +199,15 @@ final class ${CLASS} {
         }
     }
 
+    /* THE MENU'S CHECK FOR UPDATES. The reader asked, so it runs now, with
+       no fifteen-minute wait and a failure said whatever the day holds. The
+       page only calls this after comparing versions itself, so an app that
+       is already current is never sent here. */
+    static void runNow(Application app) {
+        checkedThisProcess = false;
+        run(app);
+    }
+
     static void run(Application app) {
         boolean cold = !checkedThisProcess;
         checkedThisProcess = true;
@@ -402,16 +411,21 @@ export function patchManifest(xml, pkg) {
   return out;
 }
 
+export const packageOf = (gradle) =>
+  (/^\s*applicationId\s+['"]([\w.]+)['"]/m.exec(String(gradle)) || [])[1] || '';
+
 function main(root) {
   const manifestPath = `${root}/app/src/main/AndroidManifest.xml`;
-  const twaPath = `${root}/twa-manifest.json`;
+  const gradlePath = `${root}/app/build.gradle`;
   if (!existsSync(manifestPath)) {
     console.error(`updater: no manifest at ${manifestPath}, so nothing was patched`);
     process.exit(1);
   }
-  const pkg = JSON.parse(readFileSync(twaPath, 'utf8')).packageId;
+  /* THE PACKAGE IS READ FROM THE BUILD FILE, which is the one place it is
+     stated since the app stopped being generated from twa-manifest.json. */
+  const pkg = packageOf(readFileSync(gradlePath, 'utf8'));
   if (!pkg) {
-    console.error('updater: twa-manifest.json states no packageId');
+    console.error('updater: app/build.gradle states no applicationId');
     process.exit(1);
   }
 
@@ -531,6 +545,10 @@ function selfTest() {
   say('and the flag is read before it is set',
     /boolean cold = !checkedThisProcess;\s*\n\s*checkedThisProcess = true;/.test(java));
   say('a cold start skips the throttle', java.includes('if (!cold && since >= 0 && since < GAP)'));
+  /* THE MENU ITEM IS A COLD START ON PURPOSE. The reader pressed it, so the
+     throttle and the daily silence both step aside. */
+  say('the menu check runs as a cold start',
+    /static void runNow\(Application app\) \{\s*\n\s*checkedThisProcess = false;\s*\n\s*run\(app\);/.test(java));
   say('and it says a failure whatever the day holds',
     java.includes('if (cold || said < 0 || said >= FAIL_GAP)'));
   /* THE FLAG IS SET EVEN WHEN THE CHECK GOES ON TO FAIL, or every start in
@@ -565,6 +583,27 @@ function selfTest() {
       `${codeOf(here.name)} against ${here.code}`);
   } catch (e) {
     say('the build version could be read', false, e.message);
+  }
+
+  /* THE PACKAGE COMES FROM THE REAL BUILD FILE, not a sample of one. The
+     patch writes the Java into that package's folder, so a wrong answer
+     compiles the updater into a package nothing loads. */
+  try {
+    const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.url), 'utf8');
+    say('the package is read from the build file', packageOf(gradle) === 'app.yeetlist.twa',
+      packageOf(gradle) || 'nothing');
+    const manifest = readFileSync(new URL('../android/app/src/main/AndroidManifest.xml', import.meta.url), 'utf8');
+    /* AND THE REAL MANIFEST TAKES THE PATCH. A comment spelling the element's
+       tag would be found first and patched instead of the element. */
+    const patched = patchManifest(manifest, 'app.yeetlist.twa');
+    const element = patched.slice(patched.indexOf('<application'));
+    say('the real manifest takes the patch on the element itself',
+      /^<application\s[^>]*android:name="YeetApp"/.test(element), element.slice(0, 80));
+    say('and the permissions land before it',
+      patched.indexOf('REQUEST_INSTALL_PACKAGES') > 0
+      && patched.indexOf('REQUEST_INSTALL_PACKAGES') < patched.indexOf('<application'));
+  } catch (e) {
+    say('the real build files could be read', false, e.message);
   }
 
   let bad = 0;

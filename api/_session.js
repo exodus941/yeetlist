@@ -211,13 +211,15 @@ async function post(url, body) {
   return data;
 }
 
-export function exchangeCode(req, code) {
+/* `redirect` is left out by the website's callback, which is bound to its
+   own address. The Android app's code is bound to none and passes ''. */
+export function exchangeCode(req, code, redirect) {
   const { clientId, clientSecret } = settings();
   return post(TOKEN_URL, {
     code,
     client_id: clientId,
     client_secret: clientSecret,
-    redirect_uri: redirectUri(req),
+    redirect_uri: redirect === undefined ? redirectUri(req) : redirect,
     grant_type: 'authorization_code',
   });
 }

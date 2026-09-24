@@ -387,6 +387,16 @@ const DRIVE = (() => {
        the watchlist is in local storage, so leaving the page costs nothing.
        This never resolves: the navigation ends the page. */
     async connect() {
+      /* INSIDE THE ANDROID APP, ANDROID SIGNS IN. Google refuses to show
+         its sign-in page in an app's web view, so the app asks Android's own
+         account picker and hands back a one-time code, which the page posts
+         to /api/oauth/native. Like the redirect below, this never resolves:
+         the page reloads once the link is made. */
+      const app = window.YeetlistAndroid;
+      if (app?.linkDrive && await serverAuth()) {
+        app.linkDrive((await settings()).clientId || '');
+        return new Promise(() => {});
+      }
       if (await serverAuth()) {
         location.href = '/api/oauth/start';
         return new Promise(() => {});

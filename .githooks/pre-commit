@@ -61,7 +61,7 @@ node tools/hover-guard.mjs
 # .aab that cannot be installed on a phone.
 node tools/export-guard.mjs
 
-# The share patch runs only in CI, where nothing watches it. Its clauses are
-# proven here instead, so a clause that stops firing fails a commit.
-node tools/android-share-fix.mjs --self-test
+# The Android app is its own window now, and it takes shares directly, so the
+# old wrapper's share patch is retired to legacy/twa. Its checks went with it.
+node tools/android-app-guard.mjs
 node tools/android-updater.mjs --self-test

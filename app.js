@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260924-1';
+const VERSION = '260924-2';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -2467,6 +2467,13 @@ const exportName = (scope) => {
    notes file, and a single note in three formats. Each one built its own
    anchor before, and a revoke missed in one of them leaks the whole file. */
 function saveText(name, text, type) {
+  /* INSIDE THE ANDROID APP THE FILE GOES THROUGH A SAVE DIALOG. A web view
+     ignores a download the page made itself, so the link below would do
+     nothing there. yeetNative.saved() reports how it went. */
+  if (window.YeetlistAndroid?.saveFile) {
+    window.YeetlistAndroid.saveFile(name, type, text);
+    return;
+  }
   const link = Object.assign(document.createElement('a'), {
     href: URL.createObjectURL(new Blob([text], { type })),
     download: name,
@@ -2510,6 +2517,12 @@ const APK_PACKAGE = 'app.yeetlist.twa';
    IT CAN COME BACK WITHOUT A VERSION, and on a desktop it comes back empty,
    so every caller treats the answer as optional. */
 async function installedApp() {
+  /* THE ANDROID APP STATES ITS OWN BUILD. The related-apps question only
+     works in a browser, and inside the app there is no browser to ask. */
+  const app = window.YeetlistAndroid;
+  if (app?.version) {
+    try { return { id: APK_PACKAGE, version: String(app.version()) }; } catch { /* falls through */ }
+  }
   try {
     const apps = await navigator.getInstalledRelatedApps?.() || [];
     return apps.find((a) => a.id === APK_PACKAGE) || null;
@@ -2554,6 +2567,15 @@ async function downloadApk() {
        the version it is running reinstalls it and says nothing useful. */
     if (have && newest && have >= newest) {
       say(`YeeTlist ${tag} is the newest build, and you already have it.`);
+      return;
+    }
+
+    /* INSIDE THE APP, THE APP UPDATES ITSELF. It downloads the file and hands
+       it to Android's installer, with its own progress messages, which a web
+       view could not do from a link. */
+    if (window.YeetlistAndroid?.checkForUpdate) {
+      window.YeetlistAndroid.checkForUpdate();
+      say(`YeeTlist ${tag} is newer than ${app?.version || 'this build'}. Downloading it now.`);
       return;
     }
 
@@ -3327,8 +3349,20 @@ function describeLinkFailure(reason) {
     unconfigured:
       'Server-side Google sync is not configured for this deployment. '
       + 'It needs GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and SESSION_SECRET.',
+    /* The Android app's own sign-in. Google's status 10 is the one a missing
+       Android entry in Google Cloud produces, and it is the likeliest one on
+       a first install. */
+    developer_error:
+      'Google does not recognise this app yet. It needs its Android entry added in Google Cloud.',
+    cancelled: 'Sign-in was cancelled, so nothing was linked.',
+    network: 'The phone could not reach Google. Check the connection and try again.',
+    no_code: 'Google finished the sign-in but sent no code, so nothing was linked. Try again.',
+    forbidden: 'The link request did not come from YeeTlist itself, so it was refused.',
   };
   if (known[reason]) return known[reason];
+  if (/^server answered \d+$/.test(reason)) {
+    return `YeeTlist's server could not finish the link (it ${reason.slice(7)}). Try again in a minute.`;
+  }
   if (/redirect_uri_mismatch/i.test(reason)) {
     return 'Google refused the redirect address. Add this exact URL to the OAuth '
       + `client's Authorized redirect URIs: ${location.origin}/api/oauth/callback`;
@@ -3395,6 +3429,55 @@ function describeLoss(entry, earlier = []) {
   parts.push(`Code: ${code}.`);
   return parts.join(' ');
 }
+
+/* ── THE ANDROID APP CALLS BACK HERE ────────────────────────────────────────
+ *
+ * The app shows the page in its own window and does three things for it that
+ * a browser would: Google sign-in, saving a file, and updating itself. Each
+ * answers through this object. Nothing here runs in a browser, because only
+ * the app calls it.
+ */
+window.yeetNative = {
+  /* A ONE-TIME CODE FROM ANDROID'S ACCOUNT PICKER. The server turns it into
+     the lasting link, then the page reloads through the same door the
+     website's sign-in uses, so everything after it is shared. */
+  async linked(code) {
+    driveStatus('busy', 'Connecting…');
+    let answer = {};
+    let ok = false;
+    let status = 0;
+    try {
+      const response = await fetch('/api/oauth/native', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-YeeTlist-App': '1' },
+        body: JSON.stringify({ code }),
+      });
+      status = response.status;
+      answer = await response.json().catch(() => ({}));
+      ok = response.ok && answer.linked === true;
+    } catch (error) {
+      answer = { reason: 'network', error: error.message };
+    }
+    /* A SERVER ANSWER WITH NO REASON IS NAMED BY ITS STATUS, never blamed on
+       Google. Measured on the local server before it knew this door: a 404
+       read "Google refused the sign-in: exchange_failed". */
+    const query = ok
+      ? { drive: 'linked' }
+      : { drive: 'error', reason: answer.reason || answer.error || `server answered ${status}` };
+    location.replace(`/?${new URLSearchParams(query)}`);
+  },
+
+  linkFailed(reason) {
+    renderDrive();
+    say(describeLinkFailure(String(reason || '')), { tone: 'error' });
+  },
+
+  /* A cancelled save dialog is the reader's choice, so it says nothing. */
+  saved(ok, detail) {
+    if (ok) say(detail ? `Saved ${detail}.` : 'Saved.');
+    else if (detail) say(`That file could not be saved: ${detail}.`, { tone: 'error' });
+  },
+};
 
 /* Shown on every load until the reader closes it or links again. */
 function showLoss() {

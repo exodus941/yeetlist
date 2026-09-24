@@ -1,42 +1,28 @@
-/*
- * Copyright 2019 Google Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
+// THE APP DRAWS THE LIVE SITE ITSELF, WITH NO BROWSER APP BETWEEN.
+//
+// Their decision, 24 September 2026: route A. The old build handed the page
+// to whatever browser the phone had, which is why "Running in Brave" showed,
+// and why that browser's stored data held the Google link. This project uses
+// the web engine that ships inside Android instead, so the page, its storage
+// and its cookie belong to the app alone.
 
 buildscript {
-
     repositories {
         google()
-        jcenter()
+        mavenCentral()
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.9.1'
-
-        // NOTE: Do not place your application dependencies here; they belong
-        // in the individual module build.gradle files
     }
 }
 
 allprojects {
     repositories {
         google()
-        jcenter()
+        mavenCentral()
     }
 }
 
-task clean(type: Delete) {
-    delete rootProject.buildDir
+tasks.register('clean', Delete) {
+    delete rootProject.layout.buildDirectory
 }

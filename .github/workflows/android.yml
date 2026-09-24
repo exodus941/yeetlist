@@ -13,14 +13,10 @@ name: Android
 # "when pushing future updates, can you make sure the android build also gets
 # updated with them?"
 #
-# THE CONTENT WAS NEVER THE REASON. A TWA loads the live site, so an edit to
-# app.js or styles.css reaches the phone the moment Vercel deploys, with no
-# new APK. What a new APK carries is the shell: the manifest, the icons, the
-# share target and the version a reader sees in Settings.
-#
-# So the release is named by the build stamp rather than by a tag somebody has
-# to remember. app.js is the one writer for that stamp, and it changes on
-# every commit, so each build gets a tag of its own by construction.
+# THE CONTENT WAS NEVER THE REASON. The app shows the live site in its own
+# window, so an edit to app.js or styles.css reaches the phone the moment
+# Vercel deploys, with no new APK. What a new APK carries is the window
+# itself: sign-in, shares, saving, the updater and the version in Settings.
 on:
   workflow_dispatch:
   push:
@@ -41,111 +37,57 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # NO setup-android ACTION. Its v3 installs the retired `tools` package
-      # and fails on "Failed to find package 'tools'". The runner image
-      # already ships the SDK with its licences accepted.
-      #
-      # BUBBLEWRAP LOOKS FOR `tools/bin/sdkmanager` OR `bin/sdkmanager`, and
-      # the current SDK layout ships neither. The link goes one level above
-      # `bin`, because the launcher resolves `../lib` from its own directory.
-      - name: Point Bubblewrap at the JDK and the SDK
-        run: |
-          ln -sfn "$ANDROID_SDK_ROOT/cmdline-tools/latest" "$ANDROID_SDK_ROOT/tools"
-          mkdir -p ~/.bubblewrap
-          node -e 'require("fs").writeFileSync(process.env.HOME + "/.bubblewrap/config.json", JSON.stringify({ jdkPath: process.env.JAVA_HOME, androidSdkPath: process.env.ANDROID_SDK_ROOT }))'
-          cat ~/.bubblewrap/config.json
-
-      - name: Install Bubblewrap
-        run: npm install -g @bubblewrap/cli
-
       # THE KEY COMES FROM A SECRET AND LEAVES NO TRACE IN THE REPOSITORY.
       # One key for every build, or an upgrade installs as a different app.
       - name: Restore the signing key
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/yeetlist.keystore
 
-      # THE PROJECT IS DERIVED FROM twa-manifest.json ON EVERY BUILD. Without
-      # this, `build` finds the checksum stale and stops on a question no
-      # runner can answer: "There are changes in twa-manifest.json. Would you
-      # like to apply them?" Exit code 130.
-      #
-      # AND THE VERSION IS THE WEB BUILD STAMP. app.js is the one writer, the
-      # header paints it, and the app now names itself with the same string,
-      # so a reader comparing a phone against the site sees one number.
-      #
-      # The code is that stamp as an integer: YYMMDD * 100 + N. A code that
-      # never rises is an app that refuses to install over itself.
-      #
-      # Under `--skipVersionUpgrade` Bubblewrap writes `versionName ""` into
-      # the gradle file whatever the manifest holds, and that empty string is
-      # what Settings shows. Without the flag it takes `--appVersionName` and
-      # raises the code by one, so the code is seeded one below to land on it.
-      - name: Regenerate the project
-        working-directory: android
-        run: |
-          NAME=$(node ../tools/app-version.mjs --name ..)
-          CODE=$(node ../tools/app-version.mjs --code ..)
-          echo "version $NAME, code $CODE"
-          SEED=$((CODE - 1)) node -e 'const f="twa-manifest.json", fs=require("fs"); const m=JSON.parse(fs.readFileSync(f,"utf8")); m.appVersionCode=Number(process.env.SEED); fs.writeFileSync(f, JSON.stringify(m,null,2))'
-          bubblewrap update --appVersionName="$NAME"
-
-      # A SHARE ARRIVING WHILE THE APP IS OPEN IS DROPPED BY ANDROID, not by
-      # the library. The intent carries NEW_TASK, a task already rooted by a
-      # share matches it on action and data, and the task is brought forward
-      # with the intent thrown away. LauncherActivity reads the share in
-      # onCreate, which never runs.
-      #
-      # A trampoline takes the share and re-fires it with CLEAR_TOP, which
-      # recreates the launcher. It is applied here because the whole Android
-      # project is regenerated above, so a committed edit would be lost.
-      - name: Fix the share target
-        run: |
-          node tools/android-share-fix.mjs --self-test
-          node tools/android-share-fix.mjs android
-
       # THE APP CHECKS FOR A NEWER APK ON EVERY LAUNCH and hands it to the
       # system installer. Their instruction: prompt, then install, because
-      # Android has no silent path off Play.
-      #
-      # Applied here for the same reason as the share fix: the project above
-      # is regenerated from twa-manifest.json on every build.
+      # Android has no silent path off Play. The updater's Java is written by
+      # one tool, which proves its own clauses first.
       - name: Add the updater
         run: |
           node tools/android-updater.mjs --self-test
           node tools/android-updater.mjs android
 
-      # --skipPwaValidation because the manifest is already the thing being
-      # wrapped, and the validator fetches a Lighthouse run this build does
-      # not need.
+      # THE VERSION IS THE WEB BUILD STAMP. app.js is the one writer, the
+      # header paints it, and Settings shows the same string. The code is that
+      # stamp as an integer, YYMMDD * 100 + N, and a code that never rises is
+      # an app that refuses to install over itself.
       - name: Build
         working-directory: android
         env:
-          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        run: bubblewrap build --skipPwaValidation
+          YEET_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          NAME=$(node ../tools/app-version.mjs --name ..)
+          CODE=$(node ../tools/app-version.mjs --code ..)
+          echo "version $NAME, code $CODE"
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease bundleRelease \
+            -PyeetVersionName="$NAME" -PyeetVersionCode="$CODE"
 
-      # THE FINGERPRINT IS PRINTED ON EVERY RUN, because the site's
-      # assetlinks.json has to name the key that signed this APK. A mismatch
-      # is silent: the app opens with a browser address bar across the top.
-      - name: Print the signing fingerprint
+      # BOTH FINGERPRINTS ARE PRINTED ON EVERY RUN. Google Cloud's Android
+      # sign-in entry needs the SHA-1, and the site's assetlinks.json names the
+      # SHA-256. A mismatch in either is silent until somebody signs in.
+      - name: Print the signing fingerprints
         run: |
           keytool -list -v -keystore android/yeetlist.keystore -alias yeetlist \
-            -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" | grep -i "SHA256:"
+            -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" | grep -iE "SHA1:|SHA256:"
 
-      # THE RELEASE IS NAMED BY THE STAMP, so a tag nobody typed still names
-      # exactly one build. A push and a tag then land on the same name when
-      # they carry the same commit, and the second one replaces the first
-      # rather than making a duplicate.
-      # THE FILE A READER DOWNLOADS CARRIES ITS OWN NAME AND VERSION.
-      # Bubblewrap writes `app-release-signed.apk`, which says nothing about
-      # which app it is or which build, and two of them in one downloads
-      # folder differ only by a browser's own "(1)".
+      # THE FILE A READER DOWNLOADS CARRIES ITS OWN NAME AND VERSION, and a
+      # release build that came out unsigned stops the run here. An unsigned
+      # APK installs over nothing.
       - name: Name the build
         id: name
         run: |
           STAMP=$(node tools/app-version.mjs --name)
           echo "stamp=$STAMP" >> "$GITHUB_OUTPUT"
-          mv android/app-release-signed.apk "android/yeetlist-$STAMP.apk"
-          mv android/app-release-bundle.aab "android/yeetlist-$STAMP.aab"
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          AAB=android/app/build/outputs/bundle/release/app-release.aab
+          test -f "$APK" || { echo "no signed APK at $APK"; ls -R android/app/build/outputs; exit 1; }
+          mv "$APK" "android/yeetlist-$STAMP.apk"
+          mv "$AAB" "android/yeetlist-$STAMP.aab"
           ls -l android/yeetlist-$STAMP.*
 
       - uses: actions/upload-artifact@v4
@@ -172,9 +114,9 @@ jobs:
             hands it to Android's installer, which asks you to confirm.
             Android has no silent install outside the Play Store.
 
-            The app loads the live site, so everything inside it is already
-            current. A new APK is only needed when the shell changes: the
-            icons, the share target, the updater, the manifest or this
-            version.
+            The app shows the live site in its own window, so everything
+            inside it is already current. A new APK is only needed when the
+            window itself changes: sign-in, shares, saving, the updater or
+            this version.
 
             The `.aab` is the Play Store format.
