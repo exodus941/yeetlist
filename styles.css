@@ -1030,8 +1030,15 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
    The name was on the ROOT, which is the whole document, so the title bar,
    the tab strip and the footer travelled with the list. Naming this box
    lifts it out of the root's own picture, so the two are drawn separately
-   and only this one is told to move. */
-.list-panel { view-transition-name: list-panel }
+   and only this one is told to move.
+
+   ONLY WHILE AN ANIMATION RUNS. A name makes the box one flat layer, so at
+   rest everything inside it, the sticky paste card included, sat under the
+   page's top strip whatever its own layer number said. Their report,
+   26 September 2026: the card's top edge was still cut off. The strip is
+   meant to sit under the card and over the rows, and with the name on at
+   rest it sat over both. */
+:root:is([data-vt-run], [data-ask]) .list-panel { view-transition-name: list-panel }
 
 [data-vt="next"]::view-transition-old(list-panel),
 [data-vt="next"]::view-transition-new(list-panel),

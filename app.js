@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260926-1';
+const VERSION = '260926-2';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -694,8 +694,10 @@ function render() {
    list switch from every other render. */
 function dissolve(after, kind) {
   const root = document.documentElement;
-  const mark = () => { if (kind) root.dataset.vt = kind; };
-  const clear = () => { if (kind) delete root.dataset.vt; };
+  /* `vtRun` names the list panel for the length of the transition and no
+     longer, because a name held at rest flattens the panel's layers. */
+  const mark = () => { root.dataset.vtRun = ''; if (kind) root.dataset.vt = kind; };
+  const clear = () => { delete root.dataset.vtRun; if (kind) delete root.dataset.vt; };
 
   const run = () => { render(); if (after) after(); };
   if (typeof document.startViewTransition !== 'function') return run();
