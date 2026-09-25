@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260925-7';
+const VERSION = '260925-8';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -206,6 +206,10 @@ const LISTS = {
       /* A NOTE CAN BE TAKEN AWAY ON ITS OWN, so it carries a download beside
          its delete. Only this list does: a video or a bookmark is a link,
          and there is no document to write. */
+      /* A PENCIL OPENS THE NOTE. Their instruction, 25 September 2026: an
+         edit button on bookmark and note cards, between the chevron and the
+         delete. A bookmark's pencil renames it; a note's opens its editor. */
+      { key: 'edit' },
       { key: 'get' },
       { key: 'remove' },
     ],
@@ -1109,7 +1113,7 @@ const CELLS = {
     const on = editing === v.id;
     return `<td class="cell-edit">
       <button class="row-edit" data-id="${escape(v.id)}" data-mode="${on ? 'save' : 'edit'}"
-              type="button" aria-label="${on ? 'Save the name' : 'Rename'} ${escape(v.title)}"
+              type="button" aria-label="${on ? 'Save the name' : (isNoteId(v.id) ? 'Edit' : 'Rename')} ${escape(v.title)}"
               >${icon(on ? 'check' : 'pencil')}</button>
     </td>`;
   },
@@ -5124,7 +5128,10 @@ function onTagClick(event) {
   }
 
   const pencil = event.target.closest('.row-edit');
-  if (pencil) return pencil.dataset.mode === 'save' ? saveName() : startEdit(pencil.dataset.id);
+  if (pencil) {
+    if (isNoteId(pencil.dataset.id)) return openNote(pencil.dataset.id);
+    return pencil.dataset.mode === 'save' ? saveName() : startEdit(pencil.dataset.id);
+  }
 
   const fold = event.target.closest('.row-fold');
   if (fold) return toggleCard(fold);

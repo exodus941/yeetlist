@@ -227,6 +227,7 @@
      IT SNAPS THE SAME WAY THE OTHER TWO DO, so it reads 22 and cannot drift
      from the line it stands in for. */
   --lead-sm: round(calc(var(--text-sm) * var(--leading-body)), 2px);
+  --lead-xs: round(calc(var(--text-xs) * var(--leading-body)), 2px);
 
   /* The body face's cap height, as a share of its size. Measured from painted
      ink at 400px, where whole-pixel rounding cannot swamp it. Onest is
@@ -5329,15 +5330,32 @@ dialog menu, .ask-card menu {
   tbody tr {
     position: relative;
     grid-template-columns: max-content minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(0, 0fr) minmax(0, 0fr);
+    grid-template-rows: auto auto minmax(0, 0fr);
     row-gap: 0;
+    /* THE LINES ABOVE THE FOLD KEEP THEIR OWN HEIGHT. Their report,
+       25 September 2026: the card's contents shifted and settled back while
+       it folded. Mid-fold the two flex tracks share less than all the free
+       space, and a grid stretches its auto tracks over whatever is left.
+       Measured before: the channel line dropped 11.5px and the date line 23
+       over the first 90ms. Packed at the start, nothing is stretched. */
+    align-content: start;
     transition: grid-template-rows var(--duration-fold) var(--ease-slide);
   }
-  tbody tr[data-open="true"] { grid-template-rows: auto auto minmax(0, 1fr) minmax(0, 1fr) }
+  tbody tr[data-open="true"] { grid-template-rows: auto auto minmax(0, 1fr) }
+
+  /* ONE FOLDING LINE, NOT TWO. Two flexible tracks always come out the same
+     size, so the date line grew to the tags' 92px and left a hole under the
+     dates. The tags and the rating share the date line's track instead, set
+     below the dates by the dates' own height and one more line gap. */
+  tbody tr:not(:has(.cell-excerpt)) > .cell-tags {
+    grid-row: 3;
+    margin-block-start: calc(var(--space-md) * 2 + var(--lead-xs));
+  }
 
   /* A NOTE KEEPS ITS DATE LINE, because its download sits on it. Only its
      tags fold. */
   tbody tr:has(.cell-excerpt) { grid-template-rows: auto auto auto minmax(0, 0fr) }
+  tbody tr:has(.cell-excerpt) > .cell-tags { grid-row: 4 }
   tbody tr:has(.cell-excerpt)[data-open="true"] { grid-template-rows: auto auto auto minmax(0, 1fr) }
 
   tbody tr > :is(.cell-chan, .cell-dur, .cell-url, .cell-excerpt,
@@ -5485,11 +5503,12 @@ dialog menu, .ask-card menu {
   .cell-rate {
     display: flex;
     grid-column: 2;
-    grid-row: 4;
+    grid-row: 3;
     justify-self: end;
     align-self: start;
     margin-block-start: calc(
-      var(--space-md) + var(--space-sm) + (var(--control-sm) - var(--mark)) / 2
+      var(--space-md) * 2 + var(--lead-xs)
+      + var(--space-sm) + (var(--control-sm) - var(--mark)) / 2
     );
   }
 
@@ -5610,18 +5629,33 @@ dialog menu, .ask-card menu {
   /* EVERY CARD HOLDS A PAIR IN ITS CORNER NOW, the chevron and the cross, so
      the distance applies to every card. A bookmark card adds its pencil to
      their left, one more pair along. */
+  /* HALF THE SPACE IT WAS. Their instruction, 25 September 2026: the marks
+     sat too far apart. It was one mark plus 20px on a mouse and 30px on a
+     finger between them, and each press area was as wide as the pair
+     distance so two never overlapped. The space between the marks is halved
+     and the press areas narrow with it, so they still meet without
+     overlapping: 10px apart on a mouse, 15 on a finger. */
   tbody tr {
-    --row-pair: max(
+    --row-pair: calc(var(--mark) + (max(
       calc(var(--mark) + 20px),
       max(var(--target-mouse), var(--control-floor))
-    );
+    ) - var(--mark)) / 2);
   }
 
   .cell-remove { gap: calc(var(--row-pair) - var(--mark)) }
 
+  /* CHEVRON, PENCIL, CROSS, reading towards the corner. The pencil sits one
+     pair from the cross, and the chevron steps out one more to make room. */
   .cell-edit {
-    inset-inline-end: calc(var(--space-lg) + var(--row-pair) * 2);
+    inset-inline-end: calc(var(--space-lg) + var(--row-pair));
   }
+  tr:has(.cell-edit) .row-fold { margin-inline-end: var(--row-pair) }
+
+  /* THAT STEP LEAVES THE CROSS'S CELL SPANNING THE PENCIL. The cell is only a
+     holder, so it takes no press, and each button in it still does. Measured
+     before: a tap on the pencil's centre landed on the empty cell. */
+  .cell-remove { pointer-events: none }
+  .cell-remove > button { pointer-events: auto }
 
   tbody tr :is(.row-edit, .row-remove, .row-fold)::after {
     inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2))
