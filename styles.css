@@ -2119,6 +2119,47 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   background: var(--accent);
 }
 
+/* A TAB THAT CANNOT HOLD ITS MARK, ITS NAME AND ITS COUNT ON ONE LINE DROPS
+   THE COUNT FIRST, THEN THE MARK. Their call, 25 September 2026, shown three
+   ways: on phones the counts go and the marks stay. The count is still the
+   list's heading, so nothing is lost.
+
+   Measured that day: Bookmarks needs 134.5px with everything, and a 375px
+   phone gives each tab 114.3. At 296 a tab is 88px, which holds the name
+   alone but not the name with its mark. 144 leaves room for a three-digit
+   count, and 108 for the widest name with its mark.
+
+   A QUERY MEASURES INSIDE THE PADDING, so each figure is the tab's width
+   minus its 16px of padding. Written as the whole width, the marks hid at
+   375 and 480 as well.
+
+   AND AT 296 THE NAME ALONE WAS 2PX TOO WIDE, before any mark existed. The
+   row there borrows 4px of padding on each side rather than spilling.
+
+   The tab is its own container, so the answer follows the tab's width rather
+   than the window's. Its width comes from the row, so the containment costs
+   nothing. */
+.tab { container-type: inline-size }
+@container (max-width: 128px) {
+  .tab .tab-count { display: none }
+}
+@container (max-width: 92px) {
+  .tab .icon { display: none }
+}
+@container (max-width: 76px) {
+  .tab .tab-inner { margin-inline: calc(var(--space-xs) * -1) }
+}
+
+/* THE MARK, THE NAME AND THE COUNT ARE ONE ROW ON ONE BASELINE, so the mark
+   can sit between the name’s cap line and baseline. The row is its own box,
+   centred in the tab, so it never wraps onto a second line. */
+.tab-inner {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
 .tab-count {
   color: var(--text-quiet);
   font-family: var(--font-mono);

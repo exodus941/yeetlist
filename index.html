@@ -90,6 +90,11 @@
        drawing they supplied on 25 September 2026. It is filled, not stroked,
        so each shape states its own paint. -->
   <symbol id="i-brand" viewBox="0 0 512 512"><path style="fill:currentColor;stroke:none" d="M184.67,54.56 A213.7 213.7 0 1 1 54.56,184.67 L94.81,198.92 A171 171 0 1 0 198.92,94.81 Z"/><path style="fill:currentColor;stroke:none" d="M86,118 a32,32 0 1,0 64,0 a32,32 0 1,0 -64,0 Z"/><path style="fill:currentColor;stroke:none" d="M213.5,161.2 L213.5,352.2 L342.3,256.7 Z"/></symbol>
+  <!-- THE TAB MARKS, in the set's own style: one stroke, round joins, no
+       fill. The YouTube mark is the rounded screen and its play triangle,
+       drawn as an outline like every other mark here. -->
+  <symbol id="i-youtube" viewBox="0 0 24 24"><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17" vector-effect="non-scaling-stroke"/><path d="m10 15 5-3-5-3z" vector-effect="non-scaling-stroke"/></symbol>
+  <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="14" height="14" rx="2" vector-effect="non-scaling-stroke"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" vector-effect="non-scaling-stroke"/></symbol>
@@ -301,18 +306,27 @@
   <div class="tabs" role="tablist" aria-label="Which list">
     <button class="tab" id="tab-youtube" type="button" role="tab" data-tab="youtube"
             aria-selected="true" aria-controls="listPanel">
-      <span>YouTube</span>
-      <span class="tab-count" id="tabCountYoutube"></span>
+      <span class="tab-inner">
+        <svg class="icon icon-inline" aria-hidden="true"><use href="#i-youtube"/></svg>
+        <span>YouTube</span>
+        <span class="tab-count" id="tabCountYoutube"></span>
+      </span>
     </button>
     <button class="tab" id="tab-links" type="button" role="tab" data-tab="links"
             aria-selected="false" aria-controls="listPanel" tabindex="-1">
-      <span>Bookmarks</span>
-      <span class="tab-count" id="tabCountLinks"></span>
+      <span class="tab-inner">
+        <svg class="icon icon-inline" aria-hidden="true"><use href="#i-bookmark"/></svg>
+        <span>Bookmarks</span>
+        <span class="tab-count" id="tabCountLinks"></span>
+      </span>
     </button>
     <button class="tab" id="tab-notes" type="button" role="tab" data-tab="notes"
             aria-selected="false" aria-controls="listPanel" tabindex="-1">
-      <span>Notes</span>
-      <span class="tab-count" id="tabCountNotes"></span>
+      <span class="tab-inner">
+        <svg class="icon icon-inline" aria-hidden="true"><use href="#i-note"/></svg>
+        <span>Notes</span>
+        <span class="tab-count" id="tabCountNotes"></span>
+      </span>
     </button>
   </div>
 
