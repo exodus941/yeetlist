@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260925-6';
+const VERSION = '260925-7';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -1215,6 +1215,9 @@ const CELLS = {
   remove: (v) => {
     const on = editing === v.id;
     return `<td class="cell-remove">
+      <button class="row-fold" data-id="${escape(v.id)}" type="button"
+              aria-expanded="${cardOpen(v.id)}"
+              aria-label="Show more about ${escape(v.title)}">${icon('chevron-down')}</button>
       <button class="row-remove" data-id="${escape(v.id)}" data-mode="${on ? 'revert' : 'delete'}"
               type="button"
               aria-label="${on ? `Discard the change to ${escape(v.title)}` : `Remove ${escape(v.title)}`}"
@@ -1223,13 +1226,51 @@ const CELLS = {
   },
 };
 
+/* ── A CARD FOLDS ITS DETAILS AWAY ────────────────────────────────────────
+ *
+ * Their instruction, 25 September 2026: in the card view a chevron left of
+ * the delete button reveals the upload date, the added date, the tags and
+ * the rating, folding out with an animation, and folds them back in. A
+ * master toggle, Expand Cards, keeps every card open. It is remembered once
+ * set, and off by default.
+ *
+ * ONE SET, AND IT HOLDS THE CARDS THAT DIFFER FROM THE DEFAULT. With the
+ * master off that is the open ones, with it on the closed ones, so turning
+ * the master either way gives every card the same state and starts again.
+ *
+ * THE PRESS WRITES THE ROW'S ATTRIBUTE AND NOTHING ELSE. A redraw would put
+ * the card at its end state in one frame, and the fold is the animation.
+ */
+const CARDS_STORE = 'yeetlist-cards-open';
+let cardsOpenAll = (() => { try { return localStorage.getItem(CARDS_STORE) === '1'; } catch { return false; } })();
+const cardsFlipped = new Set();
+const cardOpen = (id) => (cardsOpenAll !== cardsFlipped.has(id)) ? 'true' : 'false';
+
+function toggleCard(button) {
+  const id = button.dataset.id;
+  if (cardsFlipped.has(id)) cardsFlipped.delete(id); else cardsFlipped.add(id);
+  const open = cardOpen(id);
+  button.setAttribute('aria-expanded', open);
+  button.closest('tr')?.setAttribute('data-open', open);
+}
+
+function setCardsOpen(on) {
+  cardsOpenAll = on;
+  cardsFlipped.clear();
+  try { localStorage.setItem(CARDS_STORE, on ? '1' : '0'); } catch { /* a private window */ }
+  for (const tr of document.querySelectorAll('#rows tr[data-id]')) {
+    tr.setAttribute('data-open', String(on));
+    tr.querySelector('.row-fold')?.setAttribute('aria-expanded', String(on));
+  }
+}
+
 const hrefOf = (v) => (listOf(v) === 'links'
   ? (v.url || '#')
   : `https://www.youtube.com/watch?v=${encodeURIComponent(v.id)}`);
 
 const plainUrl = (value = '') => String(value).replace(/^https?:\/\//, '').replace(/\/$/, '');
 
-const row = (v) => `<tr class="${[selected.has(v.id) ? 'row-selected' : '', v.dead ? 'row-dead' : ''].filter(Boolean).join(' ')}" data-id="${escape(v.id)}">
+const row = (v) => `<tr class="${[selected.has(v.id) ? 'row-selected' : '', v.dead ? 'row-dead' : ''].filter(Boolean).join(' ')}" data-id="${escape(v.id)}" data-open="${cardOpen(v.id)}">
   ${LISTS[tab].columns.map((c) => CELLS[c.key](v)).join('')}
 </tr>`;
 
@@ -5040,6 +5081,8 @@ function selectAll(event) {
 }
 
 $('#allCheckBar').addEventListener('change', selectAll);
+$('#cardsOpen').checked = cardsOpenAll;
+$('#cardsOpen').addEventListener('change', (event) => setCardsOpen(event.target.checked));
 $('#head').addEventListener('change', (event) => {
   if (event.target.id === 'allCheck') selectAll(event);
 });
@@ -5082,6 +5125,9 @@ function onTagClick(event) {
 
   const pencil = event.target.closest('.row-edit');
   if (pencil) return pencil.dataset.mode === 'save' ? saveName() : startEdit(pencil.dataset.id);
+
+  const fold = event.target.closest('.row-fold');
+  if (fold) return toggleCard(fold);
 
   /* A bulk panel holds no rows, so this matches nothing there. */
   const button = event.target.closest('.row-remove');

@@ -410,12 +410,14 @@ const same = (name, a, b) => ok(name, a === b, `${JSON.stringify(a)} against ${J
   ok('and at the card’s end edge', /justify-self: end/.test(placed));
   ok('it is centred on that line', /align-self: center/.test(placed));
 
-  /* IT LEFT LINE 1, so the note row is not a pair and must not take the pair
-     spacing. Only the bookmark card holds two marks up there. */
-  ok('only the bookmark card holds a pair', !/:has\(\.cell-get\)\)? \{[\s\S]{0,60}--row-pair/.test(css));
-  ok('the pair rule names the rename cell', /tr:has\(\.cell-edit\) \{\s*--row-pair/.test(css));
-  ok('and the title reserves for one mark on a note',
-    /tr:has\(\.cell-edit\) \.cell-title \{/.test(css) && !/cell-get\) \.cell-title/.test(css));
+  /* IT LEFT LINE 1, so the download is never part of the corner pair.
+     SINCE 25 SEPTEMBER 2026 EVERY CARD HOLDS A PAIR THERE, the fold chevron
+     and the cross, so the pair spacing applies to every card and a bookmark's
+     pencil sits one more pair along. */
+  ok('the download never joins the corner pair', !/:has\(\.cell-get\)\)? \{[\s\S]{0,60}--row-pair/.test(css));
+  ok('every card states the pair spacing', /tbody tr \{\s*--row-pair/.test(css));
+  ok('and a bookmark title clears its pencil as well',
+    /tr:has\(\.cell-edit\) \.cell-title \{[\s\S]{0,160}var\(--row-pair\) \* 2/.test(css) && !/cell-get\) \.cell-title/.test(css));
 }
 
 /* -- 12. The editor folds to two rows ------------------------------------ */

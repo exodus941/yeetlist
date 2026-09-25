@@ -737,6 +737,11 @@ body[data-note-open] { overflow: hidden }
 @media (prefers-reduced-motion: reduce) {
   .multi-chevron { transition-property: none }
 
+  /* A CARD'S FOLD IS TRAVEL, so the height jumps and the details fade in
+     place. The fade stays, because a fade is not motion. */
+  tbody tr { transition-property: none }
+  .row-fold .icon { transition-property: none }
+
   /* THE NAME IS ON THE INDICATOR, NOT ON THE TAB, and this rule named the
      tab. It moved to the `::after` when the bar became the only thing that
      travels, and this line stayed where it was. So the pill glided for a
@@ -4461,7 +4466,8 @@ th.amount { text-align: end }
 
 .row-remove,
 .row-edit,
-.row-get {
+.row-get,
+.row-fold {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4482,8 +4488,17 @@ th.amount { text-align: end }
   .row-remove:hover { color: var(--danger-quiet); background: #2a1414 }
 }
 @media (hover: hover) {
-  .row-edit:hover { color: var(--text); background: var(--row-hover) }
+  .row-edit:hover, .row-fold:hover { color: var(--text); background: var(--row-hover) }
 }
+
+/* THE FOLD BELONGS TO THE CARD VIEW. A table row shows every column, so it
+   has nothing to fold, and the master toggle has nothing to say there. */
+.row-fold, .cards-open { display: none }
+
+/* THE CHEVRON POINTS WHERE THE CARD WILL GO. Down while folded, up while
+   open, turned rather than redrawn. */
+.row-fold .icon { transition: transform var(--duration-fold) var(--ease-slide) }
+.row-fold[aria-expanded="true"] .icon { transform: rotate(180deg) }
 
 /* A DOWNLOAD IS NEITHER DESTRUCTIVE NOR A SAVE, so it takes the neutral
    hover the rename does. Held open it stays lit, because the menu belonging
@@ -5298,11 +5313,60 @@ dialog menu, .ask-card menu {
      taller than its line. Killing that dead box and stating the real gap are
      one change: the reader was seeing 15.5px under the title and 4px under
      everything else, from two mechanisms neither of which said 12. */
+  /* THE FOLD IS ROWS 3 AND 4, and each is a track that goes from nothing to
+     its content. Their instruction, 25 September 2026: a chevron reveals the
+     dates, the tags and the rating, folding out with an animation.
+
+     minmax(0, 0fr) TO minmax(0, 1fr) IS WHAT CAN BE ANIMATED. A track whose
+     height is auto has no number to travel between, and a flex share does.
+     The zero floor is what lets a track reach nothing even while its cells
+     carry a margin.
+
+     SO THE GAP BETWEEN LINES MOVED ONTO THE CELLS. A grid's row gap sits
+     between tracks whatever their size, so two folded tracks still charged
+     24px. Written as each line's top margin, a folded line takes its
+     distance with it. Same 12px as before, and still one writer. */
   tbody tr {
     position: relative;
     grid-template-columns: max-content minmax(0, 1fr);
-    row-gap: var(--space-md);
+    grid-template-rows: auto auto minmax(0, 0fr) minmax(0, 0fr);
+    row-gap: 0;
+    transition: grid-template-rows var(--duration-fold) var(--ease-slide);
   }
+  tbody tr[data-open="true"] { grid-template-rows: auto auto minmax(0, 1fr) minmax(0, 1fr) }
+
+  /* A NOTE KEEPS ITS DATE LINE, because its download sits on it. Only its
+     tags fold. */
+  tbody tr:has(.cell-excerpt) { grid-template-rows: auto auto auto minmax(0, 0fr) }
+  tbody tr:has(.cell-excerpt)[data-open="true"] { grid-template-rows: auto auto auto minmax(0, 1fr) }
+
+  tbody tr > :is(.cell-chan, .cell-dur, .cell-url, .cell-excerpt,
+                 .cell-up, .cell-added, .cell-edited, .cell-get, .cell-tags) {
+    margin-block-start: var(--space-md);
+  }
+
+  /* WHAT FOLDS FADES AS IT GOES, and is gone from a finger and a screen
+     reader once folded. Visibility waits for the fade on the way in, and
+     leads it on the way out. */
+  tbody tr > :is(.cell-up, .cell-added, .cell-tags, .cell-rate) {
+    min-height: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity var(--duration-fold) var(--ease-slide),
+      visibility 0s linear var(--duration-fold);
+  }
+  tbody tr[data-open="true"] > :is(.cell-up, .cell-added, .cell-tags, .cell-rate) {
+    opacity: 1;
+    visibility: visible;
+    transition:
+      opacity var(--duration-fold) var(--ease-slide),
+      visibility 0s linear 0s;
+  }
+
+  /* THE MASTER TOGGLE SHOWS WHERE THERE ARE CARDS. */
+  .cards-open { display: inline-flex }
+  .row-fold { display: inline-flex }
 
   /* THE TITLE'S BOX IS ITS LINE. The floor is a REACH, not a size: written as
      a line-height it became 44px of layout around a 21px line, and the 23px
@@ -5374,7 +5438,8 @@ dialog menu, .ask-card menu {
   .check-hit,
   .row-get,
   .row-remove,
-  .row-edit {
+  .row-edit,
+  .row-fold {
     position: relative;
     min-width: 0;
     min-height: 0;
@@ -5383,7 +5448,8 @@ dialog menu, .ask-card menu {
   .check-hit::after,
   .row-get::after,
   .row-remove::after,
-  .row-edit::after {
+  .row-edit::after,
+  .row-fold::after {
     content: "";
     position: absolute;
     inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2));
@@ -5393,7 +5459,8 @@ dialog menu, .ask-card menu {
      stated width would defeat the aspect ratio. */
   .row-get,
   .row-remove,
-  .row-edit { height: var(--mark) }
+  .row-edit,
+  .row-fold { height: var(--mark) }
 
   /* The channel cell STRETCHES, and that is load-bearing. With
      justify-self:start it shrink-wrapped its own content, so the percentage
@@ -5422,7 +5489,7 @@ dialog menu, .ask-card menu {
     justify-self: end;
     align-self: start;
     margin-block-start: calc(
-      var(--space-sm) + (var(--control-sm) - var(--mark)) / 2
+      var(--space-md) + var(--space-sm) + (var(--control-sm) - var(--mark)) / 2
     );
   }
 
@@ -5540,18 +5607,23 @@ dialog menu, .ask-card menu {
      ONLY THE BOOKMARK CARD HOLDS A PAIR HERE. A note's download shares the
      date line instead, so its delete cross has the corner to itself and
      takes the plain floor. */
-  tr:has(.cell-edit) {
+  /* EVERY CARD HOLDS A PAIR IN ITS CORNER NOW, the chevron and the cross, so
+     the distance applies to every card. A bookmark card adds its pencil to
+     their left, one more pair along. */
+  tbody tr {
     --row-pair: max(
       calc(var(--mark) + 20px),
       max(var(--target-mouse), var(--control-floor))
     );
   }
 
+  .cell-remove { gap: calc(var(--row-pair) - var(--mark)) }
+
   .cell-edit {
-    inset-inline-end: calc(var(--space-lg) + var(--row-pair));
+    inset-inline-end: calc(var(--space-lg) + var(--row-pair) * 2);
   }
 
-  tr:has(.cell-edit) :is(.row-edit, .row-remove)::after {
+  tbody tr :is(.row-edit, .row-remove, .row-fold)::after {
     inset: min(0px, calc((100% - max(var(--target-mouse), var(--control-floor))) / 2))
            min(0px, calc((100% - var(--row-pair)) / 2));
   }
@@ -5559,11 +5631,16 @@ dialog menu, .ask-card menu {
   /* The title shares line 1 with BOTH marks, so it clears two of them. It
      publishes the distance because the field that replaces it has to read it
      back: an absolute inset resolves against the padding box. */
-  tr:has(.cell-edit) .cell-title {
+  tbody tr .cell-title {
     --title-reserve: calc(
       (var(--mark) + var(--row-pair)) / 2 + var(--row-pair) + var(--space-sm)
     );
     padding-inline-end: var(--title-reserve);
+  }
+  tr:has(.cell-edit) .cell-title {
+    --title-reserve: calc(
+      (var(--mark) + var(--row-pair)) / 2 + var(--row-pair) * 2 + var(--space-sm)
+    );
   }
 
   .cell-dur, .cell-added { text-align: end }
