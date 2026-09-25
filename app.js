@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260926-2';
+const VERSION = '260926-3';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -5057,12 +5057,23 @@ function stackSticky() {
      it. The filter panel sits below the sort bar now, so it sticks last. */
   const rows = ['.add-card', '.sort-bar', '.filters'].map((q) => $(q));
 
+  /* THE TAB BAR STICKS FIRST IN THE CARD VIEW. Their instruction,
+     26 September 2026: the tab bar stays visible above the link card. So the
+     chain starts under it, one page gap lower, wherever it is sticky. Where
+     it is not, it adds nothing and the chain starts at the page gap as it
+     always has. */
+  const tabs = $('.tabs');
+  const tabsStick = tabs && getComputedStyle(tabs).position === 'sticky';
+
   /* THE CHAIN STARTS AT THE GAP, NOT AT ZERO. The first row stops short of
      the viewport edge by the page's own top padding, so every offset below it
      carries that distance too. Read off the shell, because that is where the
      value is published and it changes at 952. */
   const shell = $('.shell');
-  let run = parseFloat(getComputedStyle(shell).getPropertyValue('--page-pad')) || 0;
+  const gap = parseFloat(getComputedStyle(shell).getPropertyValue('--page-pad')) || 0;
+  let run = gap;
+  if (tabsStick) run += tabs.getBoundingClientRect().height + gap;
+  document.documentElement.style.setProperty('--stick-card', run + 'px');
   rows.forEach((el, i) => {
     if (i > 0) document.documentElement.style.setProperty('--stick-' + i, run + 'px');
     if (el && el.offsetParent !== null) run += el.getBoundingClientRect().height;
@@ -5071,7 +5082,7 @@ function stackSticky() {
 
 if (typeof ResizeObserver === 'function') {
   const watch = new ResizeObserver(stackSticky);
-  ['.add-card', '.filters', '.sort-bar'].forEach((q) => { const el = $(q); if (el) watch.observe(el); });
+  ['.tabs', '.add-card', '.filters', '.sort-bar'].forEach((q) => { const el = $(q); if (el) watch.observe(el); });
 }
 addEventListener('resize', stackSticky);
 stackSticky();
@@ -5392,6 +5403,51 @@ function markStuck() {
   if (!card || !shell) return;
   const offset = parseFloat(getComputedStyle(card).top) || 0;
   shell.toggleAttribute('data-stuck', card.getBoundingClientRect().top <= offset + 0.5);
+  dockTools();
+}
+
+/* THE HEADER'S BUTTONS RIDE IN THE TAB BAR ONCE IT STICKS. Their question,
+   26 September 2026: can the sync, upload and download buttons sit at the
+   right of the stuck tab bar, with the tabs narrower. The header has
+   scrolled away by then, so its buttons would be out of reach.
+
+   THE ROW IS MOVED, NEVER COPIED. Every listener is bound to the buttons
+   themselves, so they keep working wherever the row is, and one row cannot
+   disagree with itself.
+
+   THE HEADER KEEPS ITS HEIGHT WHILE THE ROW IS AWAY. Losing 44px of button
+   would lift the whole page under the reader, move the bar off its sticking
+   point, and send the row straight back. */
+function dockTools() {
+  const tabs = $('.tabs');
+  const row = $('.sync-row');
+  if (!tabs || !row) return;
+  const stuck = getComputedStyle(tabs).position === 'sticky'
+    && tabs.getBoundingClientRect().top <= (parseFloat(getComputedStyle(tabs).top) || 0) + 0.5
+    && document.scrollingElement.scrollTop > 0;
+  const docked = row.parentElement === tabs;
+  if (stuck === docked) return;
+
+  if (stuck) {
+    /* A marker holds the row's place, so it goes back exactly where it was. */
+    let home = $('.sync-home');
+    if (!home) {
+      home = document.createElement('span');
+      home.className = 'sync-home';
+      home.hidden = true;
+      row.before(home);
+    }
+    const bar = home.parentElement;
+    bar.style.minHeight = `${bar.getBoundingClientRect().height}px`;
+    tabs.append(row);
+    tabs.dataset.tools = '';
+  } else {
+    const home = $('.sync-home');
+    if (!home) return;
+    home.after(row);
+    home.parentElement.style.minHeight = '';
+    delete tabs.dataset.tools;
+  }
 }
 
 addEventListener('scroll', markStuck, { passive: true });

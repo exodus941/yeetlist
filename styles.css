@@ -2911,7 +2911,7 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
 
 /* IT STOPS SHORT OF THE VIEWPORT EDGE, by the same distance the page holds
    at rest. Stuck at 0 the card sat flush against the browser chrome. */
-.add-card { top: var(--page-pad) }
+.add-card { top: var(--stick-card, var(--page-pad)) }
 
 /* THAT GAP HAS TO BE PAINTED, or the list scrolls through it.
 
@@ -3091,6 +3091,8 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   }
 
   .add-card, .sort-bar { position: static }
+  .shell .tabs { position: static }
+  .shell .tabs::before { content: none }
 
   /* THE FILTERS BAND TAKES `relative` RATHER THAN `static`, BECAUSE ITS OWN
      RULE IS PLACED AGAINST THIS BOX. That rule is an absolutely placed
@@ -5290,6 +5292,69 @@ dialog menu, .ask-card menu {
   tbody tr.row-selected > td:first-child::before { content: none }
 
   tbody tr > td { padding: 0; border: 0 }
+
+  /* THE TAB BAR STAYS ON SCREEN IN THE CARD VIEW. Their instruction,
+     26 September 2026. It sticks one page gap from the top, and the paste
+     card sticks one gap under it. stackSticky() writes that offset.
+
+     THE GAP UNDER IT IS PAINTED, or the rows would show through it on their
+     way under the card. A strip in the page colour, one gap deep, hangs
+     under the bar. It costs no layout, and at rest it lies inside the bar's
+     own 32px margin, where nothing is.
+
+     A STRIP, NEVER A SHADOW. A shadow paints and takes no press, so a tap in
+     the gap reached the hidden row behind it. */
+  .tabs {
+    position: sticky;
+    top: var(--page-pad);
+    z-index: calc(var(--layer-sticky) + 4);
+    background: var(--bg);
+  }
+  /* BELOW THE BAR'S OWN BOTTOM LINE, NEVER ON IT. An absolute child is
+     placed against the padding box, so 100% is the INNER edge of the border
+     and the strip painted over the grey line. Their report, 26 September
+     2026: the tab bar lost its baseline. */
+  .tabs::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: calc(100% + 1px);
+    height: var(--page-pad);
+    background: var(--bg);
+  }
+
+  /* THE SEAM UNDER THE STRIP IS FILLED FROM BEHIND. The bar's height is not a
+     whole pixel, so the strip's foot and the card's sticking point round
+     differently from frame to frame, and a 1px line of rows flickered
+     between them. Their report, 26 September 2026. The card paints 2px of
+     page colour above its own edge, under the bar, so the seam is covered
+     wherever the rounding lands and the card's border is untouched. */
+  .add-card { box-shadow: 0 -2px 0 0 var(--bg) }
+
+  /* THE HEADER'S BUTTONS, WHILE THEY RIDE IN THE BAR. The tabs share what
+     is left, and each tab drops its count, then its mark, as it narrows. */
+  .tabs[data-tools] .sync-row {
+    flex: 0 0 auto;
+    align-self: center;
+    margin-inline-start: var(--space-sm);
+  }
+  .tabs[data-tools] .sync-words { display: none }
+
+  /* A TAB TOO NARROW FOR ITS NAME SHOWS ITS MARK ALONE while the buttons
+     share the bar. Measured at 417: the three names need about 270px and
+     the buttons 174, in 385 of room, so the names ran into each other. The
+     name stays for a screen reader. */
+  @container (max-width: 76px) {
+    .tabs[data-tools] .tab .icon { display: inline-block }
+    .tabs[data-tools] .tab .tab-inner > span:not(.tab-count) {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
   tbody tr:last-child td { border: 0 }
 
   /* Three lines, each a left run and a right run.
