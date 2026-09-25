@@ -1,135 +1,108 @@
 # Yeetlist
 
-A personal list of things to come back to, living in your browser and syncing
-to your own Google Drive. Paste a link, tag it, find it later.
-
-Two lists behind a tab each. **YouTube** fetches the title, channel, duration
-and upload date for every video. **Other Bookmarks** takes any other link and
-reads the site's own name off the page.
+A place for the things you want to come back to: videos, links and notes.
+It runs in the browser and as an Android app, and syncs between devices
+through your own Google Drive. Paste a link, tag it, rate it, find it later.
 
 No build step, no framework, no dependencies. Vanilla HTML, CSS and JavaScript
-plus four serverless functions. Deploys to Vercel as-is.
+plus a handful of serverless functions. Deploys to Vercel as-is.
 
 **Live:** https://yeetlist.vercel.app
+**Android:** the newest APK is always on the [releases page](https://github.com/exodus941/yeetlist/releases/latest).
 
 ---
 
-## What it does
+## Three lists
 
-**Add a video by pasting its link.** Title, channel, duration and upload date
-are fetched for you. `youtu.be`, `/shorts`, `/embed`, `/live` and a plain watch
-URL all work.
+Each list sits behind its own tab and keeps its own search, filters, sort,
+selection and page.
 
-**Add anything else from the Other Bookmarks tab.** The page's own
-`og:site_name` becomes the row's name, falling back to its `<title>` and then
-to the hostname, so a site that refuses the request is still bookmarked. The
-name is a snapshot taken once, and the pencil on any row edits it in place.
+**YouTube** takes video links and fetches the title, channel, duration and
+upload date. `youtu.be`, `/shorts`, `/embed`, `/live` and plain watch links
+all work. A playlist link adds every video in it.
 
-Each tab takes the links it is named for and refuses the other's, so nothing
-lands in a list you are not looking at.
+**Bookmarks** takes any other link and reads the site's own name off the
+page, falling back to its title and then to the address. The pencil on a row
+renames it.
 
-**Tag it.** Press the `+` on any row and type. Tags you have used already are
-suggested as you go. Every tag carries an `×` to remove it.
+**Notes** holds text of your own, written and edited in place.
 
-**Find it again.** Search titles, channels, addresses and tags at once, or
-filter by tag from the dropdown. A tag is matched with a `#` prefix, so
-searching `#vfx` finds things tagged `vfx`. It ignores any whose title merely
-contains the word. `Untagged` leads the menu, for whatever is still unsorted.
+A link pasted into the wrong list goes to the list it belongs in, and a link
+shared from another app never becomes a note.
 
-**Sort** by any column the list has, in either direction. Videos sort by name,
-channel, duration, upload date or date added. Bookmarks sort by name, address
-or date added.
+## Finding things again
 
-Each list keeps its own tags, filter, search, selection and sort. Switching
-tabs never carries one list's filter onto the other.
+- **Tags.** Press `+` on any row and type. Tags you have used are suggested.
+  Select several rows and tag them at once.
+- **Ratings.** Up to five stars on any video or bookmark.
+- **Search** covers names, channels, addresses and tags at once. `#tag`
+  matches a tag rather than a word.
+- **Filters** by tag, by rating, or for whatever is still untagged.
+- **Sort** by any column, either way round.
+- **Pages** of 50, with a box to type a page number and jump.
 
-**Import a file.** A Yeetlist export merges in, keeping tags, dates and
-deletions. That works for all three shapes it writes: the `.html` bookmark
-file, the `.md` sync file and a bare `.json`. **Any other file is read for
-links** — a browser's own bookmarks `.html`, a page saved from the web, a
-notes file, a plain list of addresses. Whatever it finds is sorted into the two lists: YouTube videos go
-to the watchlist and every other link becomes a bookmark. A YouTube playlist
-or channel is a link rather than a video, so it lands in Other Bookmarks
-instead of being dropped.
+On a wide screen a list is a table. As the window narrows it gives up the
+least useful detail first, then turns each row into a card.
 
-A video link counts wherever it appears, because the id names one video
-whether it was saved or merely quoted. **A bookmark has to be an entry**, and
-each format says what that means:
+## Upload and Download
+
+**Download** writes a file: the videos, the bookmarks, both, or the notes.
+Links go out as a browser bookmark file, so Chrome, Firefox, Safari and Edge
+can import them as a folder. Notes go out as Markdown. The whole Yeetlist
+record rides along inside, so uploading the file back keeps tags, ratings,
+dates and deletions.
+
+**Upload** takes a Yeetlist file back and merges it. It also reads almost any
+other file for links: a browser's own bookmarks export, a page saved from the
+web, a notes file, a plain list of addresses. Videos go to YouTube, other
+links become bookmarks.
+
+It only takes links that are entries. A link inside a sentence, or in a
+page's navigation, is a citation rather than something you saved:
 
 | In | An entry is | Left out |
 |---|---|---|
-| Markdown, text | a list item, a heading, or a line that is nothing but the link | a link inside a sentence, and anything in an indented block under a list item |
+| Markdown, text | a list item, a heading, or a line that is nothing but the link | a link inside a sentence, and anything indented under a list item |
 | HTML | a link leading its own list item, or filling its own paragraph | a link mid-sentence, and anything in a `nav`, `header` or `footer` |
 
-Images, stylesheets and other assets are never bookmarks. Neither is a
-`javascript:` or `mailto:` address.
-
-That split is what makes an arbitrary file usable. One 46-video Markdown
-export carries 109 other addresses in its video descriptions: Spotify,
-Bandcamp, Facebook, a thumbnail per entry. Every one of those is cited rather
-than saved, and the import takes the 46 videos and none of the 109.
-
-The link's own text is the name you saved it under, so it beats anything a
-fetch could return. A bare link takes the heading above it, if that heading
-has not already named something, and otherwise the hostname. A file of two
-hundred links costs no requests at all for its bookmarks, and one request per
-fifty for its videos. Both are reported with a progress bar and a count.
-
-**Export a file.** `Export` opens a menu: the watchlist, the bookmarks, or
-everything. It writes a browser bookmark file, so Chrome, Firefox, Safari and
-Edge import it as a folder called **Yeetlist**. Exporting everything puts two
-folders inside it, `YouTube Watchlist` and `Other Bookmarks`.
-
-Each link carries its date and its tags as the format's own attributes.
-Yeetlist's whole payload rides in an HTML comment underneath, so importing
-the file back keeps durations, channels and deletions that a bookmark file
-has nowhere to put.
-
-**Sync to Drive.** See below.
+A file of two hundred links costs no requests for its bookmarks and one
+request per fifty for its videos. Progress shows as it goes.
 
 ## Google Drive sync
 
-`Link Google Drive` asks for the `drive.file` scope, which is the narrowest
-Drive scope Google offers. It grants access to files this app created and
-nothing else. Yeetlist cannot list, read or search the rest of your Drive.
+`Link Google Drive` asks for `drive.file`, the narrowest Drive access Google
+offers. Yeetlist can see only the files it created, and never the rest of
+your Drive.
 
-It keeps one file, `yeetlist.md`, and writes to it as you edit. Linking a
-second device finds that same file by name and merges the two lists, so a
-video added on your phone shows up on your laptop.
+It keeps two files: `yeetlist.md` for videos and bookmarks, and
+`yeetnotes.md` for notes. It writes as you edit and checks for changes made
+on your other devices. Linking a second device finds the same files and
+merges, so something added on the phone shows up on the laptop. Deletions
+travel too.
 
-`Sync Now` forces a read-then-write immediately, rather than waiting for the
-next edit. `Disconnect` hands the token back to Google and forgets the link.
+**Offline** everything still works. Changes made without a connection are
+sent once it comes back, after reading what your other devices did first, so
+neither side overwrites the other.
 
-### Two ways to hold the connection
+**If the link drops,** a message says why, how long the link had lasted and
+how long earlier links lasted, and stays until you close it or link again.
+Error messages carry a copy button, for pasting into a report.
 
-Which one runs depends on what the deployment is given, and the app degrades
-rather than breaking when it is given less.
+## The Android app
 
-**With `GOOGLE_CLIENT_ID` alone** the browser asks Google for a token itself.
-That token lasts about an hour, and there is nothing to renew it with. Every
-renewal is a fresh request, which opens a popup, and a browser blocks a popup
-that no click asked for. So it needs one click about once an hour. Yeetlist
-keeps the token across reloads, so a refresh inside that hour is seamless, and
-past it your first click anywhere on the page restores the connection.
+The app shows the live site in its own window, using the web engine built
+into Android. No browser app is involved, and your lists and Google link live
+in the app's own storage.
 
-**Add `GOOGLE_CLIENT_SECRET` and `SESSION_SECRET`** and the server runs the
-authorization code flow instead. Google returns a refresh token, which is
-encrypted and kept in an `HttpOnly` cookie, so no script on the page can read
-it and no database is needed. Renewal is then one silent server-to-server
-request. No popup, no gesture, and the link survives a reload, a deploy and a
-closed tab.
+- **Sign-in** goes through Android's own Google account picker.
+- **Share** a link from any app to add it.
+- **Updates** arrive through the app itself: it checks on launch and offers
+  the newest build. **Check for Updates** in the Download menu asks now.
+- **Offline** it opens from the copy it keeps. The very first launch needs a
+  connection, and waits for one if there is none.
 
-Linking becomes a redirect rather than a popup, for the same reason: a
-redirect cannot be blocked.
-
-### If it stops working after about a week
-
-Check the consent screen's **Publishing status** in the Google Cloud console.
-While it is on **Testing**, Google expires the grant after 7 days, and no
-amount of refresh-token handling survives that. Press **Publish app**.
-
-`drive.file` is a non-sensitive scope, so this does not drag you into the
-security review that the broader Drive scopes require.
+Everything inside the app updates with the website, with no new install. A
+new APK is only needed when the app's own window changes.
 
 ## Running it locally
 
@@ -137,84 +110,63 @@ security review that the broader Drive scopes require.
 npm run dev
 ```
 
-That serves the app and the API on http://localhost:3000. There is nothing to
-install and nothing to compile.
+That serves the app and the API on http://localhost:3000. There is nothing
+to install and nothing to compile.
 
-To use the YouTube and Drive features locally, copy `.env.example` to
-`.env.local` and fill in what you want. Both variables are optional.
-
-```bash
-cp .env.example .env.local
-```
+To use YouTube details and Drive locally, copy `.env.example` to `.env.local`
+and fill in what you want. Every variable is optional.
 
 ## Deploying
 
 Push to a repository and import it into Vercel. There is no build command and
-no output directory to set.
+no output directory to set. Then set the environment variables:
 
-Then, in the Vercel project's environment variables:
-
-| Variable | Optional | What it buys |
-|---|---|---|
-| `YOUTUBE_API_KEY` | yes | Duration and upload date. Without it, oEmbed still gives a title and a channel. |
-| `GOOGLE_CLIENT_ID` | yes | The Drive button. Without it the app hides it and stores everything locally. |
-| `GOOGLE_CLIENT_SECRET` | yes | With the next one, the lasting connection described above. |
-| `SESSION_SECRET` | yes | Encrypts the stored refresh token. Any long random string. |
-
-Generate the session secret rather than inventing one:
+| Variable | What it buys |
+|---|---|
+| `YOUTUBE_API_KEY` | Duration and upload date. Without it a video still gets its title and channel. |
+| `GOOGLE_CLIENT_ID` | The Drive button. Without it everything stays on the device. |
+| `GOOGLE_CLIENT_SECRET` | With the next one, a link that lasts rather than one that needs a click each hour. |
+| `SESSION_SECRET` | Encrypts the stored link. Any long random string. Changing it signs every device out. |
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Changing it signs every reader out, because the stored cookies can no longer
-be opened. That is how you revoke every session at once.
+In the Google Cloud console:
 
-**Three settings that are easy to get wrong**, all in the Google Cloud
-console:
+- Leave `YOUTUBE_API_KEY` **unrestricted by HTTP referrer**. It is used by
+  the server, which sends no referrer.
+- Add your site and `http://localhost:3000` to the web client's
+  **Authorized JavaScript origins**, and both callback addresses to
+  **Authorized redirect URIs**:
+  ```
+  http://localhost:3000/api/oauth/callback
+  https://YOUR-DEPLOYMENT/api/oauth/callback
+  ```
+- Set the consent screen's **Publishing status** to **In production**. While
+  it says Testing, Google ends every link after 7 days.
+- For the Android app, add an **Android** OAuth client in the same project,
+  with the package `app.yeetlist.twa` and the SHA-1 of the signing key. Every
+  Android build prints that SHA-1.
 
-- Leave `YOUTUBE_API_KEY` **unrestricted by HTTP referrer**. It is used
-  server-side, and a server sends no referrer, so a browser-restricted key is
-  refused with `Requests from referer <empty> are blocked`.
-- Add your deployed origin **and** `http://localhost:3000` to the OAuth
-  client's **Authorized JavaScript origins**, or sign-in returns
-  `Error 401: invalid_client`.
-- Add both callback addresses to **Authorized redirect URIs**, which is a
-  different list from the origins. Miss this and Google answers
-  `redirect_uri_mismatch`. The app repeats the exact URL to paste.
-
-```
-http://localhost:3000/api/oauth/callback
-https://YOUR-DEPLOYMENT/api/oauth/callback
-```
+The Android APK is built by GitHub Actions on every push to `main`, signed
+with a key held in the repository's secrets, and published as a release.
 
 ## How it is put together
 
 | File | What it holds |
 |---|---|
-| `index.html` | The whole document, including the inline icon sprite. |
+| `index.html` | The whole document, including the icon set. |
 | `styles.css` | A token layer, then the components. Every number comes from a published scale. |
-| `app.js` | State, rendering, filtering, import, export, toasts. |
-| `drive.js` | The Google token flow and the Drive REST calls. |
-| `api/config.js` | Serves the client ID, and which of the two Drive flows this deployment can run. |
-| `api/video.js` | Metadata for one video. |
-| `api/videos.js` | Metadata for up to 50 videos in one call, at one quota unit. |
-| `api/link.js` | A page's own name, for a bookmark. Streams the head and stops at `</head>`, gives up after 6 seconds, and answers an empty name rather than an error so the hostname can stand in. |
-| `api/oauth/*.js` | Start, callback, token and disconnect for the server-side flow. |
-| `lib/session.mjs` | Cookie sealing and the Google token exchange. One implementation, imported by both servers. |
-| `dev-server.cjs` | The local server. Imports the same OAuth handlers, so the preview cannot disagree with production. |
-
-`api/videos.js` is why importing a large bookmarks file is cheap. The YouTube
-API charges one quota unit whether you ask for one video or fifty, so a
-200-link file costs four requests rather than two hundred.
-
-### The list is a table until it cannot be
-
-Above 1173px every column shows in full. Below that the table gives up one
-thing at a time, in the order you can most afford to lose it: first the
-timestamps, keeping the dates, then the channel column caps and truncates,
-then the title takes whatever is left. Under 953px the columns cannot hold
-their own headings, so each row becomes a card instead.
+| `app.js` | State, rendering, filters, pages, upload, download and messages. |
+| `drive.js` | The Google link and the Drive calls. |
+| `notes.js`, `notes-ui.js` | The notes list and its editor. |
+| `sw.js` | Keeps a copy of the app for offline use. |
+| `api/*.js` | Video details, a page's name, playlists, and the app's settings. |
+| `api/oauth/*.js` | Starting, finishing, renewing and ending a Google link, including the Android app's own door. |
+| `api/_session.js` | Sealing the stored link, and talking to Google. |
+| `android/` | The Android app: one window, plus sign-in, shares, saving and the updater. |
+| `tools/` | The icon makers, the release tidier, and the checks. |
 
 ## Checks
 
@@ -222,25 +174,12 @@ their own headings, so each row becomes a card instead.
 npm run check
 ```
 
-Runs the syntax guard over every source file. It also runs as a pre-commit
-hook.
-
-`layout-tools.js` is a layout measuring instrument, served so it can be loaded
-into the running page from the console:
-
-```js
-const src = await (await fetch('/layout-tools.js')).text()
-new Function(src + '\nwindow.sweep=sweep;window.probe=probe')()
-sweep()
-```
-
-It reports ghosts, covered elements, content spill, off-centre icons,
-misaligned tops and baselines, mismatched heights, edges, gaps, overflow,
-scrollers and undersized touch targets.
+Every commit runs the full set of checks in `.githooks/pre-commit`: syntax,
+layout rules, sync, the Android app's agreement with the page, and the brand
+mark's copies agreeing with its one source.
 
 ## Privacy
 
-Your watchlist is yours. It lives in your browser's local storage and, if you
-link it, in one file in your own Google Drive. There is no account, no
-database and no server storing anything. The serverless functions only ask
-YouTube about a video id and hand back what it says.
+Your lists are yours. They live on your device and, if you link it, in two
+files in your own Google Drive. There is no account, no database and no
+server storing anything. See [privacy.html](privacy.html).

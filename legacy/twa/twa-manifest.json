@@ -1,8 +1,8 @@
 {
   "packageId": "app.yeetlist.twa",
   "host": "yeetlist.vercel.app",
-  "name": "YeeTlist",
-  "launcherName": "YeeTlist",
+  "name": "Yeetlist",
+  "launcherName": "Yeetlist",
   "display": "standalone",
   "themeColor": "#0f0f0f",
   "themeColorDark": "#0f0f0f",
