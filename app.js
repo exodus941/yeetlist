@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260926-5';
+const VERSION = '260926-6';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -5420,21 +5420,25 @@ function markStuck() {
    point, and send the row straight back. */
 let dockLeaving = null;
 
-/* THE TABS' NAMES AND MARKS CHANGE WHILE THEY ARE FADED OUT. Out over the
-   first half of the slide, the swap, then back in over the second, so
-   neither state pops into view. */
+/* THE TABS' NAMES AND MARKS CROSS-FADE. Their report, 26 September 2026:
+   fading out and back in dipped each tab to the page colour between the two
+   states. So a copy of the old contents fades out over the new ones as they
+   fade in, and the tab is never empty. */
 function swapTabs(tabs, on, calm) {
-  if (calm) { tabs.toggleAttribute('data-tools-swap', on); return; }
+  tabs.querySelectorAll('.tab-inner-old').forEach((el) => el.remove());
   const inners = [...tabs.querySelectorAll('.tab-inner')];
-  const half = { duration: 150, easing: 'linear' };
-  Promise.all(inners.map((el) => el.animate([{ opacity: 1 }, { opacity: 0 }], { ...half, fill: 'forwards' }).finished))
-    .then(() => {
-      tabs.toggleAttribute('data-tools-swap', on);
-      inners.forEach((el) => {
-        el.getAnimations().forEach((a) => a.cancel());
-        el.animate([{ opacity: 0 }, { opacity: 1 }], half);
-      });
-    }, () => {});
+  if (calm) { inners.forEach((el) => el.toggleAttribute('data-swap', on)); return; }
+  const run = { duration: 300, easing: 'linear' };
+  inners.forEach((el) => {
+    const old = el.cloneNode(true);
+    old.classList.add('tab-inner-old');
+    old.setAttribute('aria-hidden', 'true');
+    old.style.cssText = `position:absolute;left:50%;top:${el.offsetTop}px;translate:-50% 0;margin:0;pointer-events:none`;
+    el.after(old);
+    el.toggleAttribute('data-swap', on);
+    old.animate([{ opacity: 1 }, { opacity: 0 }], run).finished.then(() => old.remove(), () => old.remove());
+    el.animate([{ opacity: 0 }, { opacity: 1 }], run);
+  });
 }
 
 function dockTools() {
