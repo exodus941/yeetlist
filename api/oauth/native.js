@@ -50,7 +50,7 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: 'Server-side Google sync is not configured.', reason: 'unconfigured' });
   }
   if (req.headers?.['x-yeetlist-app'] !== '1' || !sameSite(req)) {
-    return res.status(403).json({ error: 'Only YeeTlist itself can link this way.', reason: 'forbidden' });
+    return res.status(403).json({ error: 'Only Yeetlist itself can link this way.', reason: 'forbidden' });
   }
 
   const { code } = await readBody(req);

@@ -144,4 +144,4 @@ http.createServer(async (req, res) => {
   if (req.method === 'HEAD') { res.writeHead(200, headers); return res.end(); }
   res.writeHead(200, headers);
   fs.createReadStream(file).pipe(res);
-}).listen(3000, () => console.log('YeeTlist running at http://localhost:3000'));
+}).listen(3000, () => console.log('Yeetlist running at http://localhost:3000'));

@@ -145,7 +145,7 @@ same('a reordered list is not a change', app.digest(app.notesPayload()), beforeS
 /* -- 4. The notes file reads, and round-trips ---------------------------- */
 fixture();
 const written = app.notesText();
-ok('the notes file names itself', written.startsWith('# YeeTlist notes'), written.slice(0, 40));
+ok('the notes file names itself', written.startsWith('# Yeetlist notes'), written.slice(0, 40));
 ok('a note body appears above the payload',
   written.indexOf('Some words.') < written.indexOf('json'));
 ok('a note tag appears above the payload', written.includes('> Tags: #b'));

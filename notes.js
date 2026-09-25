@@ -457,7 +457,7 @@ function inlineToText(text) {
 /* ── One note as its own page ───────────────────────────────────────────
  *
  * THEIR INSTRUCTION, 22 September 2026: the HTML download renders the
- * Markdown, on a dark background identical to YeeTlist's own, using system
+ * Markdown, on a dark background identical to Yeetlist's own, using system
  * fonts. Segoe UI and Consolas on Windows, and whatever each other
  * operating system supplies.
  *
@@ -467,7 +467,7 @@ function inlineToText(text) {
  * web font is loaded: the file has to open with no network at all.
  *
  * THE COLOURS ARE WRITTEN IN, because a downloaded file carries no
- * stylesheet. They are YeeTlist's own tokens, and the drift check in
+ * stylesheet. They are Yeetlist's own tokens, and the drift check in
  * `tools/export-guard.mjs` reads them back out of styles.css.
  */
 export function noteToHtmlPage(title, md) {
@@ -487,7 +487,7 @@ export function noteToHtmlPage(title, md) {
   --line-subtle: #282828;
   --text: #f1f1f1;
   --muted: #a8a8a8;
-  --accent: #ff3030;
+  --accent: #ff0044;
   --body: "Segoe UI", system-ui, -apple-system, sans-serif;
   --mono: Consolas, ui-monospace, SFMono-Regular, Menlo, monospace;
 }
@@ -551,7 +551,7 @@ footer {
 <body>
 <div class="sheet">
 <main>${markdownToHtml(md)}</main>
-<footer>Written with <a href="https://yeetlist.vercel.app">YeeTlist</a>.</footer>
+<footer>Written with <a href="https://yeetlist.vercel.app">Yeetlist</a>.</footer>
 </div>
 </body>
 </html>

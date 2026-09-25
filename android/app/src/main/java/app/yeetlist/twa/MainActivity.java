@@ -95,7 +95,7 @@ public class MainActivity extends Activity {
         s.setAllowContentAccess(false);
         s.setMediaPlaybackRequiresUserGesture(true);
         /* THE PAGE CAN TELL IT IS INSIDE THE APP, and which build. */
-        s.setUserAgentString(s.getUserAgentString() + " YeeTlistApp/" + BuildConfig.VERSION_NAME);
+        s.setUserAgentString(s.getUserAgentString() + " YeetlistApp/" + BuildConfig.VERSION_NAME);
 
         /* THE GOOGLE LINK IS A COOKIE, so cookies are kept. It never leaves
            this app's storage, which is the whole point of the move. */
@@ -416,7 +416,7 @@ public class MainActivity extends Activity {
             + "background:#0f0f0f;color:#f2f2f2;font:16px/1.5 system-ui,sans-serif;text-align:center'>"
             + "<div style='padding:24px;max-width:320px'>"
             + "<p style='font-size:20px;font-weight:650;margin:0 0 8px'>No connection</p>"
-            + "<p style='margin:0;color:#a8a8a8'>YeeTlist needs the internet the first time it opens. "
+            + "<p style='margin:0;color:#a8a8a8'>Yeetlist needs the internet the first time it opens. "
             + "It will load by itself as soon as the phone is online.</p></div>";
         web.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
         watchForNetwork();

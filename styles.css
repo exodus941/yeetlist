@@ -1,5 +1,5 @@
 /* ==========================================================================
-   YeeTlist
+   Yeetlist
    Every number below comes from a published scale. Nothing is typed at the
    point of use, so a step change moves every control that reads it.
 
@@ -97,7 +97,7 @@
   --text-quiet: #8f8f8f;
 
   /* ---- accent and status ------------------------------------------------ */
-  --accent: #ff3030;
+  --accent: #ff0044;
   --accent-ink: #ffffff;
 
   /* A FILL THAT CARRIES WORDS ANSWERS A DIFFERENT BAR FROM A MARK. --accent
@@ -107,14 +107,15 @@
 
      Measured on screen before the split: --accent-ink on --accent is 3.67 on
      three buttons, and the old #ff4444 hover was 3.41. The mark keeps
-     #ff3030 everywhere, so nothing that is not carrying words moved.
+     the accent everywhere, so nothing that is not carrying words moved.
 
-     #ff3030 darkened to 88%. White reads 4.63 on the rest state and 5.65 on
-     the hover, and the two sit 1.22 apart, which clears the 1.2 a shape
-     needs. The hover DARKENS: every lighter red fails the bar, because white
+     THE ACCENT BECAME #ff0044 ON 25 SEPTEMBER 2026, their choice, and the
+     pair is made the same way: 88% for the rest state and 78% for the hover.
+     White reads 4.96 on #e0003c and 6.03 on #c70035, and the two sit 1.22
+     apart, which clears the 1.2 a shape needs. The hover DARKENS: every lighter red fails the bar, because white
      is already the lightest ink there is. */
-  --accent-fill: #e02a2a;
-  --accent-fill-hover: #c72525;
+  --accent-fill: #e0003c;
+  --accent-fill-hover: #c70035;
   --danger: #ff3030;
   --danger-quiet: #ff7474;
 
@@ -1425,7 +1426,13 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   color: var(--accent-ink);
 }
 
-.brand-mark .icon { width: var(--mark); height: var(--mark) }
+/* THE MARK FILLS 64% OF ITS SQUARE, ring edge to ring edge, the share the
+   launcher icon uses. Its drawing spans 83.5% of its own box, so the box
+   is sized up by that. */
+.brand-mark .icon {
+  width: calc(var(--control-sm) * 0.64 * 512 / 427.4);
+  height: calc(var(--control-sm) * 0.64 * 512 / 427.4);
+}
 
 /* A cluster of controls plus one readout, so it centres. Every item in it is
    one stated height and one label size: two font sizes cannot share a

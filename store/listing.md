@@ -6,7 +6,7 @@ field's own limit, and the count is in brackets.
 ## App name (30)
 
 ```
-YeeTlist
+Yeetlist
 ```
 
 (8)
@@ -22,7 +22,7 @@ A watchlist for YouTube links, and a home for every other bookmark.
 ## Full description (4000)
 
 ```
-YeeTlist keeps two lists. One holds YouTube links, with the title, the channel
+Yeetlist keeps two lists. One holds YouTube links, with the title, the channel
 and the runtime fetched for you. The other holds every bookmark that is not a
 video. A link goes to the right list on its own, so there is nothing to file.
 

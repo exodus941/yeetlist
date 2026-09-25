@@ -1,5 +1,5 @@
 /* ==========================================================================
-   YeeTlist
+   Yeetlist
    ========================================================================== */
 
 const STORE = 'yeetlist-v1';
@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260925-2';
+const VERSION = '260925-3';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -704,7 +704,7 @@ function dissolve(after, kind) {
   transition.updateCallbackDone.catch((error) => {
     /* THIS ONE IS NOT NORMAL. It rejects when render() itself threw, and
        swallowing that would hide a broken list behind a quiet screen. */
-    console.error('YeeTlist: render failed inside a view transition', error);
+    console.error('Yeetlist: render failed inside a view transition', error);
   });
   return transition;
 }
@@ -2232,15 +2232,15 @@ function fileText() {
     (rows.length ? ['', `## ${heading}`, '', header, divider, ...rows] : []);
 
   return [
-    '# YeeTlist watchlist',
+    '# Yeetlist watchlist',
     '',
     `> ${count(clips.length, 'video', 'videos')}, ${count(links.length, 'bookmark', 'bookmarks')}. `
-      + `Written ${new Date().toISOString()} by YeeTlist.`,
+      + `Written ${new Date().toISOString()} by Yeetlist.`,
     ...section('Videos', '| Video | Channel | Duration | Uploaded | Tags |',
       '| --- | --- | --- | --- | --- |', clipRows),
     ...section('Other bookmarks', '| Site | URL | Tags |', '| --- | --- | --- |', linkRows),
     '',
-    '<!-- YeeTlist data below. The tables above are for reading; this block is what imports. -->',
+    '<!-- Yeetlist data below. The tables above are for reading; this block is what imports. -->',
     '',
     '```json',
     JSON.stringify(payload(), null, 2),
@@ -2278,12 +2278,12 @@ function notesText() {
   });
 
   return [
-    '# YeeTlist notes',
+    '# Yeetlist notes',
     '',
-    `> ${count}. Written ${new Date().toISOString()} by YeeTlist.`,
+    `> ${count}. Written ${new Date().toISOString()} by Yeetlist.`,
     ...written,
     '',
-    '<!-- YeeTlist data below. The notes above are for reading; this block is what imports. -->',
+    '<!-- Yeetlist data below. The notes above are for reading; this block is what imports. -->',
     '',
     '```json',
     JSON.stringify(notesPayload(), null, 2),
@@ -2353,7 +2353,7 @@ function merge(local, incoming) {
 
    THE NETSCAPE BOOKMARK FILE, WHICH EVERY BROWSER IMPORTS. Their decision:
    the download is HTML rather than Markdown, so Chrome, Firefox, Safari and
-   Edge take it as a folder called YeeTlist rather than as a text file nobody
+   Edge take it as a folder called Yeetlist rather than as a text file nobody
    can do anything with.
 
    THE MARKDOWN STAYS, BECAUSE DRIVE IS A DIFFERENT QUESTION. drive.js still
@@ -2401,7 +2401,7 @@ const bookmarkFolder = (name, items, indent) => [
 ];
 
 /* ONE FOLDER CALLED YEETLIST, AND SUBFOLDERS ONLY WHERE THERE ARE TWO LISTS.
-   Their words: exporting everything makes two folders under YeeTlist. One
+   Their words: exporting everything makes two folders under Yeetlist. One
    list needs no subfolder, because a folder holding one folder is a step a
    reader has to open for nothing. */
 function bookmarkFile(scope) {
@@ -2426,7 +2426,7 @@ function bookmarkFile(scope) {
     '<TITLE>Bookmarks</TITLE>',
     '<H1>Bookmarks</H1>',
     '<DL><p>',
-    '    <DT><H3>YeeTlist</H3>',
+    '    <DT><H3>Yeetlist</H3>',
     '    <DL><p>',
     ...inner,
     '    </DL><p>',
@@ -2457,10 +2457,10 @@ function stamp(at = new Date()) {
    file because a note IS Markdown; the three link lists are bookmark files a
    browser can read back. */
 const EXPORT_PART = {
-  youtube: ['YeeTlist-YouTube', 'html'],
-  links: ['YeeTlist-Bookmarks', 'html'],
-  all: ['YeeTlist-All', 'html'],
-  notes: ['YeeTlist-Notes', 'md'],
+  youtube: ['Yeetlist-YouTube', 'html'],
+  links: ['Yeetlist-Bookmarks', 'html'],
+  all: ['Yeetlist-All', 'html'],
+  notes: ['Yeetlist-Notes', 'md'],
 };
 
 const exportName = (scope) => {
@@ -2571,7 +2571,7 @@ async function downloadApk() {
     /* NOTHING IS DOWNLOADED WHEN THE PHONE IS ALREADY CURRENT. Handing Android
        the version it is running reinstalls it and says nothing useful. */
     if (have && newest && have >= newest) {
-      say(`YeeTlist ${tag} is the newest build, and you already have it.`);
+      say(`Yeetlist ${tag} is the newest build, and you already have it.`);
       return;
     }
 
@@ -2580,7 +2580,7 @@ async function downloadApk() {
        view could not do from a link. */
     if (window.YeetlistAndroid?.checkForUpdate) {
       window.YeetlistAndroid.checkForUpdate();
-      say(`YeeTlist ${tag} is newer than ${app?.version || 'this build'}. Downloading it now.`);
+      say(`Yeetlist ${tag} is newer than ${app?.version || 'this build'}. Downloading it now.`);
       return;
     }
 
@@ -2588,7 +2588,7 @@ async function downloadApk() {
        stops the opened page reaching back into this one. */
     window.open(apk.browser_download_url, '_blank', 'noopener');
     say(have
-      ? `YeeTlist ${tag} is newer than ${app.version}. Android asks once before it installs.`
+      ? `Yeetlist ${tag} is newer than ${app.version}. Android asks once before it installs.`
       : `Downloading ${apk.name}. Android asks once before it installs.`);
   } catch (error) {
     /* NAME THE CAUSE. Every one of these is something the reader can act on:
@@ -2643,7 +2643,7 @@ function imported(records = []) {
   return `Uploaded ${list}.`;
 }
 
-/* A YeeTlist export merges. ANYTHING ELSE IS SCANNED FOR LINKS, so a file
+/* A Yeetlist export merges. ANYTHING ELSE IS SCANNED FOR LINKS, so a file
    this app never wrote is read rather than refused. Its own payload is tried
    first, because a merge carries tags, dates and tombstones that a scan
    cannot see. */
@@ -2654,7 +2654,7 @@ function importFile(file) {
   reader.onload = () => {
     const text = String(reader.result);
 
-    /* THE PAYLOAD IS TRIED ON EVERY FILE NOW, INCLUDING HTML. YeeTlist's own
+    /* THE PAYLOAD IS TRIED ON EVERY FILE NOW, INCLUDING HTML. Yeetlist's own
        export is a bookmark file, so skipping HTML here would have made the
        app unable to read what it had just written: the scan would find the
        links and drop every tag, duration and date. A browser's own export
@@ -2679,7 +2679,7 @@ function importFile(file) {
            was everything that is not a video, so six notes read as six
            bookmarks. */
         return toast('ok', imported(incoming.videos));
-      } catch { /* not a YeeTlist export, so read it for links instead */ }
+      } catch { /* not a Yeetlist export, so read it for links instead */ }
     }
 
     importLinks(text, isHtml);
@@ -3350,7 +3350,7 @@ function describeLinkFailure(reason) {
       'That sign-in did not match the one this page started. Try Link Google Drive again.',
     no_refresh_token:
       'Google returned no refresh token, so the connection could not be made lasting. '
-      + 'Remove YeeTlist from your Google account permissions and link it again.',
+      + 'Remove Yeetlist from your Google account permissions and link it again.',
     unconfigured:
       'Server-side Google sync is not configured for this deployment. '
       + 'It needs GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and SESSION_SECRET.',
@@ -3362,11 +3362,11 @@ function describeLinkFailure(reason) {
     cancelled: 'Sign-in was cancelled, so nothing was linked.',
     network: 'The phone could not reach Google. Check the connection and try again.',
     no_code: 'Google finished the sign-in but sent no code, so nothing was linked. Try again.',
-    forbidden: 'The link request did not come from YeeTlist itself, so it was refused.',
+    forbidden: 'The link request did not come from Yeetlist itself, so it was refused.',
   };
   if (known[reason]) return known[reason];
   if (/^server answered \d+$/.test(reason)) {
-    return `YeeTlist's server could not finish the link (it ${reason.slice(7)}). Try again in a minute.`;
+    return `Yeetlist's server could not finish the link (it ${reason.slice(7)}). Try again in a minute.`;
   }
   if (/redirect_uri_mismatch/i.test(reason)) {
     return 'Google refused the redirect address. Add this exact URL to the OAuth '
@@ -3454,7 +3454,7 @@ window.yeetNative = {
     try {
       const response = await fetch('/api/oauth/native', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-YeeTlist-App': '1' },
+        headers: { 'Content-Type': 'application/json', 'X-Yeetlist-App': '1' },
         body: JSON.stringify({ code }),
       });
       status = response.status;
@@ -3667,7 +3667,7 @@ function dismissAsk() {
   transition.ready.catch(() => {});
   transition.finished.catch(() => {});
   transition.updateCallbackDone.catch((error) => {
-    console.error('YeeTlist: the ask card failed to close', error);
+    console.error('Yeetlist: the ask card failed to close', error);
   });
 }
 
@@ -5598,7 +5598,7 @@ $('#brandBuild').textContent = VERSION;
    hidden, and a title on a hidden span is a title nobody can reach. The
    wordmark is on screen at every width, so the build stays readable by
    hover wherever it stops being readable by sight. */
-$('.brand').title = `YeeTlist ${VERSION}`;
+$('.brand').title = `Yeetlist ${VERSION}`;
 
 /* The tab a reader left on is where they meant to be. It is a view rather
    than data, so it stays local and never reaches Drive. */

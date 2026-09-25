@@ -100,10 +100,10 @@ const same = (name, a, b) => ok(name, a === b, `${JSON.stringify(a)} against ${J
   };
 
   /* EXACTLY WHAT THEY WROTE. */
-  same('YouTube Links', name('youtube'), '260922-0905-YeeTlist-YouTube.html');
-  same('Bookmarks', name('links'), '260922-0905-YeeTlist-Bookmarks.html');
-  same('All Links', name('all'), '260922-0905-YeeTlist-All.html');
-  same('All Notes', name('notes'), '260922-0905-YeeTlist-Notes.md');
+  same('YouTube Links', name('youtube'), '260922-0905-Yeetlist-YouTube.html');
+  same('Bookmarks', name('links'), '260922-0905-Yeetlist-Bookmarks.html');
+  same('All Links', name('all'), '260922-0905-Yeetlist-All.html');
+  same('All Notes', name('notes'), '260922-0905-Yeetlist-Notes.md');
 
   /* THE BUILDER READS THAT TABLE RATHER THAN HOLDING ITS OWN COPY. */
   ok('exportName reads the table', /EXPORT_PART\[scope\] \|\| EXPORT_PART\.all/.test(code));
@@ -184,7 +184,7 @@ const same = (name, a, b) => ok(name, a === b, `${JSON.stringify(a)} against ${J
 
 /* -- 6. The single-note HTML page ----------------------------------------- */
 {
-  /* THEIR INSTRUCTION: a dark background identical to YeeTlist's interface,
+  /* THEIR INSTRUCTION: a dark background identical to Yeetlist's interface,
      system fonts, Segoe UI and Consolas on Windows. */
   const page = noteToHtmlPage('A note', '# A note\n\nWith `code` in it.');
   ok('it is a whole document', /^<!doctype html>/i.test(page) && page.includes('</html>'));
@@ -209,7 +209,7 @@ const same = (name, a, b) => ok(name, a === b, `${JSON.stringify(a)} against ${J
   /* NO NETWORK. A saved file has to open with none. */
   ok('it loads no web font', !/fonts\.googleapis|@import|@font-face/.test(page));
   ok('it fetches nothing at all', !/<(?:script|link|img|iframe)\b/i.test(page));
-  ok('it says what wrote it', page.includes('YeeTlist'));
+  ok('it says what wrote it', page.includes('Yeetlist'));
 
   /* THE FOOTER SHARES THE NOTE'S LEFT MARGIN, and one box owns the measure.
      Their instruction, 22 September 2026. A `ch` resolves against the
@@ -228,7 +228,7 @@ const same = (name, a, b) => ok(name, a === b, `${JSON.stringify(a)} against ${J
 
   /* AND THE NAME IN IT IS A LINK. Their instruction, the same day. */
   ok('the footer links to the site',
-    /<footer>Written with <a href="https:\/\/yeetlist\.vercel\.app">YeeTlist<\/a>\.<\/footer>/.test(page),
+    /<footer>Written with <a href="https:\/\/yeetlist\.vercel\.app">Yeetlist<\/a>\.<\/footer>/.test(page),
     page.slice(page.indexOf('<footer>'), page.indexOf('</footer>') + 9));
 
   /* A NOTE CANNOT INJECT MARKUP INTO ITS OWN PAGE. */
@@ -326,7 +326,7 @@ const same = (name, a, b) => ok(name, a === b, `${JSON.stringify(a)} against ${J
      phone can answer without a version, so both fall through to the download
      rather than reporting the reader is current. */
   ok('an unknown version still offers the file',
-    /have\s*\n?\s*\? `YeeTlist \$\{tag\} is newer/.test(body));
+    /have\s*\n?\s*\? `Yeetlist \$\{tag\} is newer/.test(body));
 
   /* THE STAMP IS THE VERSION, and the Java on the phone holds the same
      formula. Two arithmetics for one question disagree the first time either

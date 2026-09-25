@@ -169,7 +169,7 @@ const pageCode = blank(app) + blank(drive);
   ok('a missing Google Cloud entry is named', /if \(code == 10\) return "developer_error";/.test(javaCode)
     && /developer_error:\s*\n\s*'Google does not recognise this app yet/.test(app));
   ok('the code goes to the server with the app’s own header',
-    /fetch\('\/api\/oauth\/native'[\s\S]{0,200}'X-YeeTlist-App': '1'/.test(app));
+    /fetch\('\/api\/oauth\/native'[\s\S]{0,200}'X-Yeetlist-App': '1'/.test(app));
   ok('and the page comes back through the website’s own door',
     /\{ drive: 'linked' \}/.test(app) && /location\.replace\(`\/\?\$\{new URLSearchParams\(query\)\}`\)/.test(app));
 }

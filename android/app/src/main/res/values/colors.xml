@@ -4,4 +4,6 @@
          strip under the status bar never show a different shade while the
          page loads. -->
     <color name="page">#0F0F0F</color>
+    <!-- The launcher icon ground, the stylesheet own --accent. -->
+    <color name="accent">#FF0044</color>
 </resources>

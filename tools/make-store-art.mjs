@@ -12,6 +12,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { encodePng, token, rgb } from './png.mjs';
+import { inMark, SPAN, CENTRE, MARK_ANY } from './brand-mark.mjs';
 
 const root = process.argv[2] || '.';
 const css = readFileSync(`${root}/styles.css`, 'utf8');
@@ -39,17 +40,10 @@ const MARK_Y = Math.round(H / 2 - MARK / 2);
    the banner keeps the page's own weight rather than inventing one. */
 const BAR = Math.round(H / 100);
 
-const TRI = [[6, 3], [20, 12], [6, 21]];
-const GLYPH = 0.44;
-
-const inside = (px, py, pts) => {
-  let hit = false;
-  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-    const [xi, yi] = pts[i], [xj, yj] = pts[j];
-    if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) hit = !hit;
-  }
-  return hit;
-};
+/* The mark sits in its square at the launcher icon's own share. */
+const K = (MARK_ANY * MARK) / SPAN;
+const MID_X = MARK_X + MARK / 2;
+const MID_Y = MARK_Y + MARK / 2;
 
 const inSquare = (px, py, x0, y0, size, corner) => {
   const r = corner * size;
@@ -61,11 +55,6 @@ const inSquare = (px, py, x0, y0, size, corner) => {
   return (lx - cx) ** 2 + (ly - cy) ** 2 <= r * r + 1e-9;
 };
 
-const glyph = GLYPH * MARK;
-const tri = TRI.map(([x, y]) => [
-  (x - 6) * (glyph / 14) + MARK_X + (MARK - glyph) / 2,
-  (y - 3) * (glyph / 14) + MARK_Y + (MARK - (18 * glyph) / 14) / 2,
-]);
 
 const SS = 4;
 const px = Buffer.alloc(W * H * 4);
@@ -78,7 +67,7 @@ for (let y = 0; y < H; y++) {
         const fx = x + (sx + 0.5) / SS;
         const fy = y + (sy + 0.5) / SS;
         if (inSquare(fx, fy, MARK_X, MARK_Y, MARK, CORNER)) square += 1;
-        if (inside(fx, fy, tri)) mark += 1;
+        if (inMark((fx - MID_X) / K + CENTRE, (fy - MID_Y) / K + CENTRE)) mark += 1;
       }
     }
     const n = SS * SS;

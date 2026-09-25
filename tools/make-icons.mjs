@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /* THE LAUNCHER ICON IS THE BRAND MARK, DRAWN FROM THE SAME NUMBERS.
  *
- * The header paints a rounded square in `--accent` carrying the `#i-play`
- * glyph in `--accent-ink`. Both the colours and the corner are read out of
+ * The header paints a rounded square in `--accent` carrying the `#i-brand`
+ * mark in `--accent-ink`. The mark's shape comes from tools/brand-mark.mjs. Both the colours and the corner are read out of
  * styles.css rather than typed here, so a token change moves the icon too.
  *
  * NO DEPENDENCY, BECAUSE THIS REPO HAS NONE. A PNG is a zlib stream of filtered
@@ -16,6 +16,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { encodePng, token as readToken, rgb } from './png.mjs';
+import { inMark, SPAN, CENTRE, MARK_ANY } from './brand-mark.mjs';
 
 const root = process.argv[2] || '.';
 const css = readFileSync(`${root}/styles.css`, 'utf8');
@@ -37,27 +38,11 @@ const INK = rgb(ink);
    is stated as a share of the box so it holds at any size. */
 const CORNER = radiusAt28 / 28;
 
-/* The glyph is `#i-play` on a 24 unit viewBox: M6 3 L20 12 L6 21 Z. */
-const TRI = [[6, 3], [20, 12], [6, 21]];
-const VIEW = 24;
-
-/* HOW BIG THE GLYPH SITS. The header renders a 14px mark in a 28px square, so
-   the mark's BOX is half the square and the triangle inside it spans 14 of 24
-   units: 29% of the canvas. That reads as a speck in a launcher, so the icon
-   gives the glyph 44% of the canvas and keeps the shape exactly. */
-const GLYPH_ANY = 0.44;
-/* Android crops a maskable icon to the central 80% at worst, so the glyph
-   stays inside that and the fill reaches every edge. */
-const GLYPH_MASKABLE = 0.36;
-
-const inside = (px, py, pts) => {
-  let hit = false;
-  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-    const [xi, yi] = pts[i], [xj, yj] = pts[j];
-    if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) hit = !hit;
-  }
-  return hit;
-};
+/* HOW BIG THE MARK SITS: its ring's outer edge spans this share of the
+   square. 64% matches the header, which draws the mark in 64% of its box.
+   Android crops a maskable icon to a circle 80% wide at worst, and a ring 60%
+   wide sits inside that with room, so the fill can reach every edge. */
+const MARK_MASKABLE = 0.6;
 
 /* A rounded square, by distance to the corner circle's centre. */
 const inSquare = (px, py, size, corner) => {
@@ -70,13 +55,8 @@ const inSquare = (px, py, size, corner) => {
 function draw(size, { maskable }) {
   const SS = 4;
   const corner = maskable ? 0 : CORNER;
-  const glyph = (maskable ? GLYPH_MASKABLE : GLYPH_ANY) * size;
-  const scale = glyph / (14 / VIEW * VIEW); // the triangle spans 14 of 24 units
-  const tri = TRI.map(([x, y]) => [
-    (x - 6) * (glyph / 14) + (size - glyph) / 2,
-    (y - 3) * (glyph / 14) + (size - (18 * glyph) / 14) / 2,
-  ]);
-  void scale;
+  /* Canvas pixels per unit of the mark's own 512 square. */
+  const k = ((maskable ? MARK_MASKABLE : MARK_ANY) * size) / SPAN;
 
   const px = Buffer.alloc(size * size * 4);
   for (let y = 0; y < size; y++) {
@@ -88,7 +68,7 @@ function draw(size, { maskable }) {
           const fx = x + (sx + 0.5) / SS;
           const fy = y + (sy + 0.5) / SS;
           if (inSquare(fx, fy, size, corner)) bg += 1;
-          if (inside(fx, fy, tri)) fg += 1;
+          if (inMark((fx - size / 2) / k + CENTRE, (fy - size / 2) / k + CENTRE)) fg += 1;
         }
       }
       const n = SS * SS;
@@ -110,16 +90,25 @@ function draw(size, { maskable }) {
 mkdirSync(`${root}/icons`, { recursive: true });
 
 const wanted = [
-  { file: 'icon-192.png', size: 192, maskable: false },
-  { file: 'icon-512.png', size: 512, maskable: false },
-  { file: 'icon-maskable-512.png', size: 512, maskable: true },
+  { file: 'icons/icon-192.png', size: 192, maskable: false },
+  { file: 'icons/icon-512.png', size: 512, maskable: false },
+  { file: 'icons/icon-maskable-512.png', size: 512, maskable: true },
+  /* THE PHONE'S LAUNCHER, FOR ANDROID BEFORE 8. From 8 on the launcher draws
+     the adaptive icon, which is a vector made from the same numbers. */
+  { file: 'android/app/src/main/res/mipmap-mdpi/ic_launcher.png', size: 48, maskable: false },
+  { file: 'android/app/src/main/res/mipmap-hdpi/ic_launcher.png', size: 72, maskable: false },
+  { file: 'android/app/src/main/res/mipmap-xhdpi/ic_launcher.png', size: 96, maskable: false },
+  { file: 'android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png', size: 144, maskable: false },
+  { file: 'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png', size: 192, maskable: false },
+  /* Play's own listing icon is a full square, which Play rounds itself. */
+  { file: 'android/store_icon.png', size: 512, maskable: true },
 ];
 
 const written = [];
 for (const { file, size, maskable } of wanted) {
   const bytes = encodePng(size, size, draw(size, { maskable }));
-  writeFileSync(`${root}/icons/${file}`, bytes);
-  written.push(`${file} ${size}x${size} ${bytes.length}b`);
+  writeFileSync(`${root}/${file}`, bytes);
+  written.push(`${file.split('/').pop()} ${size}x${size}`);
 }
 
 console.log(`make-icons: ${accent} on ${ink}, corner ${(CORNER * 100).toFixed(1)}% — ${written.join(', ')}`);

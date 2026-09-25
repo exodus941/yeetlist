@@ -148,7 +148,7 @@ ok('an empty file is not a list', !app.listLike(''));
 /* ── A NOTES FILE IS AN IMPORT TOO ──────────────────────────────────────
  *
  * Their instruction, 22 September 2026: the import has to take a yeetnotes.md
- * from another YeeTlist export. It always did, and the message said
+ * from another Yeetlist export. It always did, and the message said
  * otherwise. Two faults, both measured on a file holding six notes.
  *
  * IT COUNTED THE WHOLE LIBRARY, NOT THE FILE. `videos` at that point is the

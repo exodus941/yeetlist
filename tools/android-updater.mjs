@@ -237,10 +237,10 @@ final class ${CLASS} {
             String tag = latest.optString("tag_name");
             String url = apkUrl(latest.optJSONArray("assets"));
             if (url == null) {
-                say(app, "A newer YeeTlist is listed, but it has no app file in it.");
+                say(app, "A newer Yeetlist is listed, but it has no app file in it.");
                 return;
             }
-            say(app, "YeeTlist " + tag + " is newer. Downloading it now.");
+            say(app, "Yeetlist " + tag + " is newer. Downloading it now.");
 
             /* ONE COPY AT A TIME. A launch while a download is already
                running would queue a second of the same file. */
@@ -249,7 +249,7 @@ final class ${CLASS} {
             if (alreadyRunning(dm)) { Log.i(TAG, "a download is already running"); return; }
 
             DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
-            req.setTitle("YeeTlist " + tag);
+            req.setTitle("Yeetlist " + tag);
             req.setDescription("Downloading the update");
             req.setMimeType("application/vnd.android.package-archive");
             req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE);
@@ -257,7 +257,7 @@ final class ${CLASS} {
             long id = dm.enqueue(req);
 
             Uri file = waitFor(dm, id);
-            if (file == null) { say(app, "The YeeTlist update did not finish downloading."); return; }
+            if (file == null) { say(app, "The Yeetlist update did not finish downloading."); return; }
             Log.i(TAG, "asking the installer for " + file);
 
             /* ANDROID ASKS. REQUEST_INSTALL_PACKAGES earns the right to show
@@ -281,7 +281,7 @@ final class ${CLASS} {
                for, and it made a broken check silent for a whole day. */
             if (cold || said < 0 || said >= FAIL_GAP) {
                 prefs.edit().putLong(SAID, now).apply();
-                say(app, "YeeTlist could not check for an update: " + reasonOf(error));
+                say(app, "Yeetlist could not check for an update: " + reasonOf(error));
             }
         }
     }
@@ -346,7 +346,7 @@ final class ${CLASS} {
     private static String read(String url) throws Exception {
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
         conn.setRequestProperty("Accept", "application/vnd.github+json");
-        conn.setRequestProperty("User-Agent", "YeeTlist");
+        conn.setRequestProperty("User-Agent", "Yeetlist");
         conn.setConnectTimeout(10000);
         conn.setReadTimeout(10000);
         try {
@@ -523,9 +523,9 @@ function selfTest() {
   say('the toast is raised on the main thread',
     java.includes('new Handler(Looper.getMainLooper()).post'));
   say('a newer version is announced', java.includes('" is newer. Downloading it now."'));
-  say('a failure is announced', java.includes('"YeeTlist could not check for an update: "'));
-  say('a release with no apk is announced', java.includes('"A newer YeeTlist is listed, but it has no app file in it."'));
-  say('a download that stalls is announced', java.includes('"The YeeTlist update did not finish downloading."'));
+  say('a failure is announced', java.includes('"Yeetlist could not check for an update: "'));
+  say('a release with no apk is announced', java.includes('"A newer Yeetlist is listed, but it has no app file in it."'));
+  say('a download that stalls is announced', java.includes('"The Yeetlist update did not finish downloading."'));
 
   /* NOTHING IS SAID WHEN THE APP IS ALREADY CURRENT, which is almost every
      check. The early return carries no line. */

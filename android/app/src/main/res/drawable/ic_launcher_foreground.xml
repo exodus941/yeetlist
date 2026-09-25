@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- THE MARK, FOR ANDROID 8 AND LATER. The launcher crops this canvas to its
+     own shape, so the mark stays inside the 66dp circle Android keeps: its
+     ring is 48dp across on a 108dp canvas. The numbers are the ones in
+     tools/brand-mark.mjs. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="512" android:viewportHeight="512">
+    <group android:pivotX="256" android:pivotY="256" android:scaleX="0.5324" android:scaleY="0.5324">
+        <path android:fillColor="#FFFFFF" android:pathData="M184.67,54.56 A213.7 213.7 0 1 1 54.56,184.67 L94.81,198.92 A171 171 0 1 0 198.92,94.81 Z"/>
+        <path android:fillColor="#FFFFFF" android:pathData="M86,118 a32,32 0 1,0 64,0 a32,32 0 1,0 -64,0 Z"/>
+        <path android:fillColor="#FFFFFF" android:pathData="M213.5,161.2 L213.5,352.2 L342.3,256.7 Z"/>
+    </group>
+</vector>

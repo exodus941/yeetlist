@@ -236,7 +236,7 @@ async function newNote(firstLine = '') {
  * THEIR INSTRUCTION, 22 September 2026: a download button left of each
  * note's delete icon, opening a menu of MD, HTML and TXT. The MD file is the
  * note exactly as written, the TXT file has every mark stripped, and the
- * HTML file renders it on YeeTlist's own dark background.
+ * HTML file renders it on Yeetlist's own dark background.
  *
  * ONE MENU FOR THE WHOLE LIST. A menu per row would be one hidden menu per
  * note, and a menu inside a table cell is cut off by the scroller the table

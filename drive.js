@@ -359,7 +359,7 @@ const DRIVE = (() => {
   }
 
   /* THE GOOGLE PICKER IS GONE, DELIBERATELY.
-     It existed to adopt a yeetlist.md that YeeTlist did not create, because
+     It existed to adopt a yeetlist.md that Yeetlist did not create, because
      drive.file cannot see such a file until the reader hands it over. Its
      only control was a button called "Pick existing file", and that name now
      means the DEVICE filesystem, which is what a reader expects of it.
@@ -368,7 +368,7 @@ const DRIVE = (() => {
      behind no button. GOOGLE_API_KEY was needed for this and nothing else,
      so that variable is now unused too.
 
-     Nothing else is lost: a yeetlist.md YeeTlist wrote on another device is
+     Nothing else is lost: a yeetlist.md Yeetlist wrote on another device is
      still found by name, which is the case that matters. */
 
   /* Which flow this deployment runs. Asked once and cached with the rest of

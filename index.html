@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>YeeTlist</title>
+<title>Yeetlist</title>
 <meta name="color-scheme" content="dark" />
 <meta name="theme-color" content="#0f0f0f" />
 <!-- Inline, so the page makes no request for it. /favicon.ico was a 404 on
      every load. -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23ff3030'/%3E%3Cpath d='M12 9l12 7-12 7z' fill='%23fff'/%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27 viewBox%3D%270 0 512 512%27%3E%3Crect width%3D%27512%27 height%3D%27512%27 rx%3D%27146.3%27 fill%3D%27%23ff0044%27%2F%3E%3Cg fill%3D%27%23fff%27 transform%3D%27translate(256 256) scale(0.7667) translate(-256 -256)%27%3E%3Cpath d%3D%27M184.67%2C54.56 A213.7 213.7 0 1 1 54.56%2C184.67 L94.81%2C198.92 A171 171 0 1 0 198.92%2C94.81 Z%27%2F%3E%3Cpath d%3D%27M86%2C118 a32%2C32 0 1%2C0 64%2C0 a32%2C32 0 1%2C0 -64%2C0 Z%27%2F%3E%3Cpath d%3D%27M213.5%2C161.2 L213.5%2C352.2 L342.3%2C256.7 Z%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E" />
 <!-- BOTH FAMILIES ARE VARIABLE, 100 to 900. The stylesheet asks for 650 and
      750, which a static instance would snap to 600 and 700. The wght range
      is what keeps those two weights. -->
@@ -43,9 +43,11 @@
      (basically each step one by one) below it". -->
 <div id="boot" class="boot" role="status" aria-live="polite">
   <div class="boot-inner">
-    <svg class="boot-mark" viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="7" fill="var(--accent)"/>
-      <path d="M12 9l12 7-12 7z" fill="var(--accent-ink)"/>
+    <svg class="boot-mark" viewBox="0 0 512 512" aria-hidden="true">
+      <rect width="512" height="512" rx="146.3" fill="var(--accent)"/>
+      <g fill="var(--accent-ink)" transform="translate(256 256) scale(0.7667) translate(-256 -256)">
+        <path d="M184.67,54.56 A213.7 213.7 0 1 1 54.56,184.67 L94.81,198.92 A171 171 0 1 0 198.92,94.81 Z"/><path d="M86,118 a32,32 0 1,0 64,0 a32,32 0 1,0 -64,0 Z"/><path d="M213.5,161.2 L213.5,352.2 L342.3,256.7 Z"/>
+      </g>
     </svg>
     <div class="boot-track"><div class="boot-fill" id="bootFill"></div></div>
     <p class="boot-step" id="bootStep">Starting</p>
@@ -84,6 +86,10 @@
   <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" vector-effect="non-scaling-stroke"/><path d="m17 8-5-5-5 5" vector-effect="non-scaling-stroke"/><path d="M12 3v12" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-file-pick" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" vector-effect="non-scaling-stroke"/><path d="M14 2v5h6" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" vector-effect="non-scaling-stroke"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor" vector-effect="non-scaling-stroke"/></symbol>
+  <!-- THE MARK. Its numbers live in tools/brand-mark.mjs, measured off the
+       drawing they supplied on 25 September 2026. It is filled, not stroked,
+       so each shape states its own paint. -->
+  <symbol id="i-brand" viewBox="0 0 512 512"><path style="fill:currentColor;stroke:none" d="M184.67,54.56 A213.7 213.7 0 1 1 54.56,184.67 L94.81,198.92 A171 171 0 1 0 198.92,94.81 Z"/><path style="fill:currentColor;stroke:none" d="M86,118 a32,32 0 1,0 64,0 a32,32 0 1,0 -64,0 Z"/><path style="fill:currentColor;stroke:none" d="M213.5,161.2 L213.5,352.2 L342.3,256.7 Z"/></symbol>
   <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="14" height="14" rx="2" vector-effect="non-scaling-stroke"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" vector-effect="non-scaling-stroke"/></symbol>
   <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" vector-effect="non-scaling-stroke"/></symbol>
@@ -114,8 +120,8 @@
 
   <header class="page-head">
     <div class="brand">
-      <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg></span>
-      <span>YeeTlist</span>
+      <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-brand"/></svg></span>
+      <span>Yeetlist</span>
       <!-- The build, beside the wordmark because it names the tool rather than
            the list. app.js is the one writer; package.json carries the same
            string for npm and nothing else reads it. -->
@@ -177,7 +183,7 @@
            and the row states 16 between its groups, so they need their own 8
            or the pair reads as two separate controls.
 
-           Import reads from the device. A YeeTlist export merges. Any other
+           Import reads from the device. A Yeetlist export merges. Any other
            file is scanned for links, so a notes file, a bookmarks export or a
            page saved from the web all import. -->
       <span class="sync">
@@ -760,7 +766,7 @@
          card while that card is up, so there is one copy of these words. -->
     <p id="syncNote">
       <strong>Portable by design.</strong>
-      Link Google Drive and YeeTlist keeps two files there, <code>yeetlist.md</code> for
+      Link Google Drive and Yeetlist keeps two files there, <code>yeetlist.md</code> for
       your videos and bookmarks and <code>yeetnotes.md</code> for your notes, both readable
       from any device on the same account.
       It asks for the narrowest access Google offers: it can see only the files it created, never the rest of your Drive.
@@ -916,7 +922,7 @@
 </section>
 
 <!-- One control for one decision. The file type picks the operation: a .md
-     or .json merges a YeeTlist export, an .html is read as browser bookmarks
+     or .json merges a Yeetlist export, an .html is read as browser bookmarks
      and its links are sorted into the two lists. -->
 <input id="importFile" type="file" accept=".md,.markdown,.txt,.text,.json,.html,.htm,text/*" hidden />
 

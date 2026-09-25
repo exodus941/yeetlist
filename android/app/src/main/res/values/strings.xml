@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="appName">YeeTlist</string>
+    <string name="appName">Yeetlist</string>
     <!-- The one address the app shows. Every link to anywhere else opens in
          whatever app handles it, so the window only ever holds this site. -->
     <string name="siteUrl">https://yeetlist.vercel.app/</string>

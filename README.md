@@ -1,4 +1,4 @@
-# YeeTlist
+# Yeetlist
 
 A personal list of things to come back to, living in your browser and syncing
 to your own Google Drive. Paste a link, tag it, find it later.
@@ -43,7 +43,7 @@ or date added.
 Each list keeps its own tags, filter, search, selection and sort. Switching
 tabs never carries one list's filter onto the other.
 
-**Import a file.** A YeeTlist export merges in, keeping tags, dates and
+**Import a file.** A Yeetlist export merges in, keeping tags, dates and
 deletions. That works for all three shapes it writes: the `.html` bookmark
 file, the `.md` sync file and a bare `.json`. **Any other file is read for
 links** — a browser's own bookmarks `.html`, a page saved from the web, a
@@ -77,11 +77,11 @@ fifty for its videos. Both are reported with a progress bar and a count.
 
 **Export a file.** `Export` opens a menu: the watchlist, the bookmarks, or
 everything. It writes a browser bookmark file, so Chrome, Firefox, Safari and
-Edge import it as a folder called **YeeTlist**. Exporting everything puts two
+Edge import it as a folder called **Yeetlist**. Exporting everything puts two
 folders inside it, `YouTube Watchlist` and `Other Bookmarks`.
 
 Each link carries its date and its tags as the format's own attributes.
-YeeTlist's whole payload rides in an HTML comment underneath, so importing
+Yeetlist's whole payload rides in an HTML comment underneath, so importing
 the file back keeps durations, channels and deletions that a bookmark file
 has nowhere to put.
 
@@ -91,7 +91,7 @@ has nowhere to put.
 
 `Link Google Drive` asks for the `drive.file` scope, which is the narrowest
 Drive scope Google offers. It grants access to files this app created and
-nothing else. YeeTlist cannot list, read or search the rest of your Drive.
+nothing else. Yeetlist cannot list, read or search the rest of your Drive.
 
 It keeps one file, `yeetlist.md`, and writes to it as you edit. Linking a
 second device finds that same file by name and merges the two lists, so a
@@ -108,7 +108,7 @@ rather than breaking when it is given less.
 **With `GOOGLE_CLIENT_ID` alone** the browser asks Google for a token itself.
 That token lasts about an hour, and there is nothing to renew it with. Every
 renewal is a fresh request, which opens a popup, and a browser blocks a popup
-that no click asked for. So it needs one click about once an hour. YeeTlist
+that no click asked for. So it needs one click about once an hour. Yeetlist
 keeps the token across reloads, so a refresh inside that hour is seamless, and
 past it your first click anywhere on the page restores the connection.
 

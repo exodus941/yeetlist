@@ -41,7 +41,7 @@ export default async function handler(req, res) {
         /* Named plainly. A server that refuses this is one the client's own
            fallback covers, and pretending to be a browser to get past it is
            not a thing this app should teach. */
-        'user-agent': 'YeeTlist/1.0 (+https://yeetlist.vercel.app)',
+        'user-agent': 'Yeetlist/1.0 (+https://yeetlist.vercel.app)',
         accept: 'text/html,application/xhtml+xml',
       },
     });

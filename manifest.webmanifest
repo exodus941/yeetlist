@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "YeeTlist",
-  "short_name": "YeeTlist",
+  "name": "Yeetlist",
+  "short_name": "Yeetlist",
   "description": "A watchlist for YouTube links and a place for every other bookmark.",
   "start_url": "/",
   "scope": "/",
