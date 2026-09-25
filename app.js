@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260925-8';
+const VERSION = '260926-1';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -5457,6 +5457,7 @@ function pageFade() {
   ) || 0;
 
   const page = document.scrollingElement;
+
   const left = page.scrollHeight - page.clientHeight - page.scrollTop;
   const fade = Math.min(step, Math.max(0, left));
   shell.style.setProperty('--page-fade-end', `${fade}px`);

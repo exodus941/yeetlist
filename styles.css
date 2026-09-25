@@ -2956,7 +2956,12 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
   inset-block-start: 0;
   inset-inline: 0;
   height: var(--page-pad);
-  z-index: calc(var(--layer-sticky) + 2);
+  /* UNDER THE STICKY BAND, OVER THE ROWS. Their report, 26 September 2026:
+     the top of the paste card looked cut off. The strip grows by the card's
+     corner radius once the band sticks, so the corners hide no row, and
+     drawn above the band it also hid the card's own top edge. One layer
+     lower it still covers the rows and the card paints over it. */
+  z-index: calc(var(--layer-sticky) - 1);
   background: var(--bg);
 }
 
