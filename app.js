@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260926-4';
+const VERSION = '260926-5';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -5420,6 +5420,23 @@ function markStuck() {
    point, and send the row straight back. */
 let dockLeaving = null;
 
+/* THE TABS' NAMES AND MARKS CHANGE WHILE THEY ARE FADED OUT. Out over the
+   first half of the slide, the swap, then back in over the second, so
+   neither state pops into view. */
+function swapTabs(tabs, on, calm) {
+  if (calm) { tabs.toggleAttribute('data-tools-swap', on); return; }
+  const inners = [...tabs.querySelectorAll('.tab-inner')];
+  const half = { duration: 150, easing: 'linear' };
+  Promise.all(inners.map((el) => el.animate([{ opacity: 1 }, { opacity: 0 }], { ...half, fill: 'forwards' }).finished))
+    .then(() => {
+      tabs.toggleAttribute('data-tools-swap', on);
+      inners.forEach((el) => {
+        el.getAnimations().forEach((a) => a.cancel());
+        el.animate([{ opacity: 0 }, { opacity: 1 }], half);
+      });
+    }, () => {});
+}
+
 function dockTools() {
   const tabs = $('.tabs');
   const row = $('.sync-row');
@@ -5451,6 +5468,7 @@ function dockTools() {
     if (dockLeaving) return;
     const width = `${row.getBoundingClientRect().width}px`;
     row.style.overflow = 'clip';
+    swapTabs(tabs, false, false);
     dockLeaving = row.animate([
       { width, marginInlineStart: gap, opacity: 1 },
       { width: '0px', marginInlineStart: '0px', opacity: 0 },
@@ -5481,6 +5499,7 @@ function dockTools() {
     bar.style.minHeight = `${bar.getBoundingClientRect().height}px`;
     tabs.append(row);
     tabs.dataset.tools = '';
+    swapTabs(tabs, true, calm);
     if (!calm) {
       const width = `${row.getBoundingClientRect().width}px`;
       const inGap = getComputedStyle(row).marginInlineStart;
@@ -5496,6 +5515,7 @@ function dockTools() {
     home.after(row);
     home.parentElement.style.minHeight = '';
     delete tabs.dataset.tools;
+    swapTabs(tabs, false, true);
   }
 }
 
