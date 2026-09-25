@@ -1429,9 +1429,24 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
 /* THE MARK FILLS 64% OF ITS SQUARE, ring edge to ring edge, the share the
    launcher icon uses. Its drawing spans 83.5% of its own box, so the box
    is sized up by that. */
+.brand-mark {
+  --brand-icon: calc(var(--control-sm) * 0.64 * 512 / 427.4);
+  /* THE SQUARE RESTS ON ITS MARK'S BOTTOM EDGE, because the mark is the only
+     thing in it the row can take a baseline from. So a bigger mark lowered
+     the square's resting point. Their report, 25 September 2026: "alignment
+     is fucked". Measured: the square's centre at 30.00 against the name's
+     cap band at 33.22, 3.22px high.
+
+     Half the difference between the mark and the cap height moves the
+     square's centre onto the cap band, the same lift every mark beside a
+     label takes here. `em` is the name's own size, which the square
+     inherits. */
+  transform: translateY(calc((var(--brand-icon) - var(--cap-ratio) * 1em) / 2));
+}
+
 .brand-mark .icon {
-  width: calc(var(--control-sm) * 0.64 * 512 / 427.4);
-  height: calc(var(--control-sm) * 0.64 * 512 / 427.4);
+  width: var(--brand-icon);
+  height: var(--brand-icon);
 }
 
 /* A cluster of controls plus one readout, so it centres. Every item in it is
