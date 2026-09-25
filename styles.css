@@ -2153,11 +2153,21 @@ dialog:not([open]), dialog:not([open])::backdrop { opacity: 0 }
    than the window's. Its width comes from the row, so the containment costs
    nothing. */
 .tab { container-type: inline-size }
+
+/* THE MARK AND THE COUNT FADE AS A WIDTH TAKES THEM AWAY OR GIVES THEM
+   BACK. Their choice, 26 September 2026: the same three states, animated.
+   The display flip waits for the fade out and leads the fade in. */
+.tab .icon, .tab .tab-count {
+  transition: opacity var(--duration) linear, display var(--duration) linear allow-discrete;
+}
+@starting-style {
+  .tab .icon, .tab .tab-count { opacity: 0 }
+}
 @container (max-width: 128px) {
-  .tab .tab-count { display: none }
+  .tab .tab-count { display: none; opacity: 0 }
 }
 @container (max-width: 92px) {
-  .tab .icon { display: none }
+  .tab .icon { display: none; opacity: 0 }
 }
 @container (max-width: 76px) {
   .tab .tab-inner { margin-inline: calc(var(--space-xs) * -1) }
