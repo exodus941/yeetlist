@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260926-3';
+const VERSION = '260926-4';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -5418,6 +5418,8 @@ function markStuck() {
    THE HEADER KEEPS ITS HEIGHT WHILE THE ROW IS AWAY. Losing 44px of button
    would lift the whole page under the reader, move the bar off its sticking
    point, and send the row straight back. */
+let dockLeaving = null;
+
 function dockTools() {
   const tabs = $('.tabs');
   const row = $('.sync-row');
@@ -5426,7 +5428,45 @@ function dockTools() {
     && tabs.getBoundingClientRect().top <= (parseFloat(getComputedStyle(tabs).top) || 0) + 0.5
     && document.scrollingElement.scrollTop > 0;
   const docked = row.parentElement === tabs;
+
+  /* A ROW ON ITS WAY OUT THAT IS WANTED AGAIN STAYS. The bar re-stuck before
+     the slide finished, so the leaving slide is simply dropped. */
+  if (stuck && docked && dockLeaving) {
+    dockLeaving.cancel();
+    dockLeaving = null;
+    return;
+  }
   if (stuck === docked) return;
+
+  /* THE ROW SLIDES, AND THE TABS MAKE ROOM AS IT DOES. Their report,
+     26 September 2026: it snapped into place and looked awkward. The row
+     grows from no width to its own, so the tabs, which share what is left,
+     narrow in step with it. Leaving, it shrinks back to nothing and only then
+     goes home. Reduced Motion gets the plain move. */
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const timing = { duration: 300, easing: 'cubic-bezier(0, 0, .1, 1)' };
+  const gap = getComputedStyle(row).marginInlineStart;
+
+  if (!stuck && !calm) {
+    if (dockLeaving) return;
+    const width = `${row.getBoundingClientRect().width}px`;
+    row.style.overflow = 'clip';
+    dockLeaving = row.animate([
+      { width, marginInlineStart: gap, opacity: 1 },
+      { width: '0px', marginInlineStart: '0px', opacity: 0 },
+    ], { ...timing, fill: 'forwards' });
+    dockLeaving.onfinish = () => {
+      dockLeaving.cancel();
+      dockLeaving = null;
+      row.style.overflow = '';
+      const home = $('.sync-home');
+      if (!home) return;
+      home.after(row);
+      home.parentElement.style.minHeight = '';
+      delete tabs.dataset.tools;
+    };
+    return;
+  }
 
   if (stuck) {
     /* A marker holds the row's place, so it goes back exactly where it was. */
@@ -5441,6 +5481,15 @@ function dockTools() {
     bar.style.minHeight = `${bar.getBoundingClientRect().height}px`;
     tabs.append(row);
     tabs.dataset.tools = '';
+    if (!calm) {
+      const width = `${row.getBoundingClientRect().width}px`;
+      const inGap = getComputedStyle(row).marginInlineStart;
+      row.style.overflow = 'clip';
+      row.animate([
+        { width: '0px', marginInlineStart: '0px', opacity: 0 },
+        { width, marginInlineStart: inGap, opacity: 1 },
+      ], timing).finished.then(() => { row.style.overflow = ''; }, () => {});
+    }
   } else {
     const home = $('.sync-home');
     if (!home) return;
