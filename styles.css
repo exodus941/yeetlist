@@ -4531,6 +4531,39 @@ th.amount { text-align: end }
    has nothing to fold, and the master toggle has nothing to say there. */
 .row-fold, .cards-open { display: none }
 
+/* A SWITCH: a track with a knob that slides to the end when on. */
+.switch {
+  appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 20px;
+  margin: 0;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--text-muted) 55%, var(--bg));
+  cursor: pointer;
+  transition: background var(--duration) linear;
+}
+.switch::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 2px;
+  inset-inline-start: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: translate var(--duration) cubic-bezier(0, 0, .2, 1);
+}
+.switch:checked { background: var(--accent) }
+.switch:checked::before { translate: 16px 0 }
+.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+@media (forced-colors: active) {
+  .switch { outline: 1px solid CanvasText; outline-offset: -1px }
+  .switch::before { background: CanvasText }
+  .switch:checked::before { background: Highlight }
+}
+
 /* THE CHEVRON POINTS WHERE THE CARD WILL GO. Down while folded, up while
    open, turned rather than redrawn. */
 .row-fold .icon { transition: transform var(--duration-fold) var(--ease-slide) }
@@ -5118,7 +5151,21 @@ dialog menu, .ask-card menu {
   /* THE CARD VIEW IS WHERE THE ROW STOPS BEING ONE ROW. Above it the field
      absorbs every pixel down to its floor, and this width is that floor. */
   .filters-row { flex-wrap: wrap }
-  .search { order: 1; flex: 1 1 100%; min-width: 0 }
+  .search { order: 1; flex: 1 1 0; min-width: 0 }
+  /* EXPAND SITS BESIDE THE SEARCH FIELD, AS A SWITCH. Their instruction,
+     26 September 2026: it hogged a row of its own as a checkbox. It takes the
+     field's height, so the two share one centre line. */
+  .cards-open {
+    order: 1;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: var(--space-sm);
+    height: max(var(--control-md), var(--control-floor));
+    padding-inline: var(--space-xs);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+  }
   .filters-group { order: 2; flex: 1 1 100% }
   .filters-group .multi { flex: 1 1 auto; width: auto }
   #tagBulk { order: 3; flex: 1 1 0 }
