@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260926-12';
+const VERSION = '260926-13';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -1383,7 +1383,7 @@ function renderTagFilter() {
 
   /* The noun has to stay true. Two tags are Tags. A tag beside Untagged are
      not both tags, so the pair is Filters. "All" alone, because the trigger
-     sits under a label that already says FILTER BY TAG, and the word after
+     sits under a label that already says TAGS, and the word after
      it would change with the tab. */
   $('#tagFilterValue').textContent =
     chosen === 0 ? 'All'
