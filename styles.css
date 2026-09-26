@@ -5442,7 +5442,13 @@ dialog menu, .ask-card menu {
   @container (max-width: 76px) {
     /* A mark with no name beside it centres on its tab, like the bare
        buttons next to it, rather than on a cap line that is not there. */
-    .tab .tab-inner[data-swap] .icon { display: inline-block; transform: none }
+    .tab .tab-inner[data-swap] .icon {
+      display: inline-block;
+      transform: none;
+      opacity: 1;
+      max-width: 4em;
+      margin-inline-end: 0;
+    }
     .tab .tab-inner[data-swap] > span:not(.tab-count) {
       position: absolute;
       width: 1px;
