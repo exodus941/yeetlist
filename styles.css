@@ -4940,25 +4940,14 @@ dialog .stack > .eyebrow, .ask-card .stack > .eyebrow { margin-bottom: 0 }
    that writes the label, so a reader whose token is merely resuming sees no
    pulse.
    ══════════════════════════════════════════════════════════════════════════ */
-/* THE CURVE IS THE KEYFRAMES' OWN, NEVER THE SHORTHAND'S. Their instruction,
-   22 September 2026: inverse logarithmic rather than linear.
-
-   A LOGARITHM IS FAST THEN SLOW, so its inverse is slow then fast: the button
-   holds near grey and swings through red. That is what a pulse is, against a
-   linear ramp that spends as long half-red as it does anywhere else.
-
-   TWO HALVES, TWO CURVES. The rise eases in, so it leaves grey slowly. The
-   fall eases out, so it leaves red quickly and settles back slowly. Written
-   on the shorthand instead, one curve would apply to each half separately and
-   the fall would start fast and end fast. */
+/* LINEAR, BOTH WAYS. Their instruction, 26 September 2026: bring the linear
+   curve back, because the inverse logarithmic one (22 September) held near
+   grey too long and read too subtle. */
 @keyframes link-pulse {
-  0% { animation-timing-function: cubic-bezier(.7, 0, .84, 0) }
-
   50% {
     background: var(--accent-fill);
     border-color: var(--accent-fill);
     color: var(--accent-ink);
-    animation-timing-function: cubic-bezier(.16, 1, .3, 1);
   }
 }
 
@@ -4967,9 +4956,8 @@ dialog .stack > .eyebrow, .ask-card .stack > .eyebrow { margin-bottom: 0 }
     /* FIFTEEN SECONDS A CYCLE, SO 7.5 EACH WAY. Their decision, 22 September
        2026, after seeing both: "20 is too long, 10 is too short."
 
-       NO CURVE HERE. The keyframes state one each, and a value on the
-       shorthand would apply to both halves alike. */
-    animation: link-pulse 15s infinite;
+       LINEAR, stated here so both halves take it. */
+    animation: link-pulse 15s linear infinite;
   }
 
   /* A PRESS OR A FOCUS RING IS THE READER'S OWN ANSWER, so the pulse gets out
