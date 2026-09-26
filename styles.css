@@ -5151,12 +5151,15 @@ dialog menu, .ask-card menu {
   /* THE CARD VIEW IS WHERE THE ROW STOPS BEING ONE ROW. Above it the field
      absorbs every pixel down to its floor, and this width is that floor. */
   .filters-row { flex-wrap: wrap }
-  .search { order: 1; flex: 1 1 0; min-width: 0 }
-  /* EXPAND SITS BESIDE THE SEARCH FIELD, AS A SWITCH. Their instruction,
-     26 September 2026: it hogged a row of its own as a checkbox. It takes the
-     field's height, so the two share one centre line. */
+  .search { order: 1; flex: 1 1 100%; min-width: 0 }
+  /* EXPAND CARDS SITS BESIDE THE RATING MENU, AS A SWITCH. Their
+     instructions, 26 September 2026: it hogged a row of its own as a
+     checkbox; then beside the search field; then beside the rating menu,
+     with the search field on its own line. It takes the menu's height, so
+     the two share one centre line. */
+  #rateGroup { order: 3; flex: 1 1 50%; min-width: 0 }
   .cards-open {
-    order: 1;
+    order: 3;
     flex: 0 0 auto;
     align-items: center;
     gap: var(--space-sm);
@@ -5168,13 +5171,13 @@ dialog menu, .ask-card menu {
   }
   .filters-group { order: 2; flex: 1 1 100% }
   .filters-group .multi { flex: 1 1 auto; width: auto }
-  #tagBulk { order: 3; flex: 1 1 0 }
+  #tagBulk { order: 4; flex: 1 1 0 }
   /* THE TRIGGER, NEVER EVERY BUTTON INSIDE THE WRAPPER. Written as
      "#tagBulk .btn" this reached the panel's own two buttons and gave each a
      full line. They fit side by side in 294px and were stacked instead. */
   #tagSelected { width: 100% }
-  #deleteSelected { order: 4; flex: 1 1 0 }
-  #clearFilter { order: 5; flex: 1 1 0 }
+  #deleteSelected { order: 5; flex: 1 1 0 }
+  #clearFilter { order: 6; flex: 1 1 0 }
 
   /* ANCHORED TO ITS START EDGE HERE. Hung off the end edge the panel opens
      leftward, and on this stacked row the button is the first of three
