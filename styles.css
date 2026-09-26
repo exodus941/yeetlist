@@ -4531,6 +4531,19 @@ th.amount { text-align: end }
    has nothing to fold, and the master toggle has nothing to say there. */
 .row-fold, .cards-open { display: none }
 
+/* AT THE NARROWEST WIDTHS THE RATING MENU GOES SHORT, so Expand Cards keeps
+   its line. Their choice, 26 September 2026, from a drawing at 296px. The
+   long form needs a 346px row: the label and its gap 51, the trigger 128,
+   the gap 16 and the switch 143. So under a 378px window the label hides
+   and the value reads Any, 1+ to 4+, or 5. */
+.rate-short { display: none }
+@media (max-width: 377px) {
+  #rateGroup .filters-label { display: none }
+  .filters-row #rateGroup { flex-basis: 0 }
+  .rate-long { display: none }
+  .rate-short { display: inline }
+}
+
 /* A SWITCH: a track with a knob that slides to the end when on. */
 .switch {
   appearance: none;

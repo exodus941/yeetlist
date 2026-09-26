@@ -23,7 +23,7 @@ const PAYLOAD_VERSION = 2;
    this file is the one writer. package.json carries no "version" any more:
    that field takes semver, which cannot hold this shape, and two fields
    holding one figure is how they end up disagreeing. */
-const VERSION = '260926-11';
+const VERSION = '260926-12';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -1350,13 +1350,15 @@ function renderState(shown, filtering) {
 /* THE OPTIONS ARE A LIST, NOT MARKUP IN THE PAGE, so the trigger's wording
    and the menu's can never disagree about what is picked. */
 const RATE_OPTIONS = [
-  { value: 'any', label: 'Any rating' },
-  { value: 5, label: '5 stars' },
-  { value: 4, label: '4 and up' },
-  { value: 3, label: '3 and up' },
-  { value: 2, label: '2 and up' },
-  { value: 1, label: '1 and up' },
-  { value: 'none', label: 'Not rated' },
+  /* SHORT IS WHAT THE TRIGGER SAYS AT THE NARROWEST WIDTH, beside the
+     trigger's own star. Their wording, 26 September 2026. */
+  { value: 'any', label: 'Any rating', short: 'Any' },
+  { value: 5, label: '5 stars', short: '5' },
+  { value: 4, label: '4 and up', short: '4+' },
+  { value: 3, label: '3 and up', short: '3+' },
+  { value: 2, label: '2 and up', short: '2+' },
+  { value: 1, label: '1 and up', short: '1+' },
+  { value: 'none', label: 'Not rated', short: 'None' },
 ];
 
 const rateKey = (value) => (typeof value === 'number' ? String(value) : value);
@@ -1371,7 +1373,7 @@ function renderRatingFilter() {
       <span>${escape(o.label)}</span>
     </li>`).join('');
 
-  $('#rateValue').textContent = picked.label;
+  $('#rateValue').innerHTML = `<span class="rate-long">${picked.label}</span><span class="rate-short">${picked.short}</span>`;
   $('#rateTrigger').setAttribute('aria-label', 'Filter by rating: ' + picked.label);
 }
 
