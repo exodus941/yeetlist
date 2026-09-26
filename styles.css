@@ -5390,9 +5390,14 @@ dialog menu, .ask-card menu {
     content: "";
     position: absolute;
     inset-inline: 0;
-    inset-block-start: calc(100% + 1px);
-    height: var(--page-pad);
-    background: var(--bg);
+    /* THE STRIP DRAWS THE BASELINE ITSELF, over the bar's own. Their report,
+       26 September 2026, from a phone: a pixel of rows leaked under the tab
+       bar. Starting one pixel below the border left a seam between two
+       boxes, and at a fractional device pixel ratio the two edges round
+       apart. One box covering both has no seam to round. */
+    inset-block-start: 100%;
+    height: calc(var(--page-pad) + 1px);
+    background: linear-gradient(var(--line) 0 1px, var(--bg) 1px);
   }
 
   /* THE SEAM UNDER THE STRIP IS FILLED FROM BEHIND. The bar's height is not a
@@ -5425,7 +5430,8 @@ dialog menu, .ask-card menu {
   /* THE UNLINKED SIGNAL MOVES TO THE MARK. In the header the button's fill
      pulses red while no account is linked. With no fill to pulse, the cloud
      itself is red until a link is made. */
-  .tabs[data-tools] #driveConnect[data-linked="no"] { color: var(--danger) }
+  /* An id outweighs the bare-mark rule above, so the pulse is stopped here too. */
+  .tabs[data-tools] #driveConnect[data-linked="no"] { color: var(--danger); animation: none }
   @media (hover: hover) {
     .tabs[data-tools] .sync-row .btn:hover { background: var(--row-hover) }
   }
